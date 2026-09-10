@@ -1380,14 +1380,14 @@ function getGemini(): GoogleGenAI | null {
 // Ultra-Resilient Provider Fallback: OpenRouter Cost-Aware Dynamic Routing
 // ----------------------------------------------------------------------
 const GEMINI_MODEL_CHAIN = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash",
+  "gemini-3.6-flash",
+  "gemini-3.6-flash",
 ];
 
 // OpenRouter Tiers:
 // Detailed / Long / Vision Questions: Flagship models first
 const OPENROUTER_DETAILED_MODELS = [
-  "google/gemini-2.5-flash",
+  "google/gemini-3.6-flash",
   "deepseek/deepseek-chat",
   "openai/gpt-4o-mini",
   "meta-llama/llama-3.3-70b-instruct",
@@ -1398,7 +1398,7 @@ const OPENROUTER_BUDGET_MODELS = [
   "deepseek/deepseek-chat",
   "openai/gpt-4o-mini",
   "mistralai/mistral-small-24b-instruct-2501",
-  "google/gemini-2.5-flash",
+  "google/gemini-3.6-flash",
 ];
 
 export interface GeminiFallbackOptions {
