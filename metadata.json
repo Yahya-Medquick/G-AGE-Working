@@ -1,0 +1,6 @@
+{
+  "name": "G-AGE AI Knowledge Engine",
+  "description": "G-AGE AI: The Next Age of Knowledge & Intelligence. Chat-first, persona-driven academic intelligence engine featuring Concept, Exam, and Research modes, expert specialist consults, and persistent notes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="google-site-verification" content="c768ZE94cYFjmurOhUVkpTOQC5jB3Dfd0HHXF9zzwUc" />
+    <meta name="google-site-verification" content="DJw3CA-qjN0OAufoAUbl0Woh_g4weJrlEaPwV6T00BM" />
+    <title>G-AGE AI — The Next Age of Knowledge &amp; Intelligence</title>
+    <meta name="description" content="G-AGE AI: The Next Age of Knowledge &amp; Intelligence. Intelligent multi-dimensional discovery across peer-reviewed papers, open-source codebases, AI synthesis, and academic mentorship." />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#3a7bd5" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="G-AGE AI" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z7W2DYR0KF"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-Z7W2DYR0KF');
+    </script>
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW registered:', reg.scope))
+            .catch(err => console.error('SW error:', err));
+        });
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body class="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.railway.up.gage.twa",
+      "sha256_cert_fingerprints": ["82:DA:8D:E5:94:8B:A9:97:E5:80:B9:61:19:D5:E0:6C:0E:88:CF:C0:C0:A5:B1:33:A8:48:24:57:CE:AF:95:34"]
+    }
+  }
+]

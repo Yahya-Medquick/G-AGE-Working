@@ -1,0 +1,55 @@
+name: Project Atlas CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint-and-test:
+    name: Code Quality, Typecheck & Testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Type Check & Linter
+        run: npm run lint
+
+      - name: Run Automated Unit Tests
+        run: npm test
+
+      - name: Test Production Build
+        run: npm run build
+
+  docker-build:
+    name: Docker Image Build Verification
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: project-atlas:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
