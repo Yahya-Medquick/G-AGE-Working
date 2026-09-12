@@ -4251,7 +4251,7 @@ async function recordAndVerifyTabUsage(req: Request, category: string): Promise<
   }
 
   const DEVICE_LIMIT = 15;
-  const ACCOUNT_LIMIT = 10;
+  const ACCOUNT_LIMIT = 25;
 
   // 1. Primary Mechanism: Device Level Daily Query Limit (15/day across all accounts)
   const deviceCount = await getDeviceQueryCount(deviceId, today);
