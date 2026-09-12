@@ -3982,7 +3982,7 @@ ${notesBlock}`;
       try {
         const clean = result.text.trim().replace(/^```json|^```|```$/gm, "").trim();
         const questions = JSON.parse(clean);
-        if (Array.isArray(questions) && questions.length === notes.length) {
+        if (Array.isArray(questions) && questions.length >= 1) {
           return res.json({ questions });
         }
       } catch (_) {}
@@ -3993,7 +3993,7 @@ ${notesBlock}`;
 
   // Fallback: generate basic questions from titles
   const fallbackQuestions = notes.map((n: any) =>
-    n.title.endsWith("?") ? n.title : `What does "${n.title}" explain?`
+    n.title.endsWith('?') ? n.title : `Explain the concept of: ${n.title}.`
   );
   return res.json({ questions: fallbackQuestions });
 });
