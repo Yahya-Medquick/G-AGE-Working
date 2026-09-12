@@ -5,8 +5,8 @@ import { getOrCreateDeviceId } from '../utils/deviceFingerprint';
 import { getAuthHeaders } from '../services/api';
 
 const GUEST_LIFETIME_LIMIT = 5;
-const DEVICE_DAILY_LIMIT = 15;
-const ACCOUNT_DAILY_LIMIT = 10;
+const DEVICE_DAILY_LIMIT = 200;
+const ACCOUNT_DAILY_LIMIT = 25;
 
 function getUtcMidnightSeconds(): number {
   const now = new Date();

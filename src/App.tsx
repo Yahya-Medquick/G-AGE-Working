@@ -147,6 +147,64 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // TWA/Android back button: press twice to exit, once to close panels
+  useEffect(() => {
+    let lastBackPress = 0;
+    let toastTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const handleTwaBack = (e: PopStateEvent) => {
+      // If any panel/modal is open, let it close naturally via popstate
+      const anyPanelOpen = isLeftPanelOpen || document.querySelector('[data-modal="open"]');
+      if (anyPanelOpen) return;
+
+      // Nothing open — handle exit with double-back toast
+      const now = Date.now();
+      if (now - lastBackPress < 2000) {
+        // Second back press within 2s — exit
+        if (toastTimeout) clearTimeout(toastTimeout);
+        window.history.go(-(window.history.length));
+        return;
+      }
+
+      // First back press — push a dummy state to intercept, show toast
+      lastBackPress = now;
+      window.history.pushState({ twaBack: true }, '');
+
+      // Show toast
+      const existing = document.getElementById('twa-exit-toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.id = 'twa-exit-toast';
+      toast.textContent = 'Press back again to exit';
+      toast.style.cssText = [
+        'position:fixed', 'bottom:80px', 'left:50%', 'transform:translateX(-50%)',
+        'background:rgba(15,23,42,0.92)', 'color:#f1f5f9', 'padding:10px 22px',
+        'border-radius:24px', 'font-size:13px', 'font-weight:600',
+        'z-index:99999', 'pointer-events:none', 'box-shadow:0 4px 24px rgba(0,0,0,0.3)',
+        'border:1px solid rgba(255,255,255,0.08)', 'backdrop-filter:blur(8px)',
+        'transition:opacity 0.3s ease', 'opacity:1'
+      ].join(';');
+      document.body.appendChild(toast);
+
+      toastTimeout = setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+        lastBackPress = 0;
+      }, 2000);
+    };
+
+    window.addEventListener('popstate', handleTwaBack);
+    // Push initial state so first back press is intercepted
+    window.history.pushState({ twaInit: true }, '');
+
+    return () => {
+      window.removeEventListener('popstate', handleTwaBack);
+      if (toastTimeout) clearTimeout(toastTimeout);
+      const toast = document.getElementById('twa-exit-toast');
+      if (toast) toast.remove();
+    };
+  }, [isLeftPanelOpen]);
+
   // Selected persona resolution
   const { globalExperts, pkExperts } = usePersonas();
   const activeExpertSet = expertVariant === 'pk' ? pkExperts : globalExperts;
