@@ -1380,14 +1380,14 @@ function getGemini(): GoogleGenAI | null {
 // Ultra-Resilient Provider Fallback: OpenRouter Cost-Aware Dynamic Routing
 // ----------------------------------------------------------------------
 const GEMINI_MODEL_CHAIN = [
-  "gemini-3.6-flash",
-  "gemini-3.6-flash",
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
 ];
 
 // OpenRouter Tiers:
 // Detailed / Long / Vision Questions: Flagship models first
 const OPENROUTER_DETAILED_MODELS = [
-  "google/gemini-3.6-flash",
+  "google/gemini-2.5-flash",
   "deepseek/deepseek-chat",
   "openai/gpt-4o-mini",
   "meta-llama/llama-3.3-70b-instruct",
@@ -1398,7 +1398,7 @@ const OPENROUTER_BUDGET_MODELS = [
   "deepseek/deepseek-chat",
   "openai/gpt-4o-mini",
   "mistralai/mistral-small-24b-instruct-2501",
-  "google/gemini-3.6-flash",
+  "google/gemini-2.5-flash",
 ];
 
 export interface GeminiFallbackOptions {
@@ -3949,6 +3949,55 @@ app.delete("/api/notes/:id", authenticateToken, async (req: any, res: Response) 
   }
 });
 
+// POST /api/notes/generate-questions — batch generates a question per note in one AI call
+app.post("/api/notes/generate-questions", async (req: Request, res: Response) => {
+  const { notes } = req.body || {};
+
+  if (!Array.isArray(notes) || notes.length < 1) {
+    return res.status(400).json({ error: "At least 1 note is required." });
+  }
+
+  const notesBlock = notes.map((n: any, i: number) =>
+    `NOTE ${i + 1} [${n.subject_tag || "General"}] — "${n.title}":\n${String(n.content || "").slice(0, 600)}`
+  ).join("\n\n---\n\n");
+
+  const prompt = `You are an expert academic question writer.
+For each of the following student notes, write ONE clear, concise exam-style question that the note answers.
+Rules:
+- Write exactly ${notes.length} questions, one per note, in order.
+- Each question must be answerable directly from the note content.
+- If the note title is already a question, refine it into a clean question form.
+- Output ONLY a JSON array of strings, no explanation, no markdown, no extra text.
+- Example output: ["What is Newton's First Law?", "How does photosynthesis work?"]
+
+Notes:
+${notesBlock}`;
+
+  try {
+    const result = await callGeminiWithFallback({
+      contents: [{ role: "user", parts: [{ text: prompt }] }]
+    });
+
+    if (result.text && result.text.trim()) {
+      try {
+        const clean = result.text.trim().replace(/^```json|^```|```$/gm, "").trim();
+        const questions = JSON.parse(clean);
+        if (Array.isArray(questions) && questions.length === notes.length) {
+          return res.json({ questions });
+        }
+      } catch (_) {}
+    }
+  } catch (aiErr) {
+    console.warn("Question generation AI error:", aiErr);
+  }
+
+  // Fallback: generate basic questions from titles
+  const fallbackQuestions = notes.map((n: any) =>
+    n.title.endsWith("?") ? n.title : `What does "${n.title}" explain?`
+  );
+  return res.json({ questions: fallbackQuestions });
+});
+
 // POST /api/notes/compile — compiles student notes faithfully into structured study notes
 app.post("/api/notes/compile", async (req: Request, res: Response) => {
   const user = getCurrentUser(req);
@@ -3958,13 +4007,13 @@ app.post("/api/notes/compile", async (req: Request, res: Response) => {
     let notes: any[] = [];
 
     // Allow passing direct notes array (useful for guest storage or instant compile)
-    if (Array.isArray(directNotes) && directNotes.length >= 2) {
+    if (Array.isArray(directNotes) && directNotes.length >= 1) {
       notes = directNotes.map((n: any) => ({
         title: String(n.title || "Untitled Note"),
         content: String(n.content || ""),
         subject_tag: String(n.subject_tag || n.subject || "General")
       }));
-    } else if (Array.isArray(noteIds) && noteIds.length >= 2) {
+    } else if (Array.isArray(noteIds) && noteIds.length >= 1) {
       if (!user) {
         // Look up in inMemoryNotes or return error if not found
         notes = inMemoryNotes.filter((n) => noteIds.includes(n.id));
@@ -3992,11 +4041,11 @@ app.post("/api/notes/compile", async (req: Request, res: Response) => {
         }
       }
     } else {
-      return res.status(400).json({ error: "At least 2 notes must be provided to compile." });
+      return res.status(400).json({ error: "At least 1 note must be provided to compile." });
     }
 
-    if (notes.length < 2) {
-      return res.status(400).json({ error: "At least 2 valid notes are required for compilation." });
+    if (notes.length < 1) {
+      return res.status(400).json({ error: "At least 1 valid note is required for compilation." });
     }
 
     // Combine notes title and content cleanly

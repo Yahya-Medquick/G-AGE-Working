@@ -169,9 +169,49 @@ export const useNotes = () => {
     }
   };
 
+  // NEW: Export notes as PDF (1 or more notes, no AI rewriting)
+  const exportNotesPDF = async (
+    noteIds: string[],
+    mode: "clean" | "qa" | "exam" = "clean"
+  ): Promise<{ notes: Note[]; questions?: string[] }> => {
+    if (noteIds.length < 1) {
+      throw new Error("Select at least 1 note to export");
+    }
+
+    const selectedNotes = notes.filter((n) => noteIds.includes(n.id));
+
+    // For clean mode: no AI needed, just return notes as-is
+    if (mode === "clean") {
+      return { notes: selectedNotes };
+    }
+
+    // For Q&A and Exam modes: batch generate questions for all notes in one AI call
+    const response = await fetch("/api/notes/generate-questions", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({
+        notes: selectedNotes.map((n) => ({
+          title: n.title,
+          content: n.content,
+          subject_tag: n.subject_tag || "General"
+        }))
+      })
+    });
+
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error || "Failed to generate questions.");
+    }
+
+    const data = await response.json();
+    return { notes: selectedNotes, questions: data.questions };
+  };
+
+  // KEPT for backward compatibility but restriction removed (now allows 1+)
   const compileNotes = async (noteIds: string[]) => {
-    if (noteIds.length < 2) {
-      throw new Error("Select at least 2 notes to compile");
+    if (noteIds.length < 1) {
+      throw new Error("Select at least 1 note to compile");
     }
 
     try {
@@ -212,6 +252,7 @@ export const useNotes = () => {
     addNote,
     deleteNote,
     fetchNotes,
-    compileNotes
+    compileNotes,
+    exportNotesPDF
   };
 };

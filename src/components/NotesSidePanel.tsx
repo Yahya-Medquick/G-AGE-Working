@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { X, Trash2, Filter, Sparkles, CheckSquare, Square, AlertCircle, FileText } from "lucide-react";
-import { useNotes } from "../hooks/useNotes";
+import { X, Trash2, Filter, Sparkles, CheckSquare, Square, AlertCircle, FileText, Download } from "lucide-react";
+import { useNotes, Note } from "../hooks/useNotes";
 import { CompiledNotesModal } from "./CompiledNotesModal";
+import { ExportNotesModal } from "./ExportNotesModal";
 import { ExpertPersona } from "../types";
 
 interface Props {
@@ -11,24 +12,29 @@ interface Props {
 }
 
 export const NotesSidePanel = ({ isOpen, onClose, persona }: Props) => {
-  const { notes, loading, error, deleteNote, compileNotes } = useNotes();
+  const { notes, loading, error, deleteNote, compileNotes, exportNotesPDF } = useNotes();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [subjectFilter, setSubjectFilter] = useState("All");
   
-  // Compilation modal state inside the sidepanel
+  // Compilation modal state
   const [compiledText, setCompiledText] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [subjectTags, setSubjectTags] = useState<string[]>([]);
   const [compiling, setCompiling] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Export modal state (new)
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportNotes, setExportNotes] = useState<Note[]>([]);
+  const [exportQuestions, setExportQuestions] = useState<string[] | undefined>(undefined);
+  const [exportMode, setExportMode] = useState<"clean" | "qa" | "exam">("clean");
+  const [exporting, setExporting] = useState(false);
+
   // Extract unique subject tags for filtering dropdown
   const uniqueSubjects = useMemo(() => {
     const subs = new Set<string>();
     notes.forEach((n) => {
-      if (n.subject_tag) {
-        subs.add(n.subject_tag);
-      }
+      if (n.subject_tag) subs.add(n.subject_tag);
     });
     return Array.from(subs);
   }, [notes]);
@@ -57,13 +63,12 @@ export const NotesSidePanel = ({ isOpen, onClose, persona }: Props) => {
   };
 
   const handleCompile = async () => {
-    if (selectedIds.length < 2) return;
+    if (selectedIds.length < 1) return;
     setCompiling(true);
     setErrorMessage(null);
     try {
       const text = await compileNotes(selectedIds);
       setCompiledText(text);
-
       const selectedNotes = notes.filter((n) => selectedIds.includes(n.id));
       const selectedSubjects = Array.from(
         new Set(selectedNotes.map((n) => n.subject_tag).filter(Boolean))
@@ -77,7 +82,27 @@ export const NotesSidePanel = ({ isOpen, onClose, persona }: Props) => {
     }
   };
 
+  // NEW: Handle export PDF button
+  const handleExport = async (mode: "clean" | "qa" | "exam") => {
+    if (selectedIds.length < 1) return;
+    setExporting(true);
+    setErrorMessage(null);
+    setExportMode(mode);
+    try {
+      const result = await exportNotesPDF(selectedIds, mode);
+      setExportNotes(result.notes);
+      setExportQuestions(result.questions);
+      setExportModalOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (!isOpen) return null;
+
+  const hasSelection = selectedIds.length >= 1;
 
   return (
     <>
@@ -200,28 +225,68 @@ export const NotesSidePanel = ({ isOpen, onClose, persona }: Props) => {
           )}
         </div>
 
-        {/* Compile Footer Button */}
+        {/* Footer Action Buttons */}
         <div className="p-4 border-t border-slate-850 bg-slate-950 space-y-2">
+
+          {/* Export PDF Button (new primary action) */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleExport("clean")}
+              disabled={exporting || !hasSelection}
+              className="flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md"
+              title="Export selected notes as PDF (raw content, no AI rewriting)"
+            >
+              <Download className={`w-3.5 h-3.5 ${exporting ? "animate-bounce" : ""}`} />
+              <span>{exporting ? "Preparing..." : `Export PDF (${selectedIds.length})`}</span>
+            </button>
+
+            {/* Mode selector dropdown */}
+            <select
+              onChange={(e) => handleExport(e.target.value as "clean" | "qa" | "exam")}
+              disabled={exporting || !hasSelection}
+              value=""
+              className="bg-emerald-800 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs px-2 rounded-xl border border-emerald-600 cursor-pointer focus:outline-none"
+              title="Choose export format"
+            >
+              <option value="" disabled>Format ▾</option>
+              <option value="clean">📄 Clean Notes</option>
+              <option value="qa">❓ Q&A Format</option>
+              <option value="exam">📝 Exam Style</option>
+            </select>
+          </div>
+
+          {/* AI Compile Button (kept, restriction removed) */}
           <button
             onClick={handleCompile}
-            disabled={compiling || selectedIds.length < 2}
-            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md"
+            disabled={compiling || !hasSelection}
+            className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md"
           >
             <Sparkles className={`w-4 h-4 ${compiling ? "animate-spin" : ""}`} />
-            <span>{compiling ? "Compiling with AI..." : `Compile Selected (${selectedIds.length})`}</span>
+            <span>{compiling ? "Compiling with AI..." : `AI Compile (${selectedIds.length})`}</span>
           </button>
+
           <p className="text-[10px] text-slate-500 text-center">
-            Select 2+ notes to compile into a comprehensive study sheet via Gemini AI.
+            Select 1+ notes • Export PDF preserves your exact content • AI Compile reorganizes with Gemini
           </p>
         </div>
-
       </div>
 
+      {/* Existing AI Compile Modal */}
       <CompiledNotesModal 
         isOpen={modalOpen} 
         onClose={() => setModalOpen(false)} 
         compiledText={compiledText} 
         subjectTags={subjectTags} 
+        persona={persona}
+      />
+
+      {/* New Export PDF Modal */}
+      <ExportNotesModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        notes={exportNotes}
+        questions={exportQuestions}
+        mode={exportMode}
         persona={persona}
       />
     </>
