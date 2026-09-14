@@ -1064,31 +1064,7 @@ app.get("/api/download/apk/info", (req: Request, res: Response) => {
 
 // 2. Primary download endpoint (Forces download with explicit MIME type & headers)
 app.get(["/api/download/apk", "/download.apk", "/downloads/latest.apk"], (req: Request, res: Response) => {
-  const apkInfo = resolveApkFilePath();
-
-  if (apkInfo.filePath && fs.existsSync(apkInfo.filePath)) {
-    res.setHeader("Content-Type", "application/vnd.android.package-archive");
-    res.setHeader("Content-Disposition", `attachment; filename="${apkInfo.filename}"`);
-    res.setHeader("Accept-Ranges", "bytes");
-    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
-    return res.sendFile(apkInfo.filePath);
-  }
-
-  // Ensure public/downloads directory exists and write fallback apk archive payload
-  const downloadsDir = path.join(process.cwd(), "public", "downloads");
-  if (!fs.existsSync(downloadsDir)) {
-    fs.mkdirSync(downloadsDir, { recursive: true });
-  }
-  const fallbackPath = path.join(downloadsDir, "gage-app.apk");
-  if (!fs.existsSync(fallbackPath)) {
-    fs.writeFileSync(fallbackPath, Buffer.from("PK\x03\x04\x14\x00\x00\x00\x08\x00G-AGE-APK-ARCHIVE-PAYLOAD"));
-  }
-
-  res.setHeader("Content-Type", "application/vnd.android.package-archive");
-  res.setHeader("Content-Disposition", 'attachment; filename="gage-app.apk"');
-  res.setHeader("Accept-Ranges", "bytes");
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  return res.sendFile(fallbackPath);
+  res.redirect(301, "/downloads/G-AGE_AI.apk");
 });
 
 // 3. Static handler for direct /downloads/:file.apk requests
