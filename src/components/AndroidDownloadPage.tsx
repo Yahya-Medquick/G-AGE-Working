@@ -50,7 +50,7 @@ export const AndroidDownloadPage: React.FC<AndroidDownloadPageProps> = ({
     releaseDate: '2026-09-08',
     twaEngine: 'Android Trusted Web Activity (TWA)',
     downloadUrl: '/api/download/apk',
-    directApkUrl: '/downloads/gage-app.apk',
+    directApkUrl: '/downloads/G-AGE_AI.apk',
   });
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export const AndroidDownloadPage: React.FC<AndroidDownloadPageProps> = ({
     setDownloading(true);
     const link = document.createElement('a');
     link.href = apkMeta.downloadUrl || '/api/download/apk';
-    link.download = 'gage-app.apk';
+    link.download = 'G-AGE_AI.apk';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
