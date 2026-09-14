@@ -1096,6 +1096,170 @@ app.get("/downloads/:filename", (req: Request, res: Response, next: NextFunction
 });
 
 
+
+// ─── EXPLORE MORE: Research Papers (OpenAlex) ────────────────────────────────
+app.get("/api/explore/papers", async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) return res.status(400).json({ error: "Query required" });
+    const encoded = encodeURIComponent(query);
+    const url = `https://api.openalex.org/works?search=${encoded}&filter=is_oa:true&sort=cited_by_count:desc&per-page=8&select=id,title,authorships,publication_year,doi,primary_location,cited_by_count,open_access`;
+    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
+    if (!response.ok) throw new Error("OpenAlex API error");
+    const data = await response.json();
+    const papers = data.results.map((work: any) => ({
+      id: work.id,
+      title: work.title,
+      authors: work.authorships?.slice(0, 3).map((a: any) => a.author?.display_name).filter(Boolean) || [],
+      year: work.publication_year,
+      doi: work.doi,
+      url: work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi,
+      citations: work.cited_by_count || 0,
+      journal: work.primary_location?.source?.display_name || null,
+      isOpenAccess: work.open_access?.is_oa || false,
+    }));
+    res.json({ papers });
+  } catch (err) {
+    console.error("Papers fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch research papers" });
+  }
+});
+
+// ─── EXPLORE MORE: GitHub Repos ──────────────────────────────────────────────
+app.get("/api/explore/repos", async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) return res.status(400).json({ error: "Query required" });
+    const encoded = encodeURIComponent(query);
+    const url = `https://api.github.com/search/repositories?q=${encoded}&sort=stars&order=desc&per_page=8`;
+    const response = await fetch(url, {
+      headers: { "Accept": "application/vnd.github+json", "User-Agent": "G-AGE-AI/1.0" }
+    });
+    if (!response.ok) throw new Error("GitHub API error");
+    const data = await response.json();
+    const repos = (data.items || []).map((repo: any) => ({
+      id: repo.id,
+      name: repo.full_name,
+      description: repo.description,
+      url: repo.html_url,
+      stars: repo.stargazers_count,
+      language: repo.language,
+      topics: repo.topics?.slice(0, 4) || [],
+    }));
+    res.json({ repos });
+  } catch (err) {
+    console.error("Repos fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch repositories" });
+  }
+});
+
+// ─── EXPLORE MORE: Research News (reuses existing news endpoint logic) ────────
+app.get("/api/explore/research-news", async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) return res.status(400).json({ error: "Query required" });
+    const encoded = encodeURIComponent(query + " research");
+    const url = `https://api.openalex.org/works?search=${encoded}&sort=publication_date:desc&per-page=8&select=id,title,authorships,publication_year,primary_location,open_access,doi`;
+    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
+    if (!response.ok) throw new Error("OpenAlex news error");
+    const data = await response.json();
+    const items = (data.results || []).map((work: any) => ({
+      id: work.id,
+      title: work.title,
+      authors: work.authorships?.slice(0, 2).map((a: any) => a.author?.display_name).filter(Boolean) || [],
+      year: work.publication_year,
+      url: work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi,
+      journal: work.primary_location?.source?.display_name || null,
+    }));
+    res.json({ items });
+  } catch (err) {
+    console.error("Research news fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch research news" });
+  }
+});
+
+
+// ─── EXPLORE MORE: Research Papers (OpenAlex) ────────────────────────────────
+app.get("/api/explore/papers", async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) return res.status(400).json({ error: "Query required" });
+    const encoded = encodeURIComponent(query);
+    const url = `https://api.openalex.org/works?search=${encoded}&filter=is_oa:true&sort=cited_by_count:desc&per-page=8&select=id,title,authorships,publication_year,doi,primary_location,cited_by_count,open_access`;
+    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
+    if (!response.ok) throw new Error("OpenAlex API error");
+    const data = await response.json();
+    const papers = data.results.map((work: any) => ({
+      id: work.id,
+      title: work.title,
+      authors: work.authorships?.slice(0, 3).map((a: any) => a.author?.display_name).filter(Boolean) || [],
+      year: work.publication_year,
+      doi: work.doi,
+      url: work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi,
+      citations: work.cited_by_count || 0,
+      journal: work.primary_location?.source?.display_name || null,
+      isOpenAccess: work.open_access?.is_oa || false,
+    }));
+    res.json({ papers });
+  } catch (err) {
+    console.error("Papers fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch research papers" });
+  }
+});
+
+// ─── EXPLORE MORE: GitHub Repos ──────────────────────────────────────────────
+app.get("/api/explore/repos", async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) return res.status(400).json({ error: "Query required" });
+    const encoded = encodeURIComponent(query);
+    const url = `https://api.github.com/search/repositories?q=${encoded}&sort=stars&order=desc&per_page=8`;
+    const response = await fetch(url, {
+      headers: { "Accept": "application/vnd.github+json", "User-Agent": "G-AGE-AI/1.0" }
+    });
+    if (!response.ok) throw new Error("GitHub API error");
+    const data = await response.json();
+    const repos = (data.items || []).map((repo: any) => ({
+      id: repo.id,
+      name: repo.full_name,
+      description: repo.description,
+      url: repo.html_url,
+      stars: repo.stargazers_count,
+      language: repo.language,
+      topics: repo.topics?.slice(0, 4) || [],
+    }));
+    res.json({ repos });
+  } catch (err) {
+    console.error("Repos fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch repositories" });
+  }
+});
+
+// ─── EXPLORE MORE: Research News (reuses existing news endpoint logic) ────────
+app.get("/api/explore/research-news", async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) return res.status(400).json({ error: "Query required" });
+    const encoded = encodeURIComponent(query + " research");
+    const url = `https://api.openalex.org/works?search=${encoded}&sort=publication_date:desc&per-page=8&select=id,title,authorships,publication_year,primary_location,open_access,doi`;
+    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
+    if (!response.ok) throw new Error("OpenAlex news error");
+    const data = await response.json();
+    const items = (data.results || []).map((work: any) => ({
+      id: work.id,
+      title: work.title,
+      authors: work.authorships?.slice(0, 2).map((a: any) => a.author?.display_name).filter(Boolean) || [],
+      year: work.publication_year,
+      url: work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi,
+      journal: work.primary_location?.source?.display_name || null,
+    }));
+    res.json({ items });
+  } catch (err) {
+    console.error("Research news fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch research news" });
+  }
+});
+
 // Entity & Synonym Database Architecture
 export interface ServerEntity {
   id: string;

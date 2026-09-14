@@ -211,6 +211,162 @@ const ExploreNewsSection: React.FC<{ topic: string; query?: string }> = ({ topic
   );
 };
 
+
+// ─── Research Mode: Papers Section ───────────────────────────────────────────
+const ExplorePapersSection: React.FC<{ topic: string }> = ({ topic }) => {
+  const [papers, setPapers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    fetch(`/api/explore/papers?q=${encodeURIComponent(topic)}`)
+      .then(r => r.json())
+      .then(data => { if (isMounted) setPapers(data.papers || []); })
+      .catch(err => console.error("Papers error:", err))
+      .finally(() => { if (isMounted) setLoading(false); });
+    return () => { isMounted = false; };
+  }, [topic]);
+
+  if (loading) return (
+    <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+      <div className="w-3 h-3 rounded-full bg-violet-500 animate-ping" />
+      <span>Fetching research papers for {topic}...</span>
+    </div>
+  );
+  if (!papers.length) return <p className="text-center text-xs text-slate-400 py-4">No papers found.</p>;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200 mb-2">
+        <BookOpen className="w-4 h-4 text-violet-500" />
+        Research Papers ({topic})
+      </div>
+      {papers.map((p: any) => (
+        <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer"
+          className="block p-3 rounded-xl bg-slate-50 dark:bg-[#111b21] border border-slate-200/80 dark:border-[#2a3942] hover:border-violet-400/50 dark:hover:border-violet-500/40 transition-all group">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-violet-600 dark:group-hover:text-violet-400 line-clamp-2 leading-snug">
+              {p.title}
+            </p>
+            <ExternalLink className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+            {p.authors.length > 0 && <span>{p.authors.join(', ')}{p.authors.length === 3 ? ' et al.' : ''}</span>}
+            {p.year && <span>{p.year}</span>}
+            {p.journal && <span className="italic truncate max-w-[160px]">{p.journal}</span>}
+            {p.citations > 0 && <span className="text-violet-500 font-medium">{p.citations.toLocaleString()} citations</span>}
+            {p.isOpenAccess && <span className="text-emerald-500 font-semibold">Open Access</span>}
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+};
+
+// ─── Research Mode: GitHub Repos Section ─────────────────────────────────────
+const ExploreReposSection: React.FC<{ topic: string }> = ({ topic }) => {
+  const [repos, setRepos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    fetch(`/api/explore/repos?q=${encodeURIComponent(topic)}`)
+      .then(r => r.json())
+      .then(data => { if (isMounted) setRepos(data.repos || []); })
+      .catch(err => console.error("Repos error:", err))
+      .finally(() => { if (isMounted) setLoading(false); });
+    return () => { isMounted = false; };
+  }, [topic]);
+
+  if (loading) return (
+    <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+      <div className="w-3 h-3 rounded-full bg-slate-500 animate-ping" />
+      <span>Finding open source repos for {topic}...</span>
+    </div>
+  );
+  if (!repos.length) return <p className="text-center text-xs text-slate-400 py-4">No repositories found.</p>;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200 mb-2">
+        <Code2 className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+        Open Source Repos ({topic})
+      </div>
+      {repos.map((r: any) => (
+        <a key={r.id} href={r.url} target="_blank" rel="noopener noreferrer"
+          className="block p-3 rounded-xl bg-slate-50 dark:bg-[#111b21] border border-slate-200/80 dark:border-[#2a3942] hover:border-slate-400/50 dark:hover:border-slate-500/40 transition-all group">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-[#00a884] dark:group-hover:text-[#25d366] truncate">
+              {r.name}
+            </p>
+            <div className="flex items-center gap-1 text-[10px] text-amber-500 font-semibold shrink-0">
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+              {r.stars.toLocaleString()}
+            </div>
+          </div>
+          {r.description && <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2">{r.description}</p>}
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {r.language && <span className="px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-[#2a3942] text-[10px] text-slate-600 dark:text-slate-300">{r.language}</span>}
+            {r.topics.map((t: string) => <span key={t} className="px-1.5 py-0.5 rounded-md bg-[#00a884]/10 dark:bg-[#25d366]/10 text-[10px] text-[#00a884] dark:text-[#25d366]">{t}</span>)}
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+};
+
+// ─── Research Mode: Research News Section ────────────────────────────────────
+const ExploreResearchNewsSection: React.FC<{ topic: string }> = ({ topic }) => {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    fetch(`/api/explore/research-news?q=${encodeURIComponent(topic)}`)
+      .then(r => r.json())
+      .then(data => { if (isMounted) setItems(data.items || []); })
+      .catch(err => console.error("Research news error:", err))
+      .finally(() => { if (isMounted) setLoading(false); });
+    return () => { isMounted = false; };
+  }, [topic]);
+
+  if (loading) return (
+    <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+      <div className="w-3 h-3 rounded-full bg-blue-500 animate-ping" />
+      <span>Loading recent research news for {topic}...</span>
+    </div>
+  );
+  if (!items.length) return <p className="text-center text-xs text-slate-400 py-4">No recent research found.</p>;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200 mb-2">
+        <Newspaper className="w-4 h-4 text-blue-500" />
+        Recent Research ({topic})
+      </div>
+      {items.map((item: any) => (
+        <a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer"
+          className="block p-3 rounded-xl bg-slate-50 dark:bg-[#111b21] border border-slate-200/80 dark:border-[#2a3942] hover:border-blue-400/50 dark:hover:border-blue-500/40 transition-all group">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 line-clamp-2 leading-snug">
+              {item.title}
+            </p>
+            <ExternalLink className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+          </div>
+          <div className="mt-1 flex flex-wrap gap-x-3 text-[10px] text-slate-500 dark:text-slate-400">
+            {item.authors.length > 0 && <span>{item.authors.join(', ')}</span>}
+            {item.year && <span>{item.year}</span>}
+            {item.journal && <span className="italic">{item.journal}</span>}
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+};
+
 interface ChatStageProps {
   session: ChatSession | null;
   activePersona: ExpertPersona;
@@ -1015,68 +1171,137 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                           {expandedExploreMsgIds[msg.id] && (
                             <div className="mt-2.5 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                {/* 1. Video Guide */}
-                                <button
-                                  onClick={() => handleToggleExploreTab(msg.id, 'videos')}
-                                  className={`p-2.5 rounded-xl border text-left transition-all group cursor-pointer space-y-1 ${
-                                    activeExploreMsgId === msg.id && activeExploreTab === 'videos'
-                                      ? 'border-[#00a884] bg-[#00a884]/10 dark:bg-[#00a884]/20'
-                                      : 'border-slate-200/80 dark:border-[#2a3942] bg-slate-50 dark:bg-[#111b21] hover:bg-slate-100 dark:hover:bg-[#202c33]'
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-rose-600 dark:group-hover:text-rose-400 flex items-center gap-1.5">
-                                      <Play className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
-                                      Video Guides
-                                    </span>
-                                    <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-rose-500" />
-                                  </div>
-                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
-                                    YouTube lecture guides
-                                  </p>
-                                </button>
+                                {activeMode === 'research' ? (
+                                  <>
+                                    {/* Research Mode Tab 1: Papers */}
+                                    <button
+                                      onClick={() => handleToggleExploreTab(msg.id, 'papers')}
+                                      className={`p-2.5 rounded-xl border text-left transition-all group cursor-pointer space-y-1 ${
+                                        activeExploreMsgId === msg.id && activeExploreTab === 'papers'
+                                          ? 'border-violet-500 bg-violet-500/10 dark:bg-violet-500/20'
+                                          : 'border-slate-200/80 dark:border-[#2a3942] bg-slate-50 dark:bg-[#111b21] hover:bg-slate-100 dark:hover:bg-[#202c33]'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-violet-600 dark:group-hover:text-violet-400 flex items-center gap-1.5">
+                                          <BookOpen className="w-3.5 h-3.5 text-violet-500" />
+                                          Research Papers
+                                        </span>
+                                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-violet-500" />
+                                      </div>
+                                      <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                                        OpenAlex open access papers
+                                      </p>
+                                    </button>
 
-                                {/* 2. Recent News */}
-                                <button
-                                  onClick={() => handleToggleExploreTab(msg.id, 'news')}
-                                  className={`p-2.5 rounded-xl border text-left transition-all group cursor-pointer space-y-1 ${
-                                    activeExploreMsgId === msg.id && activeExploreTab === 'news'
-                                      ? 'border-[#00a884] bg-[#00a884]/10 dark:bg-[#00a884]/20'
-                                      : 'border-slate-200/80 dark:border-[#2a3942] bg-slate-50 dark:bg-[#111b21] hover:bg-slate-100 dark:hover:bg-[#202c33]'
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex items-center gap-1.5">
-                                      <Newspaper className="w-3.5 h-3.5 text-blue-500" />
-                                      Recent News
-                                    </span>
-                                    <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-500" />
-                                  </div>
-                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
-                                    Articles & research updates
-                                  </p>
-                                </button>
+                                    {/* Research Mode Tab 2: Repos */}
+                                    <button
+                                      onClick={() => handleToggleExploreTab(msg.id, 'repos')}
+                                      className={`p-2.5 rounded-xl border text-left transition-all group cursor-pointer space-y-1 ${
+                                        activeExploreMsgId === msg.id && activeExploreTab === 'repos'
+                                          ? 'border-[#00a884] bg-[#00a884]/10 dark:bg-[#00a884]/20'
+                                          : 'border-slate-200/80 dark:border-[#2a3942] bg-slate-50 dark:bg-[#111b21] hover:bg-slate-100 dark:hover:bg-[#202c33]'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#00a884] dark:group-hover:text-[#25d366] flex items-center gap-1.5">
+                                          <Code2 className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+                                          Open Source
+                                        </span>
+                                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-[#00a884]" />
+                                      </div>
+                                      <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                                        GitHub repos by topic
+                                      </p>
+                                    </button>
 
-                                {/* 3. Practice MCQs ("Test your grip") */}
-                                <button
-                                  onClick={() => handleToggleExploreTab(msg.id, 'mcqs')}
-                                  className={`p-2.5 rounded-xl border text-left transition-all group cursor-pointer space-y-1 ${
-                                    activeExploreMsgId === msg.id && activeExploreTab === 'mcqs'
-                                      ? 'border-[#00a884] bg-[#00a884]/10 dark:bg-[#00a884]/20'
-                                      : 'border-slate-200/80 dark:border-[#2a3942] bg-slate-50 dark:bg-[#111b21] hover:bg-slate-100 dark:hover:bg-[#202c33]'
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 flex items-center gap-1.5">
-                                      <GraduationCap className="w-3.5 h-3.5 text-amber-500" />
-                                      Test Your Grip
-                                    </span>
-                                    <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-amber-500" />
-                                  </div>
-                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
-                                    Interactive practice MCQs
-                                  </p>
-                                </button>
+                                    {/* Research Mode Tab 3: Research News */}
+                                    <button
+                                      onClick={() => handleToggleExploreTab(msg.id, 'research-news')}
+                                      className={`p-2.5 rounded-xl border text-left transition-all group cursor-pointer space-y-1 ${
+                                        activeExploreMsgId === msg.id && activeExploreTab === 'research-news'
+                                          ? 'border-blue-500 bg-blue-500/10 dark:bg-blue-500/20'
+                                          : 'border-slate-200/80 dark:border-[#2a3942] bg-slate-50 dark:bg-[#111b21] hover:bg-slate-100 dark:hover:bg-[#202c33]'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex items-center gap-1.5">
+                                          <Newspaper className="w-3.5 h-3.5 text-blue-500" />
+                                          Recent Research
+                                        </span>
+                                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-500" />
+                                      </div>
+                                      <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                                        Latest publications & updates
+                                      </p>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    {/* 1. Video Guide */}
+                                    <button
+                                      onClick={() => handleToggleExploreTab(msg.id, 'videos')}
+                                      className={`p-2.5 rounded-xl border text-left transition-all group cursor-pointer space-y-1 ${
+                                        activeExploreMsgId === msg.id && activeExploreTab === 'videos'
+                                          ? 'border-[#00a884] bg-[#00a884]/10 dark:bg-[#00a884]/20'
+                                          : 'border-slate-200/80 dark:border-[#2a3942] bg-slate-50 dark:bg-[#111b21] hover:bg-slate-100 dark:hover:bg-[#202c33]'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-rose-600 dark:group-hover:text-rose-400 flex items-center gap-1.5">
+                                          <Play className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+                                          Video Guides
+                                        </span>
+                                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-rose-500" />
+                                      </div>
+                                      <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                                        YouTube lecture guides
+                                      </p>
+                                    </button>
+
+                                    {/* 2. Recent News */}
+                                    <button
+                                      onClick={() => handleToggleExploreTab(msg.id, 'news')}
+                                      className={`p-2.5 rounded-xl border text-left transition-all group cursor-pointer space-y-1 ${
+                                        activeExploreMsgId === msg.id && activeExploreTab === 'news'
+                                          ? 'border-[#00a884] bg-[#00a884]/10 dark:bg-[#00a884]/20'
+                                          : 'border-slate-200/80 dark:border-[#2a3942] bg-slate-50 dark:bg-[#111b21] hover:bg-slate-100 dark:hover:bg-[#202c33]'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex items-center gap-1.5">
+                                          <Newspaper className="w-3.5 h-3.5 text-blue-500" />
+                                          Recent News
+                                        </span>
+                                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-500" />
+                                      </div>
+                                      <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                                        Articles & research updates
+                                      </p>
+                                    </button>
+
+                                    {/* 3. Practice MCQs */}
+                                    <button
+                                      onClick={() => handleToggleExploreTab(msg.id, 'mcqs')}
+                                      className={`p-2.5 rounded-xl border text-left transition-all group cursor-pointer space-y-1 ${
+                                        activeExploreMsgId === msg.id && activeExploreTab === 'mcqs'
+                                          ? 'border-[#00a884] bg-[#00a884]/10 dark:bg-[#00a884]/20'
+                                          : 'border-slate-200/80 dark:border-[#2a3942] bg-slate-50 dark:bg-[#111b21] hover:bg-slate-100 dark:hover:bg-[#202c33]'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 flex items-center gap-1.5">
+                                          <GraduationCap className="w-3.5 h-3.5 text-amber-500" />
+                                          Test Your Grip
+                                        </span>
+                                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-amber-500" />
+                                      </div>
+                                      <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                                        Interactive practice MCQs
+                                      </p>
+                                    </button>
+                                  </>
+                                )}
                               </div>
 
                               {/* Section Details Drawer */}
@@ -1093,24 +1318,32 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                                     ✕
                                   </button>
 
-                                  {activeExploreTab === 'videos' && (
-                                    <ExploreVideosSection topic={targetTopic} query={targetVideoQuery} />
-                                  )}
-
-                                  {activeExploreTab === 'news' && (
-                                    <ExploreNewsSection topic={targetTopic} query={targetNewsQuery} />
-                                  )}
-
-                                  {activeExploreTab === 'mcqs' && (
-                                    <MCQCard
-                                      topic={targetMcqTopic}
-                                      onSaveToNotes={onSaveToNotes}
-                                      onClose={() => {
-                                        setActiveExploreMsgId(null);
-                                        setActiveExploreTab(null);
-                                      }}
-                                      onOpenPaywall={onOpenPaywall}
-                                    />
+                                  {activeMode === 'research' ? (
+                                    <>
+                                      {activeExploreTab === 'papers' && <ExplorePapersSection topic={targetTopic} />}
+                                      {activeExploreTab === 'repos' && <ExploreReposSection topic={targetTopic} />}
+                                      {activeExploreTab === 'research-news' && <ExploreResearchNewsSection topic={targetTopic} />}
+                                    </>
+                                  ) : (
+                                    <>
+                                      {activeExploreTab === 'videos' && (
+                                        <ExploreVideosSection topic={targetTopic} query={targetVideoQuery} />
+                                      )}
+                                      {activeExploreTab === 'news' && (
+                                        <ExploreNewsSection topic={targetTopic} query={targetNewsQuery} />
+                                      )}
+                                      {activeExploreTab === 'mcqs' && (
+                                        <MCQCard
+                                          topic={targetMcqTopic}
+                                          onSaveToNotes={onSaveToNotes}
+                                          onClose={() => {
+                                            setActiveExploreMsgId(null);
+                                            setActiveExploreTab(null);
+                                          }}
+                                          onOpenPaywall={onOpenPaywall}
+                                        />
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               )}
