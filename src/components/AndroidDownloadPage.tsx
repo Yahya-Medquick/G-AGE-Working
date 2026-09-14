@@ -69,17 +69,7 @@ export const AndroidDownloadPage: React.FC<AndroidDownloadPageProps> = ({
   if (!isOpen && !isStandaloneView) return null;
 
   const handleDownload = () => {
-    setDownloading(true);
-    const link = document.createElement('a');
-    link.href = apkMeta.downloadUrl || '/api/download/apk';
-    link.download = 'G-AGE_AI.apk';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    setTimeout(() => {
-      setDownloading(false);
-    }, 3000);
+    window.location.href = '/downloads/G-AGE_AI.apk';
   };
 
   const handleCopyChecksum = () => {
