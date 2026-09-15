@@ -6,6 +6,7 @@ import {
   fetchTabUsage,
   registerWithPhone,
   loginWithCredentials,
+  loginWithGoogle,
   verifyNewDevice,
   LoginResult,
   updatePreferencesMode,
@@ -27,6 +28,7 @@ interface UserContextType {
   replayTour: () => void;
   toggleMode: () => void;
   setMode: (mode: "research" | "learning") => void;
+  googleLogin: (payload: { idToken: string; email: string; name: string; avatar: string; googleId: string }) => Promise<UserAuth>;
   registerUser: (payload: { username: string; password: string; phone: string }) => Promise<UserAuth>;
   loginUser: (username: string, password: string) => Promise<LoginResult>;
   verifyNewDeviceUser: (payload: { username: string; password: string; phone: string }) => Promise<UserAuth>;
@@ -68,6 +70,7 @@ const UserContext = createContext<UserContextType>({
   replayTour: () => {},
   toggleMode: () => {},
   setMode: () => {},
+  googleLogin: async () => ({} as UserAuth),
   registerUser: async () => ({} as UserAuth),
   loginUser: async () => ({}),
   verifyNewDeviceUser: async () => ({} as UserAuth),
@@ -265,6 +268,28 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const handleGoogleLogin = async (payload: { idToken: string; email: string; name: string; avatar: string; googleId: string }) => {
+    try {
+      const authUser = await loginWithGoogle(payload);
+      if (authUser) {
+        setUser(authUser);
+        setIsGuest(false);
+        localStorage.removeItem("bifrost_guest_mode");
+        if (authUser.preferred_mode) setMode(authUser.preferred_mode);
+        setProfile((prev) => ({
+          ...prev,
+          name: authUser.name || authUser.username || prev.name,
+          username: authUser.username || prev.username,
+          email: authUser.email || prev.email,
+        }));
+      }
+      return authUser;
+    } catch (err) {
+      console.error("Google login failed in context:", err);
+      throw err;
+    }
+  };
+
   const continueAsGuest = () => {
     setIsGuest(true);
     setUser(null);
@@ -326,6 +351,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         replayTour,
         toggleMode,
         setMode: setModeExplicit,
+        googleLogin: handleGoogleLogin,
         registerUser: handleRegisterUser,
         loginUser: handleLoginUser,
         verifyNewDeviceUser: handleVerifyNewDeviceUser,

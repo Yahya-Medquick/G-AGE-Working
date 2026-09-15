@@ -273,6 +273,31 @@ export async function updateOnboardingStatus(hasSeenOnboarding = true) {
 /**
  * Invalidate client cache entries for a specific category, topic, or all
  */
+
+export async function loginWithGoogle(payload: {
+  idToken: string;
+  email: string;
+  name: string;
+  avatar: string;
+  googleId: string;
+}): Promise<UserAuth> {
+  const deviceId = getOrCreateDeviceId();
+  const res = await fetch("/api/auth/google", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    body: JSON.stringify({ ...payload, deviceId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || "Google sign-in failed");
+  }
+  if (data.token) {
+    localStorage.setItem("bifrost_session_token", data.token);
+    localStorage.removeItem("bifrost_guest_mode");
+  }
+  return data.user;
+}
+
 export function invalidateCache(topic?: string, category?: CategoryType) {
   if (!topic && !category) {
     clientMemoryCache.clear();
