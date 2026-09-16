@@ -891,7 +891,7 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.openalex.org https://en.wikipedia.org https://api.github.com https://www.googleapis.com https:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://api.openalex.org https://en.wikipedia.org https://api.github.com https://www.googleapis.com https:; frame-src 'self' https://accounts.google.com https://jabir-ai.firebaseapp.com https://www.youtube.com https://www.youtube-nocookie.com;"
   );
   next();
 });
