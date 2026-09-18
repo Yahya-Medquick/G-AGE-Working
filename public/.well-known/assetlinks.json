@@ -1,10 +1,8 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "app.railway.up.gage.twa",
-      "sha256_cert_fingerprints": ["82:DA:8D:E5:94:8B:A9:97:E5:80:B9:61:19:D5:E0:6C:0E:88:CF:C0:C0:A5:B1:33:A8:48:24:57:CE:AF:95:34"]
-    }
-  }
-]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "org.gageai.twa",
+        "sha256_cert_fingerprints": ["81:EE:44:1B:85:A7:74:C0:07:AB:CC:A4:95:C9:E5:D3:8E:77:6F:17:AC:6B:E4:2E:2B:1E:79:12:73:A0:FE:9A"]
+      }
+    }]
