@@ -5184,11 +5184,42 @@ app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
       }
     }
 
+    // Issue fresh JWT if upgrading the currently logged-in user
+    const currentUser = getCurrentUser(req);
+    if (currentUser && String(currentUser.id) === String(id)) {
+      const updatedUser = dbPool
+        ? (await dbPool.query("SELECT * FROM users WHERE id = $1", [id])).rows[0]
+        : inMemoryUsers.get(id);
+      if (updatedUser) {
+        const newToken = jwt.sign(
+          {
+            id: updatedUser.id,
+            username: updatedUser.username,
+            phone: updatedUser.phone,
+            name: updatedUser.name,
+            avatar_url: updatedUser.avatar_url,
+            tier: normalizedTier,
+            has_seen_onboarding: updatedUser.has_seen_onboarding,
+            preferred_mode: updatedUser.preferred_mode || "research",
+          },
+          SESSION_SECRET,
+          { expiresIn: "90d" }
+        );
+        res.cookie("session_token", newToken, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "none",
+          maxAge: 90 * 24 * 3600 * 1000,
+        });
+      }
+    }
+
     return res.json({
       success: true,
       userId: id,
       tier: normalizedTier,
       message: `User tier successfully updated to '${normalizedTier}'.`,
+      tokenRefreshed: !!(currentUser && String(currentUser.id) === String(id)),
     });
   } catch (err: any) {
     console.error("[Admin PATCH /api/admin/users/:id/tier error]:", err);
