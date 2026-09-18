@@ -1,7 +1,15 @@
-{
+"screenshots": [
+  {
+    "src": "/icons/icon-512x512.png",
+    "sizes": "512x512",
+    "type": "image/png",
+    "form_factor": "narrow"
+  }
+]{
   "name": "G-AGE AI — The Next Age of Intelligence",
   "short_name": "G-AGE AI",
   "description": "AI-powered academic tutoring platform with expert personas for students.",
+  "id": "/?source=pwa",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
