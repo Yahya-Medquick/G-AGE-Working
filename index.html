@@ -5,8 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="google-site-verification" content="c768ZE94cYFjmurOhUVkpTOQC5jB3Dfd0HHXF9zzwUc" />
     <meta name="google-site-verification" content="DJw3CA-qjN0OAufoAUbl0Woh_g4weJrlEaPwV6T00BM" />
+
+    <!-- PRIMARY META -->
     <title>G-AGE AI — The Next Age of Knowledge &amp; Intelligence</title>
-    <meta name="description" content="G-AGE AI: The Next Age of Knowledge &amp; Intelligence. Intelligent multi-dimensional discovery across peer-reviewed papers, open-source codebases, AI synthesis, and academic mentorship." />
+    <meta name="description" content="G-AGE AI is a free AI study assistant for Pakistani students. Get instant answers, research papers, exam MCQs, PDF notes — in Urdu and English." />
+    <meta name="keywords" content="AI study assistant Pakistan, Pakistani students AI, G-AGE AI, gageai, free AI education Pakistan, Urdu AI tutor, exam prep AI Pakistan, knowledge platform Pakistan" />
+    <meta name="author" content="G-AGE AI" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- CANONICAL -->
+    <link rel="canonical" href="https://gageai.org/" />
+
+    <!-- OPEN GRAPH -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://gageai.org/" />
+    <meta property="og:site_name" content="G-AGE AI" />
+    <meta property="og:title" content="G-AGE AI — AI Study Assistant for Pakistani Students" />
+    <meta property="og:description" content="Free AI knowledge platform for Pakistani students. Instant answers, research papers, exam MCQs, and PDF notes — in Urdu and English." />
+    <meta property="og:image" content="https://gageai.org/og-image.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="G-AGE AI — AI Study Assistant for Pakistani Students" />
+    <meta property="og:locale" content="en_PK" />
+
+    <!-- TWITTER CARD -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://gageai.org/" />
+    <meta name="twitter:title" content="G-AGE AI — AI Study Assistant for Pakistani Students" />
+    <meta name="twitter:description" content="Free AI knowledge platform for Pakistani students. Instant answers, research papers, exam MCQs, and PDF notes." />
+    <meta name="twitter:image" content="https://gageai.org/og-image.svg" />
+    <meta name="twitter:image:alt" content="G-AGE AI — AI Study Assistant for Pakistani Students" />
+
+    <!-- SCHEMA MARKUP -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "G-AGE AI",
+      "url": "https://gageai.org",
+      "description": "AI-powered knowledge exploration platform for Pakistani students. Get instant answers, research papers, exam prep, and notes in Urdu and English.",
+      "applicationCategory": "EducationApplication",
+      "operatingSystem": "Web, Android",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "PKR"
+      },
+      "inLanguage": ["en", "ur"],
+      "audience": {
+        "@type": "EducationalAudience",
+        "educationalRole": "student"
+      },
+      "provider": {
+        "@type": "Organization",
+        "name": "G-AGE AI",
+        "url": "https://gageai.org"
+      }
+    }
+    </script>
+
+    <!-- PWA / MOBILE -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#3a7bd5" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -14,17 +72,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="G-AGE AI" />
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-    
-    <!-- Google tag (gtag.js) -->
+
+    <!-- GOOGLE ANALYTICS -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z7W2DYR0KF"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'G-Z7W2DYR0KF');
     </script>
 
+    <!-- SERVICE WORKER -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -34,6 +92,7 @@
         });
       }
     </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   </head>
@@ -42,4 +101,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
