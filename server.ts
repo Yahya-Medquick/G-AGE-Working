@@ -7757,7 +7757,7 @@ app.get("/sitemap.xml", async (req: Request, res: Response) => {
     }
   }
   
-  const domain = getPublicBaseUrl(req) || "https://ais-dev-uswuwfmzkzfwmqpluvsrqs-237075000954.asia-east1.run.app";
+  const domain = "https://gageai.org";
   
   const urlsXml = topics.map(topic => `
     <url>
