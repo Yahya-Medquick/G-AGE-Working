@@ -35,6 +35,8 @@ interface PersonaPanelProps {
   onSelectPrompt?: (prompt: string) => void;
   onSelectTopic?: (topic: string) => void;
   onOpenPaywall?: () => void;
+  initialGroup?: string | null;
+  onGroupConsumed?: () => void;
 }
 
 type PanelView = 'groups' | 'personas';
@@ -68,6 +70,8 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   onSelectPrompt,
   onSelectTopic,
   onOpenPaywall,
+  initialGroup,
+  onGroupConsumed,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [view, setView] = useState<PanelView>('groups');
@@ -92,6 +96,15 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   }, [activeExpertSet]);
 
   const activePersona = activeExpertSet[selectedPersonaId] || personaList[0];
+
+  // Handle initialGroup from domain redirect
+  useEffect(() => {
+    if (initialGroup && isOpen) {
+      setActiveGroup(initialGroup);
+      setView('personas');
+      onGroupConsumed?.();
+    }
+  }, [initialGroup, isOpen]);
 
   // Load recent personas
   useEffect(() => {

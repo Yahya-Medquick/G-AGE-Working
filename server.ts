@@ -4093,7 +4093,22 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
 - Instructions: Synthesize state-of-the-art literature concisely, citing seminal papers with authors and publication years. Compare key frameworks and open problems directly without filler.`;
     }
 
-    const fullSystemInstruction = `${baseSystemPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.`;
+    // Build domain redirect instruction from persona's group
+    const personaGroupName = persona?.group_name || persona?.badge || null;
+    const personaDomains = Array.isArray(persona?.domains) ? persona.domains.join(", ") : "";
+    const domainRedirectInstruction = personaGroupName ? `
+
+[DOMAIN BOUNDARY DIRECTIVE]
+Your expertise is strictly within: ${personaGroupName} (domains: ${personaDomains}).
+If the user asks something clearly outside your domain (e.g. a Law expert asked about Physics):
+1. Give a brief, honest 1-2 sentence acknowledgement that this is outside your domain.
+2. Still provide a short helpful answer if you can.
+3. At the very end of your response, on its own line, output EXACTLY this marker (nothing else on that line):
+[[SUGGEST_GROUP:THE_BEST_MATCHING_GROUP]]
+Replace THE_BEST_MATCHING_GROUP with the most relevant subject group name from your knowledge (e.g. Physics & Quantum, Biology & Life Sciences, Software Engineering, Data Science & AI, Economics & Finance, Law & Legal Research, AI Safety & Ethics).
+Only output this marker when the question is clearly outside your domain. Never output it for questions within your domain.` : "";
+
+    const fullSystemInstruction = `${baseSystemPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.`;
 
     // Check if any message has image attachment (Pro feature)
     const hasImageAttachment = messages.some((m: any) => m.imageBase64 && typeof m.imageBase64 === "string" && m.imageBase64.length > 50);

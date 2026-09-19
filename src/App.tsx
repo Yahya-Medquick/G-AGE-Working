@@ -84,6 +84,7 @@ export default function App() {
   // Layout panel collapse states (responsive defaults: open on desktop, closed on mobile)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(() => window.innerWidth >= 1024);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(() => window.innerWidth >= 1280);
+  const [initialPersonaGroup, setInitialPersonaGroup] = useState<string | null>(null);
 
   // Active persona region variant ('global' | 'pk') - default to Pakistani first
   const [expertVariant, setExpertVariant] = useState<'global' | 'pk'>('pk');
@@ -123,6 +124,11 @@ export default function App() {
       window.history.pushState({}, '', '/download');
     }
   }, []);
+
+  const handleOpenPersonaGroup = (groupName: string) => {
+    setInitialPersonaGroup(groupName);
+    setIsRightPanelOpen(true);
+  };
 
   const handleCloseDownload = useCallback(() => {
     setIsDownloadOpen(false);
@@ -477,6 +483,7 @@ export default function App() {
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenLogin={() => setIsLoginOpen(true)}
         onOpenPaywall={triggerPaywall}
+        onOpenPersonaGroup={handleOpenPersonaGroup}
         onOpenDownload={handleOpenDownload}
         queryUsage={usage}
         theme={theme}
@@ -504,6 +511,8 @@ export default function App() {
       {/* 3. RIGHT PANEL: EXPERT PERSONA SELECTOR */}
       <PersonaPanel
         isOpen={isRightPanelOpen}
+        initialGroup={initialPersonaGroup}
+        onGroupConsumed={() => setInitialPersonaGroup(null)}
         onToggle={() => setIsRightPanelOpen(!isRightPanelOpen)}
         selectedPersonaId={currentPersonaId}
         onSelectPersona={handleSelectPersona}

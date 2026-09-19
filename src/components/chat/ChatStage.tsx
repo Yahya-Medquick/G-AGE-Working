@@ -380,6 +380,7 @@ interface ChatStageProps {
   onUpdateSessionMeta: (sessionId: string, updates: Partial<Pick<ChatSession, 'mode' | 'personaId' | 'variant' | 'specs' | 'title'>>) => void;
   onSaveToNotes: (content: string, title?: string) => void;
   onOpenPaywall: () => void;
+  onOpenPersonaGroup?: (groupName: string) => void;
   onOpenKnowledgeGraph?: () => void;
   queryUsage: {
     count: number;
@@ -403,6 +404,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   onUpdateSessionMeta,
   onSaveToNotes,
   onOpenPaywall,
+  onOpenPersonaGroup,
   onOpenKnowledgeGraph,
   queryUsage,
 }) => {
@@ -995,7 +997,35 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 {/* Bubble Content Body */}
                 {isAssistant ? (
                   <div className="space-y-3">
-                    <MarkdownRenderer content={msg.content} />
+                    {(() => {
+                      const SUGGEST_REGEX = /\[\[SUGGEST_GROUP:([^\]]+)\]\]/;
+                      const match = msg.content.match(SUGGEST_REGEX);
+                      const cleanContent = msg.content.replace(SUGGEST_REGEX, '').trim();
+                      const suggestedGroup = match ? match[1].trim() : null;
+                      return (
+                        <>
+                          <MarkdownRenderer content={cleanContent} />
+                          {suggestedGroup && onOpenPersonaGroup && (
+                            <div className="mt-3 flex items-center gap-2 p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40">
+                              <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center shrink-0">
+                                <span className="text-sm">🎯</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                                  This seems outside my domain.{' '}
+                                  <button
+                                    onClick={() => onOpenPersonaGroup(suggestedGroup)}
+                                    className="text-indigo-600 dark:text-indigo-400 font-semibold underline underline-offset-2 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer transition-colors"
+                                  >
+                                    Try a {suggestedGroup} specialist →
+                                  </button>
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
 
                     {/* Interactive Multi-Level Explanation Switcher if present */}
                     {msg.metadata?.multiLevel && (
