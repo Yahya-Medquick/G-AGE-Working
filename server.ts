@@ -3539,7 +3539,7 @@ app.post("/api/v1/personas/admin/create", async (req: Request, res: Response) =>
     slug, name, initials, role, affiliation, badge,
     avatar_color, group_name, specialties, domains, description,
     personality, opener_template, system_prompt,
-    is_active, is_default, display_order, variant, group_name
+    is_active, is_default, display_order, variant
   } = req.body || {};
 
   if (!name || !role || !badge) {
