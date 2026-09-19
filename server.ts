@@ -4152,6 +4152,12 @@ Only output this marker when the question is clearly outside your domain. Never 
     });
 
     const reply = result.text.trim();
+    // Debug: log if marker present
+    if (reply.includes('SUGGEST_GROUP') || reply.includes('[[')) {
+      console.log('[DOMAIN REDIRECT] Marker found in reply:', reply.slice(-200));
+    } else {
+      console.log('[DOMAIN REDIRECT] No marker in reply. Persona group:', personaGroupName, '| Reply end:', reply.slice(-100));
+    }
 
     return res.json({
       reply,
