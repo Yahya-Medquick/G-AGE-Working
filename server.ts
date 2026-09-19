@@ -354,6 +354,34 @@ async function initDatabaseSchema() {
     `);
 
     await dbPool.query(`
+      ALTER TABLE expert_personas ADD COLUMN IF NOT EXISTS group_name VARCHAR(64);
+    `);
+
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS user_persona_usage (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        persona_slug VARCHAR(64) NOT NULL,
+        last_used_at TIMESTAMPTZ DEFAULT now(),
+        UNIQUE(user_id, persona_slug)
+      );
+    `);
+
+    await dbPool.query(`
+      ALTER TABLE expert_personas ADD COLUMN IF NOT EXISTS group_name VARCHAR(64);
+    `);
+
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS user_persona_usage (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        persona_slug VARCHAR(64) NOT NULL,
+        last_used_at TIMESTAMPTZ DEFAULT now(),
+        UNIQUE(user_id, persona_slug)
+      );
+    `);
+
+    await dbPool.query(`
       CREATE INDEX IF NOT EXISTS idx_persona_domains ON expert_personas USING GIN(domains);
     `);
     await dbPool.query(`
@@ -382,9 +410,14 @@ async function initDatabaseSchema() {
       );
     `);
 
+    // Seed group_name from badge for existing personas that have none
+    await dbPool.query(`
+      UPDATE expert_personas SET group_name = badge WHERE group_name IS NULL OR group_name = '';
+    `);
+
     // Seed default expert personas
     await dbPool.query(`
-      INSERT INTO expert_personas (slug, name, initials, role, affiliation, badge, avatar_color, specialties, domains, description, personality, opener_template, system_prompt, is_active, is_default, display_order)
+      INSERT INTO expert_personas (slug, name, initials, role, affiliation, badge, avatar_color, specialties, domains, description, personality, opener_template, system_prompt, is_active, is_default, display_order, group_name)
       VALUES
       ('aris', 'Dr. Aris Thorne', 'AT', 'Quantum Information Theorist', 'Postdoctoral Fellow, Perimeter Institute', 'Quantum Physics & Computing', '#6366f1', ARRAY['Quantum entanglement','Decoherence','Qubit architectures','Circuit complexity'], ARRAY['quantum mechanics','quantum computing','physics','qubits','superposition','entanglement','decoherence','quantum information'], 'Postdoctoral researcher specializing in quantum information theory and decoherence dynamics.', 'precise, theoretical, loves thought experiments', 'I see you are exploring {topic}. I research quantum information theory and decoherence dynamics. What questions do you have?', 'You are Dr. Aris Thorne, a Quantum Information Theorist. Speak with precision. Use thought experiments. Build intuition before formalism.', true, false, 1),
       ('elena', 'Dr. Elena Vasquez', 'EV', 'Cognitive Neuroscientist', 'Associate Professor, University of Barcelona', 'Neuroscience & Psychology', '#ec4899', ARRAY['Neuroplasticity','Memory consolidation','Mindfulness research','Default mode network'], ARRAY['neuroscience','meditation','mindfulness','brain','memory','attention','psychology','consciousness','sleep','mental health','stress'], 'Studies how contemplative practices like meditation reshape neural architecture over time.', 'warm, evidence-first, bridges science and lived experience', 'What you are exploring — {topic} — sits at the intersection of contemplative practice and brain science. What is your angle?', 'You are Dr. Elena Vasquez, a Cognitive Neuroscientist. Speak warmly and accessibly. Ground claims in neuroscience. Connect science to practical implications.', true, false, 2),
@@ -3293,7 +3326,7 @@ app.get("/api/v1/personas", async (req: Request, res: Response) => {
       const result = await dbPool.query(
         `SELECT id, slug, name, initials, role, affiliation, badge, avatar_color,
                 specialties, domains, description, personality, opener_template,
-                system_prompt, is_active, is_default, display_order, variant, created_at, updated_at
+                system_prompt, is_active, is_default, display_order, variant, group_name, created_at, updated_at
          FROM expert_personas
          WHERE is_active = true
          ORDER BY display_order ASC, created_at ASC`
@@ -3417,6 +3450,61 @@ app.get("/api/v1/personas/:slug", async (req: Request, res: Response) => {
 
 // ─── ADMIN ROUTES (used by Admin tab) ─────────────────────────
 
+// POST /api/v1/personas/:slug/used - Record persona usage for recent tracking
+app.post("/api/v1/personas/:slug/used", async (req: Request, res: Response) => {
+  try {
+    const { slug } = req.params;
+    const token = req.cookies?.token;
+    if (token) {
+      try {
+        const jwt = await import('jsonwebtoken');
+        const secret = process.env.JWT_SECRET || 'changeme';
+        const decoded: any = jwt.default.verify(token, secret);
+        const userId = decoded?.userId || decoded?.id;
+        if (userId) {
+          await dbPool.query(`
+            INSERT INTO user_persona_usage (user_id, persona_slug, last_used_at)
+            VALUES ($1, $2, now())
+            ON CONFLICT (user_id, persona_slug)
+            DO UPDATE SET last_used_at = now()
+          `, [userId, slug]);
+        }
+      } catch (_) {}
+    } else {
+      // Guest: handled client-side via localStorage
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("POST /api/v1/personas/:slug/used error:", err);
+    return res.json({ success: true }); // non-fatal
+  }
+});
+
+// GET /api/v1/personas/recent - Returns last 3 used personas for logged-in user
+app.get("/api/v1/personas/recent", async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies?.token;
+    if (!token) return res.json({ success: true, personas: [] });
+    const jwt = await import('jsonwebtoken');
+    const secret = process.env.JWT_SECRET || 'changeme';
+    const decoded: any = jwt.default.verify(token, secret);
+    const userId = decoded?.userId || decoded?.id;
+    if (!userId) return res.json({ success: true, personas: [] });
+    const result = await dbPool.query(`
+      SELECT ep.*, upu.last_used_at as user_last_used
+      FROM user_persona_usage upu
+      JOIN expert_personas ep ON ep.slug = upu.persona_slug
+      WHERE upu.user_id = $1 AND ep.is_active = true
+      ORDER BY upu.last_used_at DESC
+      LIMIT 3
+    `, [userId]);
+    return res.json({ success: true, personas: result.rows });
+  } catch (err) {
+    console.error("GET /api/v1/personas/recent error:", err);
+    return res.json({ success: true, personas: [] });
+  }
+});
+
 // GET /api/v1/personas/admin/all - Returns ALL personas including inactive
 app.get("/api/v1/personas/admin/all", async (req: Request, res: Response) => {
   if (!checkAdminAuth(req)) {
@@ -3449,9 +3537,9 @@ app.post("/api/v1/personas/admin/create", async (req: Request, res: Response) =>
 
   const {
     slug, name, initials, role, affiliation, badge,
-    avatar_color, specialties, domains, description,
+    avatar_color, group_name, specialties, domains, description,
     personality, opener_template, system_prompt,
-    is_active, is_default, display_order, variant
+    is_active, is_default, display_order, variant, group_name
   } = req.body || {};
 
   if (!name || !role || !badge) {
@@ -3476,10 +3564,10 @@ app.post("/api/v1/personas/admin/create", async (req: Request, res: Response) =>
 
       const result = await dbPool.query(
         `INSERT INTO expert_personas
-           (slug, name, initials, role, affiliation, badge, avatar_color,
+           (slug, name, initials, role, affiliation, badge, avatar_color, group_name,
             specialties, domains, description, personality, opener_template,
             system_prompt, is_active, is_default, display_order, variant)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
          RETURNING *`,
         [
           derivedSlug,
@@ -3489,6 +3577,7 @@ app.post("/api/v1/personas/admin/create", async (req: Request, res: Response) =>
           affiliation || null,
           badge,
           avatar_color || "#6366f1",
+          group_name || null,
           parsedSpecialties,
           parsedDomains,
           description || null,
@@ -3557,7 +3646,7 @@ const handleUpdatePersona = async (req: Request, res: Response) => {
   const allowed = [
     "name", "slug", "initials", "role", "affiliation", "badge", "avatar_color",
     "specialties", "domains", "description", "personality",
-    "opener_template", "system_prompt", "is_active", "is_default", "display_order", "variant"
+    "opener_template", "system_prompt", "is_active", "is_default", "display_order", "variant", "group_name"
   ];
 
   const updates: Record<string, any> = {};
