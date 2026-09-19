@@ -504,6 +504,7 @@ export default function App() {
         onUpdateSessionMeta={updateSessionMeta}
         onSaveToNotes={handleSaveToNotes}
         onOpenPaywall={triggerPaywall}
+        onOpenPersonaGroup={handleOpenPersonaGroup}
         onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
         queryUsage={usage}
       />
