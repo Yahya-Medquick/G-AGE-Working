@@ -4094,7 +4094,7 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
     }
 
     // Build domain redirect instruction from persona's group
-    const personaGroupName = persona?.group_name || persona?.badge || null;
+    const personaGroupName = (persona?.group_name && persona.group_name !== 'undefined') ? persona.group_name : (persona?.badge || null);
     const personaDomains = Array.isArray(persona?.domains) ? persona.domains.join(", ") : "";
     const domainRedirectInstruction = personaGroupName ? `
 

@@ -144,6 +144,7 @@ STRICT BEHAVIOR RULES:
     role: "Molecular Biologist & Genomics Researcher",
     affiliation: "Principal Investigator, Broad Institute of MIT and Harvard",
     badge: "Biology & Life Sciences",
+    group_name: "Biology & Life Sciences",
     status: "Active Now",
     avatar_color: "#10b981", // emerald
     specialties: [
@@ -174,6 +175,7 @@ STRICT BEHAVIOR RULES:
     role: "Macroeconomist & Policy Analyst",
     affiliation: "Senior Fellow, Centre for European Policy Studies · Former IMF Consultant",
     badge: "Economics & Finance",
+    group_name: "Economics & Finance",
     status: "Active Now",
     avatar_color: "#3b82f6", // blue
     specialties: [
@@ -301,6 +303,7 @@ export const EXPERTS_PK: Record<string, ExpertPersona> = {
     role: "Conversational Mentor & Academic Companion",
     affiliation: "Bilingual Knowledge Mentor & Concept Guide",
     badge: "General & Bilingual",
+    group_name: "General & Bilingual",
     status: "Active Now",
     avatar_color: "#00a884",
     specialties: [
@@ -339,6 +342,7 @@ STRICT BEHAVIOR RULES:
     role: "Computer Scientist & Technologist",
     affiliation: "Chairman, Punjab Information Technology Board · PhD MIT",
     badge: "Technology & Computing",
+    group_name: "Technology & Computing",
     status: "Active Now",
     avatar_color: "#6366f1",
     specialties: [
@@ -368,6 +372,7 @@ STRICT BEHAVIOR RULES:
     role: "Public Health Expert & Policy Advisor",
     affiliation: "Former Federal Minister of Health · WHO South-East Asia Consultant",
     badge: "Public Health & Policy",
+    group_name: "Public Health & Policy",
     status: "Active Now",
     avatar_color: "#ec4899",
     specialties: [
@@ -397,6 +402,7 @@ STRICT BEHAVIOR RULES:
     role: "Software Engineer & Tech Entrepreneur",
     affiliation: "Co-founder, Airlift Technologies · YC Alumni · ex-Careem",
     badge: "Software Engineering",
+    group_name: "Software Engineering",
     status: "Active Now",
     avatar_color: "#f59e0b",
     specialties: [
@@ -427,6 +433,7 @@ STRICT BEHAVIOR RULES:
     role: "Biotechnologist & STEM Educator",
     affiliation: "Associate Professor, LUMS · Aga Khan University Collaborator",
     badge: "Biology & Life Sciences",
+    group_name: "Biology & Life Sciences",
     status: "Active Now",
     avatar_color: "#10b981",
     specialties: [
@@ -456,6 +463,7 @@ STRICT BEHAVIOR RULES:
     role: "Economist & Central Banker",
     affiliation: "Former Governor, State Bank of Pakistan · Advisor to PM on Institutional Reforms",
     badge: "Economics & Finance",
+    group_name: "Economics & Finance",
     status: "Active Now",
     avatar_color: "#3b82f6",
     specialties: [
@@ -486,6 +494,7 @@ STRICT BEHAVIOR RULES:
     role: "Corporate & Technology Lawyer",
     affiliation: "Partner, Khalid & Associates · Lincoln's Inn · ex-Orr, Dignam & Co",
     badge: "Law & Legal Research",
+    group_name: "Law & Legal Research",
     status: "Active Now",
     avatar_color: "#f43f5e",
     specialties: [
@@ -516,6 +525,7 @@ STRICT BEHAVIOR RULES:
     role: "Data Scientist & AI Practitioner",
     affiliation: "Lead Data Scientist, Jazz Pakistan · Visiting Lecturer, FAST-NUCES",
     badge: "Data Science & AI",
+    group_name: "Data Science & AI",
     status: "Active Now",
     avatar_color: "#8b5cf6",
     specialties: [
@@ -545,6 +555,7 @@ STRICT BEHAVIOR RULES:
     role: "AI Researcher & Philosopher of Technology",
     affiliation: "Assistant Professor, LUMS CS Department · Oxford DPhil",
     badge: "AI Ethics & Research",
+    group_name: "AI Ethics & Research",
     status: "Active Now",
     avatar_color: "#f97316",
     specialties: [
