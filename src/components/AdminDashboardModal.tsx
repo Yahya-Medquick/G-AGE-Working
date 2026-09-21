@@ -813,14 +813,14 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
                 <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                    <span>Background Jobs</span>
+                    <span>Entity Refreshes</span>
                     <Activity className="w-4 h-4 text-emerald-500" />
                   </div>
-                  <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-1">
-                    <CheckCircle2 className="w-4 h-4" /> Interval Active
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">
+                    {stats.entitiesRefreshedCount}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1">
-                    {stats.backgroundJobsStatus.entitiesRefreshed} entity syncs complete
+                    {stats.lastEntityRefreshAt ? `Last refresh: ${new Date(stats.lastEntityRefreshAt).toLocaleString()}` : "No refreshes yet"}
                   </div>
                 </div>
               </div>

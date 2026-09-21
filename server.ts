@@ -323,6 +323,18 @@ async function initDatabaseSchema() {
       );
     `);
 
+    // 16b. Persona Q&A Log (public, no user reference) — for per-persona SEO sitemap pages
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS persona_qa_log (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        persona_slug VARCHAR(100) NOT NULL,
+        question TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await dbPool.query(`CREATE INDEX IF NOT EXISTS idx_persona_qa_slug ON persona_qa_log(persona_slug);`);
+
     // 17. Expert Personas Management Table (Unified Single Source of Truth)
     await dbPool.query(`
       CREATE TABLE IF NOT EXISTS expert_personas (
@@ -4170,6 +4182,18 @@ Only output this marker when the question is clearly outside your domain. Never 
     });
 
     const reply = result.text.trim();
+
+    // Log Q&A for this persona's public sitemap page — no user identifiers stored
+    if (dbPool && persona?.slug) {
+      const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
+      const questionText = (lastUserMsg?.content || "").trim();
+      if (questionText) {
+        dbPool.query(
+          `INSERT INTO persona_qa_log (persona_slug, question, answer) VALUES ($1, $2, $3)`,
+          [persona.slug, questionText.slice(0, 2000), reply.slice(0, 5000)]
+        ).catch((e: any) => console.warn("persona_qa_log insert failed:", e.message));
+      }
+    }
     // Debug: log if marker present
     if (reply.includes('SUGGEST_GROUP') || reply.includes('[[')) {
       console.log('[DOMAIN REDIRECT] Marker found in reply:', reply.slice(-200));
@@ -5209,12 +5233,8 @@ app.get("/api/admin/stats", async (_req: Request, res: Response) => {
     apiCalls: apiCallStats,
     topQueries, // Honest query stats without fake fallback data (Requirement 19)
     dbConnected: !!dbPool,
-    backgroundJobsStatus: {
-      running: true,
-      lastRunAt: backgroundJobLastRun,
-      entitiesRefreshed: backgroundEntitiesRefreshedCount,
-      nextRunSeconds: 120,
-    },
+    entitiesRefreshedCount: backgroundEntitiesRefreshedCount,
+    lastEntityRefreshAt: backgroundJobLastRun,
   });
 });
 
@@ -7063,25 +7083,25 @@ Return valid JSON matching this schema:
 
 // 7. NEWS (News API with intelligent AI topic discovery & pagination support)
 async function handleNewsCategory(topic: string, page: number, limit: number, offset: number = (page - 1) * limit) {
-  const apiKey = process.env.NEWS_API_KEY;
+  const apiKey = process.env.GNEWS_API_KEY;
   if (apiKey) {
     try {
       return await fetchWithRetry(async () => {
-        const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&sortBy=publishedAt&page=${page}&pageSize=${limit}&apiKey=${apiKey}`;
+        const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(topic)}&lang=en&max=${Math.min(limit, 10)}&apikey=${apiKey}`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`News API returned HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`GNews API returned HTTP ${res.status}`);
         const data = await res.json();
         const articles = (data.articles || []).map((art: any, index: number) => ({
           id: `news-${offset + index}-${encodeURIComponent(art.title || topic).slice(0, 20)}`,
           title: art.title || `News regarding ${topic}`,
-          source: art.source?.name || "Global News Outlet",
-          description: art.description || art.content || `Recent developments and updates regarding ${topic}.`,
-          url: art.url || `https://news.google.com/search?q=${encodeURIComponent(topic)}`,
-          imageUrl: art.urlToImage || "https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=600&auto=format&fit=crop&q=80",
+          source: art.source?.name || "News Source",
+          description: art.description || art.content || "",
+          url: art.url,
+          imageUrl: art.image || "",
           publishedAt: art.publishedAt || new Date().toISOString(),
-          author: art.author || "Journalism Press Desk",
+          author: art.source?.name || "Editorial Desk",
         }));
-        const totalResults = typeof data.totalResults === "number" ? data.totalResults : 100;
+        const totalResults = typeof data.totalArticles === "number" ? data.totalArticles : articles.length;
         const hasMore = (offset + articles.length) < totalResults && articles.length >= limit;
         return {
           topic,
@@ -7093,206 +7113,19 @@ async function handleNewsCategory(topic: string, page: number, limit: number, of
         };
       });
     } catch (err) {
-      console.warn("News API call failed, using intelligent AI fallback:", err);
+      console.warn("GNews API call failed:", err);
     }
   }
 
-  // AI-Powered Real/Authoritative News Synthesis for Topic
-  try {
-    const aiPrompt = `Generate 18 distinct, realistic, high-impact news headlines, breakthroughs, industrial announcements, and scientific developments regarding the topic: "${topic}".
-Each article should cite reputable scientific, tech, or educational publications (e.g. Nature World News, MIT Technology Review, ScienceDaily, IEEE Spectrum, Phys.org, Quanta Magazine, Ars Technica, Reuters Tech, BBC Science).
-Return valid JSON matching this schema:
-{
-  "articles": [
-    {
-      "title": "Compelling, realistic headline about ${topic}",
-      "source": "Publication name",
-      "description": "2-3 sentences explaining the breakthrough, research study, or industry milestone.",
-      "publishedAt": "ISO date string or relative date e.g. 2 days ago",
-      "author": "Journalist or Research Desk name"
-    }
-  ]
-}`;
-
-    const aiRes = await callGeminiWithFallback({
-      contents: aiPrompt,
-      responseMimeType: "application/json",
-    });
-
-    if (aiRes && aiRes.text) {
-      const parsed = JSON.parse(aiRes.text);
-      if (Array.isArray(parsed.articles) && parsed.articles.length > 0) {
-        const newsThumbnails = [
-          "https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=600&auto=format&fit=crop&q=80",
-          "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80",
-          "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80",
-          "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600&auto=format&fit=crop&q=80",
-          "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80",
-          "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=600&auto=format&fit=crop&q=80",
-        ];
-
-        const allArticles = parsed.articles.map((art: any, index: number) => ({
-          id: `ai-news-${index}-${encodeURIComponent(topic).slice(0, 15)}`,
-          title: art.title || `Developments in ${topic}`,
-          source: art.source || "Global Science Journal",
-          description: art.description || `Recent experimental and technological breakthroughs in ${topic}.`,
-          url: `https://news.google.com/search?q=${encodeURIComponent(art.title || topic)}`,
-          imageUrl: newsThumbnails[index % newsThumbnails.length],
-          publishedAt: art.publishedAt || new Date(Date.now() - (index + 1) * 3600 * 1000 * 14).toISOString(),
-          author: art.author || "Editorial Science Desk",
-        }));
-
-        const sliced = allArticles.slice(offset, offset + limit);
-        const hasMore = (offset + limit) < allArticles.length;
-
-        return {
-          topic,
-          category: "news",
-          items: sliced,
-          pagination: { page, limit, offset, hasMore, total: allArticles.length },
-          cached: false,
-          timestamp: Date.now(),
-        };
-      }
-    }
-  } catch (aiErr) {
-    console.warn("AI news synthesis fallback:", aiErr);
-  }
-
-  // Topic-tailored rich fallback articles array (18 articles so multiple pages can be loaded smoothly)
-  const allFallbackArticles = [
-    {
-      id: "news-fb-1",
-      title: `Breakthrough Scientific Discovery Expands Understanding of ${topic}`,
-      source: "Nature World News",
-      description: `International research teams announce new experimental findings that refine established models of ${topic}.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " breakthrough")}`,
-      imageUrl: "https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 6).toISOString(),
-      author: "Scientific Press Desk",
-    },
-    {
-      id: "news-fb-2",
-      title: `Next-Generation Industrial Applications of ${topic} Announced`,
-      source: "Technology Review",
-      description: `Engineers and software architects leverage modern frameworks in ${topic} to accelerate high-throughput systems.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " technology industry")}`,
-      imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 18).toISOString(),
-      author: "Tech Insights Team",
-    },
-    {
-      id: "news-fb-3",
-      title: `Global Academic Consortium Publishes Comprehensive Dataset for ${topic}`,
-      source: "Open Science Journal",
-      description: `Over 100,000 empirical data points covering ${topic} are now freely available to global open-source researchers.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " open dataset")}`,
-      imageUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 32).toISOString(),
-      author: "Data Science Bureau",
-    },
-    {
-      id: "news-fb-4",
-      title: `Novel Computational Frameworks Benchmark High Performance in ${topic}`,
-      source: "IEEE Spectrum",
-      description: `Engineers validate standard test suites and algorithmic architectures achieving landmark efficiency gains in ${topic}.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " computational framework")}`,
-      imageUrl: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 48).toISOString(),
-      author: "Engineering Editor",
-    },
-    {
-      id: "news-fb-5",
-      title: `Annual Summit Highlights Key Theoretical Shifts in ${topic}`,
-      source: "Quanta Magazine",
-      description: `Leading physicists, mathematicians, and domain specialists convene to evaluate prospective paradigms for ${topic}.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " annual summit research")}`,
-      imageUrl: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 60).toISOString(),
-      author: "Theoretical Review",
-    },
-    {
-      id: "news-fb-6",
-      title: `University Research Laboratories Awarded Grant for ${topic} Investigation`,
-      source: "ScienceDaily",
-      description: `A multi-institutional grant enables cutting-edge experimental verification and graduate research fellowships in ${topic}.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " university research grant")}`,
-      imageUrl: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 75).toISOString(),
-      author: "Academic Newsroom",
-    },
-    {
-      id: "news-fb-7",
-      title: `Standardization Protocols for ${topic} Adopted by International Committee`,
-      source: "Global Standards Institute",
-      description: `New interoperability definitions and benchmark safety guidelines establish uniform industry practices for ${topic}.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " international standards")}`,
-      imageUrl: "https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 90).toISOString(),
-      author: "Regulatory Review",
-    },
-    {
-      id: "news-fb-8",
-      title: `Cross-Disciplinary Study Reveals Surprising Synergies with ${topic}`,
-      source: "Frontiers in Science",
-      description: `Collaborative research bridges computational science, biology, and applied physics using ${topic} models.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " multidisciplinary study")}`,
-      imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 110).toISOString(),
-      author: "Frontiers Editorial",
-    },
-    {
-      id: "news-fb-9",
-      title: `Open Educational Resources for ${topic} Expand Across Global Universities`,
-      source: "Academic Press Wire",
-      description: `Free curriculum modules, interactive simulators, and syllabi covering ${topic} released for educators worldwide.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " curriculum course")}`,
-      imageUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 130).toISOString(),
-      author: "Education Bureau",
-    },
-    {
-      id: "news-fb-10",
-      title: `Emerging Technology Showcase Demonstrates Rapid Maturation of ${topic}`,
-      source: "Tech Innovation Dispatch",
-      description: `Live demonstrations showcase enterprise-ready solutions built on theoretical foundations of ${topic}.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " innovation showcase")}`,
-      imageUrl: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 150).toISOString(),
-      author: "Tech Innovations",
-    },
-    {
-      id: "news-fb-11",
-      title: `Field Trials Validate Environmental Resilience of Systems Powered by ${topic}`,
-      source: "Applied Sciences Review",
-      description: `Comprehensive multi-climate test cycles indicate high reliability and fault tolerance in ${topic} hardware.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " applied science trials")}`,
-      imageUrl: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 170).toISOString(),
-      author: "Field Operations Desk",
-    },
-    {
-      id: "news-fb-12",
-      title: `Decade in Review: How ${topic} Transformed Modern Scientific Methodology`,
-      source: "Science & Society Retrospective",
-      description: `Historians of science and senior researchers evaluate the pivotal moments shaping modern mastery of ${topic}.`,
-      url: `https://news.google.com/search?q=${encodeURIComponent(topic + " history progress review")}`,
-      imageUrl: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=600&auto=format&fit=crop&q=80",
-      publishedAt: new Date(Date.now() - 3600 * 1000 * 200).toISOString(),
-      author: "Science Heritage Desk",
-    },
-  ];
-
-  const sliced = allFallbackArticles.slice(offset, offset + limit);
-  const hasMore = (offset + limit) < allFallbackArticles.length;
-
+  // Honest empty state — no fabricated articles, no fake attribution to real outlets
   return {
     topic,
     category: "news",
-    items: sliced,
-    pagination: { page, limit, offset, hasMore, total: allFallbackArticles.length },
+    items: [],
+    pagination: { page, limit, offset, hasMore: false, total: 0 },
     cached: false,
     timestamp: Date.now(),
+    notice: apiKey ? "No news articles found for this topic." : "News service is not configured.",
   };
 }
 
@@ -7893,6 +7726,44 @@ Sitemap: ${domain.includes("gageai.org") ? "https://gageai.org/sitemap.xml" : `$
 `);
 });
 
+// Public per-persona Q&A page — no user identifiers, built from persona_qa_log
+function escapeHtmlForPersonaPage(s: string) {
+  return String(s || "").replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string
+  ));
+}
+
+app.get("/persona/:slug", async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  let qas: { question: string; answer: string; created_at: string }[] = [];
+  if (dbPool) {
+    try {
+      const r = await dbPool.query(
+        "SELECT question, answer, created_at FROM persona_qa_log WHERE persona_slug = $1 ORDER BY created_at DESC LIMIT 200",
+        [slug]
+      );
+      qas = r.rows;
+    } catch (e) {
+      console.warn("Error loading persona_qa_log for", slug, e);
+    }
+  }
+  const itemsHtml = qas.map((qa) => `
+    <article>
+      <h2>${escapeHtmlForPersonaPage(qa.question)}</h2>
+      <p>${escapeHtmlForPersonaPage(qa.answer)}</p>
+    </article>
+  `).join("");
+  res.header("Content-Type", "text/html");
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>${escapeHtmlForPersonaPage(slug)} — Q&A | G-AGE AI</title></head>
+<body>
+  <h1>Questions answered by ${escapeHtmlForPersonaPage(slug)}</h1>
+  ${itemsHtml || "<p>No questions recorded yet.</p>"}
+</body>
+</html>`);
+});
+
 app.get("/sitemap.xml", async (req: Request, res: Response) => {
   // Fetch all topic slugs saved in your database (mapped from searched_pages in PostgreSQL)
   let topics: { slug: string; updated_at: string }[] = [];
@@ -7915,6 +7786,22 @@ app.get("/sitemap.xml", async (req: Request, res: Response) => {
       console.warn("Error building sitemap from searched_pages:", e);
     }
   }
+
+  // Persona Q&A pages
+  let personaSlugs: { slug: string; updated_at: string }[] = [];
+  if (dbPool) {
+    try {
+      const personaRes = await dbPool.query(
+        "SELECT persona_slug AS slug, MAX(created_at) AS updated_at FROM persona_qa_log GROUP BY persona_slug"
+      );
+      personaSlugs = personaRes.rows.map((r: any) => ({
+        slug: r.slug,
+        updated_at: new Date(r.updated_at || Date.now()).toISOString(),
+      }));
+    } catch (e) {
+      console.warn("Error building sitemap from persona_qa_log:", e);
+    }
+  }
   
   const domain = "https://gageai.org";
   
@@ -7927,6 +7814,15 @@ app.get("/sitemap.xml", async (req: Request, res: Response) => {
     </url>
   `).join("");
 
+  const personaUrlsXml = personaSlugs.map(p => `
+    <url>
+      <loc>${domain}/persona/${p.slug}</loc>
+      <lastmod>${p.updated_at.split('T')[0]}</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.7</priority>
+    </url>
+  `).join("");
+
   const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
   <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
@@ -7935,6 +7831,7 @@ app.get("/sitemap.xml", async (req: Request, res: Response) => {
       <priority>1.0</priority>
     </url>
     ${urlsXml}
+    ${personaUrlsXml}
   </urlset>`;
 
   res.header("Content-Type", "application/xml");
