@@ -3971,7 +3971,7 @@ app.post("/api/counsel", counselRateLimiter, async (req: Request, res: Response)
     const user = getCurrentUser(req);
     if (user) {
       const updatedMessages = [...messages, { role: "assistant", content: reply }];
-      const resolvedPersonaId = persona?.slug || persona?.id || personaId || "expert";
+      const resolvedPersonaId = persona?.id || personaId || persona?.slug || "expert";
       if (dbPool) {
         try {
           const sessionRes = await dbPool.query(
@@ -3989,8 +3989,8 @@ app.post("/api/counsel", counselRateLimiter, async (req: Request, res: Response)
               [user.id, resolvedPersonaId, JSON.stringify(updatedMessages)]
             );
           }
-        } catch (dbErr) {
-          // UUID type or DB table insert fallback
+        } catch (dbErr: any) {
+          console.error("Session save error:", dbErr.message);
         }
       } else {
         const sessionIdx = inMemoryCounselingSessions.findIndex(s => s.user_id === user.id && s.persona_id === resolvedPersonaId);
