@@ -24,6 +24,7 @@ PORT=3000
 APP_URL="https://gageai.org"
 GEMINI_API_KEY="your-gemini-api-key"
 ADMIN_TOKEN="your-custom-secure-admin-token"
+JWT_SECRET="your-long-random-jwt-signing-secret"
 OPENALEX_MAILTO="admin@your-domain.com"
 GITHUB_TOKEN="your-github-personal-access-token"
 YOUTUBE_API_KEY="your-google-youtube-api-key"
@@ -78,6 +79,7 @@ In the **Variables** tab of your Railway service, add the following parameters:
 - `APP_URL`: `https://bifrostai.up.railway.app`
 - `GEMINI_API_KEY`: *(Your Google Gemini API Key)*
 - `ADMIN_TOKEN`: *(A custom secure password string for your Admin panel)*
+- `JWT_SECRET`: *(A long, random secret used to sign user session tokens)*
 
 ### Step 4: Verify Deployment
 Railway will automatically detect the root `Dockerfile`, build the multi-stage image, and expose the domain at `bifrostai.up.railway.app`. Verify that:
@@ -101,6 +103,7 @@ docker run -d \
   -e NODE_ENV=production \
   -e GEMINI_API_KEY="your-gemini-key" \
   -e ADMIN_TOKEN="your-admin-token" \
+  -e JWT_SECRET="your-jwt-signing-secret" \
   gage-ai:latest
 ```
 
