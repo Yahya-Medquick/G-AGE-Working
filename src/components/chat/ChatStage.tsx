@@ -425,7 +425,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [activeLevelTabs, setActiveLevelTabs] = useState<Record<string, 'eli5' | 'highSchool' | 'undergrad' | 'phd'>>({});
   const [expandedExploreMsgIds, setExpandedExploreMsgIds] = useState<Record<string, boolean>>({});
   const [activeExploreMsgId, setActiveExploreMsgId] = useState<string | null>(null);
-  const [activeExploreTab, setActiveExploreTab] = useState<'videos' | 'news' | 'mcqs' | null>(null);
+  const [activeExploreTab, setActiveExploreTab] = useState<'videos' | 'news' | 'mcqs' | 'papers' | 'repos' | 'research-news' | null>(null);
   const [extractedTopics, setExtractedTopics] = useState<
     Record<
       string,
@@ -678,7 +678,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     });
   };
 
-  const handleToggleExploreTab = (msgId: string, tab: 'videos' | 'news' | 'mcqs') => {
+  const handleToggleExploreTab = (
+    msgId: string,
+    tab: 'videos' | 'news' | 'mcqs' | 'papers' | 'repos' | 'research-news'
+  ) => {
     if (activeExploreMsgId === msgId && activeExploreTab === tab) {
       setActiveExploreMsgId(null);
       setActiveExploreTab(null);

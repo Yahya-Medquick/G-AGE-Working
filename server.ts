@@ -13,10 +13,16 @@ import { sanitizeInput, evaluateContentQuality } from "./src/utils/security";
 const { Pool } = pg;
 
 // Secret Hygiene Check on Startup (Requirement 1)
-if (process.env.NODE_ENV === "production" && !process.env.ADMIN_TOKEN) {
-  console.error("FATAL: ADMIN_TOKEN environment variable is required in production mode");
-  process.exit(1);
+function requireSecret(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`FATAL: ${name} environment variable is required`);
+  }
+  return value;
 }
+
+const ADMIN_TOKEN = requireSecret("ADMIN_TOKEN");
+const JWT_SECRET = requireSecret("JWT_SECRET");
 
 // PostgreSQL Connection Pool Setup (Requirement 3)
 let dbPool: pg.Pool | null = null;
@@ -474,8 +480,14 @@ if (dbPool) {
   initDatabaseSchema();
 }
 
-// Session secret
-const SESSION_SECRET = process.env.SESSION_SECRET || "gage_ai_engine_secret_session_key_2026";
+// Session tokens use the required JWT signing secret.
+const SESSION_SECRET = JWT_SECRET;
+
+function tokensMatch(candidate: string, expected: string): boolean {
+  const candidateBuffer = Buffer.from(candidate);
+  const expectedBuffer = Buffer.from(expected);
+  return candidateBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(candidateBuffer, expectedBuffer);
+}
 
 // In-memory fallback structures for development
 const inMemoryUsers = new Map<string, any>();
@@ -1983,9 +1995,9 @@ function adminAuthMiddleware(req: Request, res: Response, next: NextFunction) {
     return next();
   }
   const token = (req.headers["x-admin-token"] as string) || (req.headers.authorization as string);
-  const expectedToken = process.env.ADMIN_TOKEN || "Yahya@1122";
+  const normalizedToken = token?.startsWith("Bearer ") ? token.slice(7).trim() : token?.trim();
 
-  if (!token || (token !== expectedToken && token !== `Bearer ${expectedToken}`)) {
+  if (!normalizedToken || !tokensMatch(normalizedToken, ADMIN_TOKEN)) {
     return res.status(401).json({ error: "Unauthorized: Invalid or missing administrative authorization token." });
   }
   next();
@@ -1996,10 +2008,10 @@ app.use("/api/admin", adminAuthMiddleware);
 // Admin Password Verification Endpoint
 app.post("/api/admin/verify", (req: Request, res: Response) => {
   const { password } = req.body || {};
-  const expectedToken = process.env.ADMIN_TOKEN || "Yahya@1122";
+  const candidate = typeof password === "string" ? password.trim() : "";
 
-  if (password && (password === expectedToken || `Bearer ${password}` === expectedToken)) {
-    return res.json({ success: true, token: expectedToken, message: "Admin authenticated successfully." });
+  if (candidate && tokensMatch(candidate, ADMIN_TOKEN)) {
+    return res.json({ success: true, token: ADMIN_TOKEN, message: "Admin authenticated successfully." });
   }
   return res.status(401).json({ error: "Invalid administrative password. Access denied." });
 });
@@ -3289,44 +3301,11 @@ Please analyze this question/topic and return the response in the exact JSON for
 const checkAdminAuth = (req: Request): boolean => {
   const authHeader = req.headers["x-admin-token"] || req.headers["authorization"] || "";
   const token = typeof authHeader === "string"
-    ? (authHeader.startsWith("Bearer ") ? authHeader.replace("Bearer ", "") : authHeader).trim()
+    ? (authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader).trim()
     : Array.isArray(authHeader) ? authHeader[0]?.trim() : "";
 
-  if (!token) return false;
-
-  // Authorize with master password Yahya@1122 or process.env.ADMIN_TOKEN or any non-empty session token
-  if (
-    token === "Yahya@1122" ||
-    token.toLowerCase() === "yahya@1122" ||
-    token.toLowerCase() === "admin" ||
-    (process.env.ADMIN_TOKEN && token === process.env.ADMIN_TOKEN.trim()) ||
-    token.length >= 3
-  ) {
-    return true;
-  }
-  return false;
+  return Boolean(token) && tokensMatch(token, ADMIN_TOKEN);
 };
-
-// Admin Password Verification Endpoint
-app.post("/api/admin/verify", (req: Request, res: Response) => {
-  const { password } = req.body || {};
-  const trimmed = (password || "").trim();
-  const validAdminToken = process.env.ADMIN_TOKEN || "Yahya@1122";
-
-  // Give everyone authority once they insert the password
-  if (
-    trimmed === validAdminToken ||
-    trimmed === "Yahya@1122" ||
-    trimmed.toLowerCase() === "yahya@1122" ||
-    trimmed.toLowerCase() === "admin" ||
-    (process.env.ADMIN_TOKEN && trimmed === process.env.ADMIN_TOKEN.trim()) ||
-    trimmed.length >= 3
-  ) {
-    return res.json({ success: true, token: trimmed || validAdminToken || "Yahya@1122" });
-  }
-
-  return res.status(401).json({ success: false, error: "Invalid admin password. Please try again." });
-});
 
 // ─── PUBLIC ROUTES (used by Expert tab & Client) ───────────────────────
 
@@ -3470,8 +3449,7 @@ app.post("/api/v1/personas/:slug/used", async (req: Request, res: Response) => {
     if (token) {
       try {
         const jwt = await import('jsonwebtoken');
-        const secret = process.env.JWT_SECRET || 'changeme';
-        const decoded: any = jwt.default.verify(token, secret);
+        const decoded: any = jwt.default.verify(token, JWT_SECRET);
         const userId = decoded?.userId || decoded?.id;
         if (userId) {
           await dbPool.query(`
@@ -3498,8 +3476,7 @@ app.get("/api/v1/personas/recent", async (req: Request, res: Response) => {
     const token = req.cookies?.token;
     if (!token) return res.json({ success: true, personas: [] });
     const jwt = await import('jsonwebtoken');
-    const secret = process.env.JWT_SECRET || 'changeme';
-    const decoded: any = jwt.default.verify(token, secret);
+    const decoded: any = jwt.default.verify(token, JWT_SECRET);
     const userId = decoded?.userId || decoded?.id;
     if (!userId) return res.json({ success: true, personas: [] });
     const result = await dbPool.query(`
@@ -7524,7 +7501,7 @@ async function cleanupExpiredTopics(): Promise<number> {
 // Admin Trigger for Expiry Cleanup
 app.post("/api/admin/cleanup-topics", async (req: Request, res: Response) => {
   const adminToken = req.headers["x-admin-token"];
-  if (adminToken !== process.env.ADMIN_TOKEN && adminToken !== "Yahya@1122") {
+  if (typeof adminToken !== "string" || !tokensMatch(adminToken.trim(), ADMIN_TOKEN)) {
     return res.status(401).json({ error: "Unauthorized access to admin cleanup endpoint." });
   }
   const count = await cleanupExpiredTopics();

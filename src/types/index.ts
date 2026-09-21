@@ -385,6 +385,7 @@ export interface Persona {
 export interface ExpertPersona {
   id: string;
   slug?: string;
+  group_name?: string;
   name: string;
   initials: string;
   role: string;

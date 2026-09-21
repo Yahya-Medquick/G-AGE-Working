@@ -483,7 +483,6 @@ export default function App() {
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenLogin={() => setIsLoginOpen(true)}
         onOpenPaywall={triggerPaywall}
-        onOpenPersonaGroup={handleOpenPersonaGroup}
         onOpenDownload={handleOpenDownload}
         queryUsage={usage}
         theme={theme}

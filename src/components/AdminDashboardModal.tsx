@@ -817,10 +817,10 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     <Activity className="w-4 h-4 text-emerald-500" />
                   </div>
                   <div className="text-2xl font-black text-slate-900 dark:text-white">
-                    {stats.entitiesRefreshedCount}
+                    {stats.backgroundJobsStatus.entitiesRefreshed}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1">
-                    {stats.lastEntityRefreshAt ? `Last refresh: ${new Date(stats.lastEntityRefreshAt).toLocaleString()}` : "No refreshes yet"}
+                    {stats.backgroundJobsStatus.lastRunAt ? `Last refresh: ${new Date(stats.backgroundJobsStatus.lastRunAt).toLocaleString()}` : "No refreshes yet"}
                   </div>
                 </div>
               </div>
