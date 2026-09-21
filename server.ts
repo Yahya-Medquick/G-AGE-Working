@@ -4064,6 +4064,10 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
 - Avoid overly lengthy essays, repetitive pleasantries, or verbose filler unless the user explicitly requests an in-depth or detailed explanation (e.g. "explain in detail", "comprehensive breakdown", "elaborate", "long question").
 - Get straight to the key insight and deliver high-density academic precision.`;
 
+    // Build domain redirect instruction from persona's group
+    const personaGroupName = (persona?.group_name && persona.group_name !== 'undefined') ? persona.group_name : (persona?.badge || null);
+    const personaDomains = Array.isArray(persona?.domains) ? persona.domains.join(", ") : "";
+
     // Mode-specific instructions
     let modeInstruction = "";
     if (mode === "concept") {
@@ -4107,10 +4111,6 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
 - Include GitHub / Codebases: ${includeCode ? "YES" : "NO"}
 - Instructions: Synthesize state-of-the-art literature concisely, citing seminal papers with authors and publication years. Compare key frameworks and open problems directly without filler.`;
     }
-
-    // Build domain redirect instruction from persona's group
-    const personaGroupName = (persona?.group_name && persona.group_name !== 'undefined') ? persona.group_name : (persona?.badge || null);
-    const personaDomains = Array.isArray(persona?.domains) ? persona.domains.join(", ") : "";
 
     // Fetch all available groups dynamically
     let availableGroups: string[] = [];
