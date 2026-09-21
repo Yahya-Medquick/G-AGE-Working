@@ -8,6 +8,7 @@ export interface ConceptSpecs {
 
 export interface ExamSpecs {
   targetExam?: string;
+  subject?: string;
   questionNature?: 'long' | 'short' | 'mcq' | string;
   className?: string;
   difficulty?: 'standard' | 'challenging' | 'olympiad' | string;

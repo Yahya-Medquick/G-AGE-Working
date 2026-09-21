@@ -4059,9 +4059,11 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       modeInstruction = `
 [MODE: CONCEPT EXPLANATION]
 - Target Depth: ${level.toUpperCase()}
+- Domain Constraint: Answer ONLY within your persona's domain (${personaDomains || 'your defined expertise'}). If the question falls outside, acknowledge it briefly and still try to help.
 - Instructions: Provide intuitive analogies, clear mental models, and key mathematical derivations where appropriate (formatted in LaTeX using $$ for block and $ for inline). Clarify misconceptions concisely without unnecessary filler.`;
     } else if (mode === "exam") {
       const targetBoardOrUni = specs.exam?.targetExam || "Target Board / University Syllabus";
+      const subjectFilter = specs.exam?.subject || "";
       const questionNature = specs.exam?.questionNature || "short";
       const className = specs.exam?.className || "General Grade Level";
       
@@ -4077,6 +4079,7 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       modeInstruction = `
 [MODE: EXAM MASTERY & PAST PAPERS]
 - Target Board / University: ${targetBoardOrUni}
+- Subject: ${subjectFilter || "As per persona domain"}
 - Class / Grade Level: ${className}
 - Question Nature: ${questionNature.toUpperCase()} (${questionNature === 'mcq' ? 'MCQs' : questionNature === 'short' ? 'Short Question' : 'Long Question'})
 - Format Directive: ${naturePrompt}
@@ -4096,6 +4099,19 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
     // Build domain redirect instruction from persona's group
     const personaGroupName = (persona?.group_name && persona.group_name !== 'undefined') ? persona.group_name : (persona?.badge || null);
     const personaDomains = Array.isArray(persona?.domains) ? persona.domains.join(", ") : "";
+
+    // Fetch all available groups dynamically
+    let availableGroups: string[] = [];
+    try {
+      if (dbPool) {
+        const groupResult = await dbPool.query(
+          `SELECT DISTINCT COALESCE(NULLIF(group_name,''), badge) as grp FROM expert_personas WHERE is_active = true AND (group_name IS NOT NULL OR badge IS NOT NULL) ORDER BY grp`
+        );
+        availableGroups = groupResult.rows.map((r: any) => r.grp).filter(Boolean);
+      }
+    } catch (_) {}
+    const groupListStr = availableGroups.length > 0 ? availableGroups.map(g => `- ${g}`).join('\n') : '- General & Bilingual\n- Biology & Life Sciences\n- Economics & Finance\n- Software Engineering\n- Law & Legal Research\n- Data Science & AI';
+
     const domainRedirectInstruction = personaGroupName ? `
 
 [DOMAIN BOUNDARY DIRECTIVE]
@@ -4105,7 +4121,9 @@ If the user asks something clearly outside your domain (e.g. a Law expert asked 
 2. Still provide a short helpful answer if you can.
 3. At the very end of your response, on its own line, output EXACTLY this marker (nothing else on that line):
 [[SUGGEST_GROUP:THE_BEST_MATCHING_GROUP]]
-Replace THE_BEST_MATCHING_GROUP with the most relevant subject group name from your knowledge (e.g. Physics & Quantum, Biology & Life Sciences, Software Engineering, Data Science & AI, Economics & Finance, Law & Legal Research, AI Safety & Ethics).
+Replace THE_BEST_MATCHING_GROUP with the single most relevant group from this exact list only:
+\${groupListStr}
+Pick the closest match from this list only. Never invent a group name not in this list.
 Only output this marker when the question is clearly outside your domain. Never output it for questions within your domain.` : "";
 
     const fullSystemInstruction = `${baseSystemPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.`;
