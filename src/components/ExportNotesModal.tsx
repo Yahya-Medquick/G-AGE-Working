@@ -62,10 +62,14 @@ export const ExportNotesModal: React.FC<Props> = ({
       return { question: null, answer: note.content };
     }
     if (mode === 'qa') {
-      return { question: question || `What does "${note.title}" explain?`, answer: note.content };
+      const t2 = note.title?.trim() || 'this concept';
+      let fallbackQ2 = t2.endsWith('?') ? t2 : `What is ${t2}?`;
+      return { question: question || fallbackQ2, answer: note.content };
     }
     // exam mode
-    return { question: question || `What does "${note.title}" explain?`, answer: note.content };
+    const t = note.title?.trim() || 'this concept';
+    let fallbackQ = t.endsWith('?') ? t : `What is ${t}?`;
+    return { question: question || fallbackQ, answer: note.content };
   };
 
   // Strip markdown for PDF
