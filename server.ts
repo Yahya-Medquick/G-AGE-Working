@@ -970,6 +970,8 @@ async function fetchWithRetry<T>(
 }
 
 const app = express();
+// Railway sits behind one trusted proxy; this makes Express derive req.ip from the client address safely.
+app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT) || 3000;
 
 const GUEST_DEVICE_COOKIE = "guest_device_id";
