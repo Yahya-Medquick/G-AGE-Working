@@ -8,6 +8,8 @@ import pg from "pg";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { sanitizeInput, evaluateContentQuality } from "./src/utils/security";
 
 const { Pool } = pg;
@@ -23,6 +25,16 @@ function requireSecret(name: string): string {
 
 const ADMIN_TOKEN = requireSecret("ADMIN_TOKEN");
 const JWT_SECRET = requireSecret("JWT_SECRET");
+const firebaseAdminApp = getApps().length > 0
+  ? getApps()[0]
+  : initializeApp({
+      credential: cert({
+        projectId: requireSecret("FIREBASE_PROJECT_ID"),
+        clientEmail: requireSecret("FIREBASE_CLIENT_EMAIL"),
+        privateKey: requireSecret("FIREBASE_PRIVATE_KEY").replace(/\\n/g, "\n"),
+      }),
+    });
+const firebaseAdminAuth = getAuth(firebaseAdminApp);
 
 // PostgreSQL Connection Pool Setup (Requirement 3)
 let dbPool: pg.Pool | null = null;
@@ -2502,17 +2514,31 @@ app.get("/api/entities/trending", (_req: Request, res: Response) => {
 // ─── Google Sign-In Endpoint ──────────────────────────────────────────────────
 app.post("/api/auth/google", async (req: Request, res: Response) => {
   try {
-    const { idToken, email, name, avatar, googleId, deviceId } = req.body || {};
+    const { idToken, deviceId } = req.body || {};
 
-    if (!idToken || !googleId || !email) {
+    if (!idToken || typeof idToken !== "string") {
       return res.status(400).json({ error: "Missing Google auth credentials." });
     }
 
+    let verifiedToken;
+    try {
+      verifiedToken = await firebaseAdminAuth.verifyIdToken(idToken);
+    } catch (_err) {
+      return res.status(401).json({ error: "Invalid Google auth token." });
+    }
+
+    const verifiedGoogleId = verifiedToken.uid;
+    const cleanEmail = (verifiedToken.email || "").trim().toLowerCase();
+    if (!cleanEmail || verifiedToken.email_verified === false) {
+      return res.status(401).json({ error: "Verified Google email is required." });
+    }
+
+    const verifiedName = verifiedToken.name || "";
+    const verifiedAvatar = verifiedToken.picture || "";
     const cleanDeviceId = (deviceId || req.headers["x-device-id"] || "google-device").toString();
-    const cleanEmail = email.trim().toLowerCase();
 
     // Generate a username from email or name
-    const baseUsername = (name || email.split("@")[0])
+    const baseUsername = (verifiedName || cleanEmail.split("@")[0])
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, "_")
       .slice(0, 28);
@@ -2523,7 +2549,7 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
       // Check if user exists by googleId or email
       const existing = await dbPool.query(
         "SELECT * FROM users WHERE google_id = $1 OR email = $2 LIMIT 1",
-        [googleId, cleanEmail]
+        [verifiedGoogleId, cleanEmail]
       );
 
       if (existing.rows.length > 0) {
@@ -2531,9 +2557,9 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
         user = existing.rows[0];
         await dbPool.query(
           "UPDATE users SET google_id = $1, avatar_url = COALESCE(NULLIF($2,''), avatar_url), last_active_at = NOW() WHERE id = $3",
-          [googleId, avatar, user.id]
+          [verifiedGoogleId, verifiedAvatar, user.id]
         );
-        user.avatar_url = avatar || user.avatar_url;
+        user.avatar_url = verifiedAvatar || user.avatar_url;
       } else {
         // New user — create account
         const userId = `usr-${crypto.randomUUID()}`;
@@ -2550,20 +2576,20 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
           finalUsername = `${baseUsername}_${suffix++}`;
         }
 
-        const avatarUrl = avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(finalUsername)}`;
+        const avatarUrl = verifiedAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(finalUsername)}`;
 
         await dbPool.query(
           `INSERT INTO users (id, username, name, email, google_id, avatar_url, tier, has_seen_onboarding, trusted_devices, created_at, last_active_at, preferred_mode)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10)`,
-          [userId, finalUsername, name || finalUsername, cleanEmail, googleId, avatarUrl, "free", false, [cleanDeviceId], "research"]
+          [userId, finalUsername, verifiedName || finalUsername, cleanEmail, verifiedGoogleId, avatarUrl, "free", false, [cleanDeviceId], "research"]
         );
 
         user = {
           id: userId,
           username: finalUsername,
-          name: name || finalUsername,
+          name: verifiedName || finalUsername,
           email: cleanEmail,
-          google_id: googleId,
+          google_id: verifiedGoogleId,
           avatar_url: avatarUrl,
           tier: "free",
           has_seen_onboarding: false,
@@ -2573,20 +2599,20 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
     } else {
       // In-memory fallback
       for (const u of inMemoryUsers.values()) {
-        if (u.google_id === googleId || u.email === cleanEmail) {
+        if (u.google_id === verifiedGoogleId || u.email === cleanEmail) {
           user = u;
           break;
         }
       }
       if (!user) {
         const userId = `usr-${crypto.randomUUID()}`;
-        const avatarUrl = avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(baseUsername)}`;
+        const avatarUrl = verifiedAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(baseUsername)}`;
         user = {
           id: userId,
           username: baseUsername,
-          name: name || baseUsername,
+          name: verifiedName || baseUsername,
           email: cleanEmail,
-          google_id: googleId,
+          google_id: verifiedGoogleId,
           avatar_url: avatarUrl,
           tier: "free",
           has_seen_onboarding: false,
