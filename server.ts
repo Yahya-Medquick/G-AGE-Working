@@ -501,6 +501,15 @@ function tokensMatch(candidate: string, expected: string): boolean {
   return candidateBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(candidateBuffer, expectedBuffer);
 }
 
+function isValidAdminSession(token: string): boolean {
+  try {
+    const decoded = jwt.verify(token, SESSION_SECRET, { algorithms: ["HS256"] }) as jwt.JwtPayload;
+    return decoded.scope === "admin";
+  } catch (_) {
+    return false;
+  }
+}
+
 // In-memory fallback structures for development
 const inMemoryUsers = new Map<string, any>();
 const inMemoryTabUsage = new Map<string, { count: number; date: string }>();
@@ -859,16 +868,33 @@ function getCurrentUser(req: Request): any | null {
   try {
     const token = req.cookies?.session_token || req.headers.authorization?.replace("Bearer ", "");
     if (!token) return null;
-    const decoded: any = jwt.verify(token, SESSION_SECRET);
+    const decoded: any = jwt.verify(token, SESSION_SECRET, { algorithms: ["HS256"] });
     return decoded;
   } catch (err) {
     return null;
   }
 }
 
-// JWT Authentication Middleware
-const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+async function getCurrentUserWithFreshState(req: Request): Promise<any | null> {
   const user = getCurrentUser(req);
+  if (!user?.id) return user;
+
+  if (dbPool) {
+    try {
+      const result = await dbPool.query("SELECT id, tier FROM users WHERE id = $1", [user.id]);
+      if (result.rows.length === 0) return null;
+      user.tier = result.rows[0].tier || "free";
+    } catch (_) {}
+  } else {
+    const storedUser = inMemoryUsers.get(user.id);
+    if (storedUser) user.tier = storedUser.tier || "free";
+  }
+  return user;
+}
+
+// JWT Authentication Middleware
+const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
+  const user = await getCurrentUserWithFreshState(req);
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -946,10 +972,45 @@ async function fetchWithRetry<T>(
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+const GUEST_DEVICE_COOKIE = "guest_device_id";
+
+function signGuestDeviceId(deviceId: string): string {
+  return crypto.createHmac("sha256", SESSION_SECRET).update(deviceId).digest("hex");
+}
+
+function getTrustedGuestDeviceId(req: Request): string {
+  const cookieValue = req.cookies?.[GUEST_DEVICE_COOKIE];
+  if (typeof cookieValue === "string") {
+    const separator = cookieValue.lastIndexOf(".");
+    const deviceId = cookieValue.slice(0, separator);
+    const signature = cookieValue.slice(separator + 1);
+    if (deviceId && signature && tokensMatch(signature, signGuestDeviceId(deviceId))) {
+      return deviceId;
+    }
+  }
+  return `ip:${req.ip || req.socket.remoteAddress || "unknown"}`;
+}
+
 // Security: JSON Body Payload Size Limit (Supports high-res diagrams/handwritten notes up to 25MB)
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 app.use(cookieParser());
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const cookieValue = req.cookies?.[GUEST_DEVICE_COOKIE];
+  const separator = typeof cookieValue === "string" ? cookieValue.lastIndexOf(".") : -1;
+  const deviceId = typeof cookieValue === "string" ? cookieValue.slice(0, separator) : "";
+  const signature = typeof cookieValue === "string" ? cookieValue.slice(separator + 1) : "";
+  if (!deviceId || !signature || !tokensMatch(signature, signGuestDeviceId(deviceId))) {
+    const newDeviceId = crypto.randomUUID();
+    res.cookie(GUEST_DEVICE_COOKIE, `${newDeviceId}.${signGuestDeviceId(newDeviceId)}`, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 365 * 24 * 3600 * 1000,
+    });
+  }
+  next();
+});
 
 // Security: HTTP Response Headers (Helmet Equivalent)
 app.use((_req: Request, res: Response, next: NextFunction) => {
@@ -968,12 +1029,11 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 // Security: Hardened CORS Configuration & Preflight Handling
 app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
-  if (origin) {
+  const allowedOrigins = ["https://gageai.org", "https://www.gageai.org", "http://localhost:5173"];
+  if (origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Vary", "Origin");
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Token, X-Requested-With");
@@ -1167,90 +1227,6 @@ app.get("/downloads/:filename", (req: Request, res: Response, next: NextFunction
 
   return res.redirect("/api/download/apk");
 });
-
-
-
-// ─── EXPLORE MORE: Research Papers (OpenAlex) ────────────────────────────────
-app.get("/api/explore/papers", async (req: Request, res: Response) => {
-  try {
-    const query = req.query.q as string;
-    if (!query) return res.status(400).json({ error: "Query required" });
-    const encoded = encodeURIComponent(query);
-    const url = `https://api.openalex.org/works?search=${encoded}&filter=is_oa:true&sort=cited_by_count:desc&per-page=8&select=id,title,authorships,publication_year,doi,primary_location,cited_by_count,open_access`;
-    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
-    if (!response.ok) throw new Error("OpenAlex API error");
-    const data = await response.json();
-    const papers = data.results.map((work: any) => ({
-      id: work.id,
-      title: work.title,
-      authors: work.authorships?.slice(0, 3).map((a: any) => a.author?.display_name).filter(Boolean) || [],
-      year: work.publication_year,
-      doi: work.doi,
-      url: work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi,
-      citations: work.cited_by_count || 0,
-      journal: work.primary_location?.source?.display_name || null,
-      isOpenAccess: work.open_access?.is_oa || false,
-    }));
-    res.json({ papers });
-  } catch (err) {
-    console.error("Papers fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch research papers" });
-  }
-});
-
-// ─── EXPLORE MORE: GitHub Repos ──────────────────────────────────────────────
-app.get("/api/explore/repos", async (req: Request, res: Response) => {
-  try {
-    const query = req.query.q as string;
-    if (!query) return res.status(400).json({ error: "Query required" });
-    const encoded = encodeURIComponent(query);
-    const url = `https://api.github.com/search/repositories?q=${encoded}&sort=stars&order=desc&per_page=8`;
-    const response = await fetch(url, {
-      headers: { "Accept": "application/vnd.github+json", "User-Agent": "G-AGE-AI/1.0" }
-    });
-    if (!response.ok) throw new Error("GitHub API error");
-    const data = await response.json();
-    const repos = (data.items || []).map((repo: any) => ({
-      id: repo.id,
-      name: repo.full_name,
-      description: repo.description,
-      url: repo.html_url,
-      stars: repo.stargazers_count,
-      language: repo.language,
-      topics: repo.topics?.slice(0, 4) || [],
-    }));
-    res.json({ repos });
-  } catch (err) {
-    console.error("Repos fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch repositories" });
-  }
-});
-
-// ─── EXPLORE MORE: Research News (reuses existing news endpoint logic) ────────
-app.get("/api/explore/research-news", async (req: Request, res: Response) => {
-  try {
-    const query = req.query.q as string;
-    if (!query) return res.status(400).json({ error: "Query required" });
-    const encoded = encodeURIComponent(query + " research");
-    const url = `https://api.openalex.org/works?search=${encoded}&sort=publication_date:desc&per-page=8&select=id,title,authorships,publication_year,primary_location,open_access,doi`;
-    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
-    if (!response.ok) throw new Error("OpenAlex news error");
-    const data = await response.json();
-    const items = (data.results || []).map((work: any) => ({
-      id: work.id,
-      title: work.title,
-      authors: work.authorships?.slice(0, 2).map((a: any) => a.author?.display_name).filter(Boolean) || [],
-      year: work.publication_year,
-      url: work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi,
-      journal: work.primary_location?.source?.display_name || null,
-    }));
-    res.json({ items });
-  } catch (err) {
-    console.error("Research news fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch research news" });
-  }
-});
-
 
 // ─── EXPLORE MORE: Research Papers (OpenAlex) ────────────────────────────────
 app.get("/api/explore/papers", async (req: Request, res: Response) => {
@@ -1951,15 +1927,15 @@ async function validateAndVerifyUrl(urlStr: string): Promise<{ isValid: boolean;
 function createRateLimiter(maxRequests: number, prefix: string) {
   const store = new Map<string, { count: number; resetTime: number }>();
 
-  return (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     // Check if user is an authenticated paid/pro subscriber
-    const currentUser = getCurrentUser(req);
+    const currentUser = await getCurrentUserWithFreshState(req);
     const isPaidUser = currentUser && (currentUser.tier === "paid" || currentUser.tier === "pro" || currentUser.tier === "unlimited");
     
     // Paid users get 10x burst allowance (e.g. 250 req/min for AI)
     const effectiveLimit = isPaidUser ? maxRequests * 10 : maxRequests;
 
-    const ip = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "127.0.0.1").split(",")[0].trim();
+    const ip = req.ip || req.socket.remoteAddress || "127.0.0.1";
     const key = `${prefix}:${currentUser ? currentUser.id : ip}`;
     const now = Date.now();
     const windowMs = 60 * 1000;
@@ -1998,6 +1974,7 @@ const learnRateLimiter = createRateLimiter(25, "learn");
 const counselRateLimiter = createRateLimiter(25, "counsel");
 
 app.use("/api/", generalRateLimiter);
+app.use("/api/auth", authRateLimiter);
 app.use(["/api/ask", "/api/internal/ask", "/api/v1/ask"], aiRateLimiter);
 app.use("/api/admin/", adminRateLimiter);
 
@@ -2009,7 +1986,7 @@ function adminAuthMiddleware(req: Request, res: Response, next: NextFunction) {
   const token = (req.headers["x-admin-token"] as string) || (req.headers.authorization as string);
   const normalizedToken = token?.startsWith("Bearer ") ? token.slice(7).trim() : token?.trim();
 
-  if (!normalizedToken || !tokensMatch(normalizedToken, ADMIN_TOKEN)) {
+  if (!normalizedToken || !isValidAdminSession(normalizedToken)) {
     return res.status(401).json({ error: "Unauthorized: Invalid or missing administrative authorization token." });
   }
   next();
@@ -2023,7 +2000,12 @@ app.post("/api/admin/verify", (req: Request, res: Response) => {
   const candidate = typeof password === "string" ? password.trim() : "";
 
   if (candidate && tokensMatch(candidate, ADMIN_TOKEN)) {
-    return res.json({ success: true, token: ADMIN_TOKEN, message: "Admin authenticated successfully." });
+    const adminSessionToken = jwt.sign(
+      { scope: "admin" },
+      SESSION_SECRET,
+      { algorithm: "HS256", expiresIn: "15m" }
+    );
+    return res.json({ success: true, token: adminSessionToken, message: "Admin authenticated successfully." });
   }
   return res.status(401).json({ error: "Invalid administrative password. Access denied." });
 });
@@ -2671,7 +2653,7 @@ app.post("/api/auth/request-otp", async (req: Request, res: Response) => {
     }
 
     const cleanDeviceId = (deviceId || req.headers["x-device-id"] || "unknown-device").toString();
-    const clientIp = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
+    const clientIp = req.ip || req.socket.remoteAddress || "";
 
     // If registration attempt, ensure phone & username are not already registered
     if (attemptType === "registration") {
@@ -3330,7 +3312,7 @@ const checkAdminAuth = (req: Request): boolean => {
     ? (authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader).trim()
     : Array.isArray(authHeader) ? authHeader[0]?.trim() : "";
 
-  return Boolean(token) && tokensMatch(token, ADMIN_TOKEN);
+  return Boolean(token) && isValidAdminSession(token);
 };
 
 // ─── PUBLIC ROUTES (used by Expert tab & Client) ───────────────────────
@@ -4363,7 +4345,7 @@ app.patch("/api/notes/:id", async (req: Request, res: Response) => {
 // DELETE /api/notes/:id — deletes an existing note for authenticated user
 app.delete("/api/notes/:id", authenticateToken, async (req: any, res: Response) => {
   try {
-    const checkResult = await pool.query(
+    const checkResult = await dbPool.query(
       'SELECT id, user_id FROM notes WHERE id = $1',
       [req.params.id]
     );
@@ -4373,7 +4355,7 @@ app.delete("/api/notes/:id", authenticateToken, async (req: any, res: Response) 
     if (checkResult.rows[0].user_id !== req.user.id) {
       return res.status(403).json({ error: 'Not authorized' });
     }
-    await pool.query('DELETE FROM notes WHERE id = $1', [req.params.id]);
+    await dbPool.query('DELETE FROM notes WHERE id = $1', [req.params.id]);
     return res.json({ success: true });
   } catch (err: any) {
     console.error("Error in DELETE /api/notes:", err);
@@ -4650,8 +4632,10 @@ async function recordAndVerifyTabUsage(req: Request, category: string): Promise<
     return { allowed: true };
   }
 
-  const currentUser = getCurrentUser(req);
-  const deviceId = (req.headers["x-device-id"] as string) || (req.headers["X-Device-ID"] as string) || (req.query.deviceId as string) || (req.body?.deviceId as string) || "dev-unknown";
+  const currentUser = await getCurrentUserWithFreshState(req);
+  const deviceId = currentUser
+    ? ((req.headers["x-device-id"] as string) || (req.headers["X-Device-ID"] as string) || (req.query.deviceId as string) || (req.body?.deviceId as string) || "dev-unknown")
+    : getTrustedGuestDeviceId(req);
   const today = getUtcTodayDateString();
 
   // Paid users bypass daily free query limits
@@ -4760,8 +4744,10 @@ async function recordAndVerifyTabUsage(req: Request, category: string): Promise<
 
 // Tab Usage & Device Rate Limit Tracking API
 app.get("/api/usage", async (req: Request, res: Response) => {
-  const currentUser = getCurrentUser(req);
-  const deviceId = (req.headers["x-device-id"] as string) || (req.headers["X-Device-ID"] as string) || (req.query.deviceId as string) || "dev-unknown";
+  const currentUser = await getCurrentUserWithFreshState(req);
+  const deviceId = currentUser
+    ? ((req.headers["x-device-id"] as string) || (req.headers["X-Device-ID"] as string) || (req.query.deviceId as string) || "dev-unknown")
+    : getTrustedGuestDeviceId(req);
   const tab = ((req.query.tab as string) || "research").toLowerCase();
   const today = getUtcTodayDateString();
 
@@ -4826,10 +4812,10 @@ app.get("/api/usage", async (req: Request, res: Response) => {
 
 // POST /api/query/track - Track query execution on backend PostgreSQL device_limits
 app.post("/api/query/track", async (req: Request, res: Response) => {
-  const currentUser = getCurrentUser(req);
-  const deviceId = (req.headers["x-device-id"] as string) || (req.headers["X-Device-ID"] as string) || req.body?.deviceId || (req.query.deviceId as string) || "dev-unknown";
-  const today = getUtcTodayDateString();
+  const currentUser = await getCurrentUserWithFreshState(req);
   const isGuest = !currentUser;
+  const deviceId = isGuest ? getTrustedGuestDeviceId(req) : ((req.headers["x-device-id"] as string) || (req.headers["X-Device-ID"] as string) || req.body?.deviceId || (req.query.deviceId as string) || "dev-unknown");
+  const today = getUtcTodayDateString();
 
   if (currentUser?.tier === "paid") {
     return res.json({ allowed: true, remaining: 999999, count: 0, tier: "paid" });
@@ -4838,7 +4824,7 @@ app.post("/api/query/track", async (req: Request, res: Response) => {
   const GUEST_LIFETIME_LIMIT = 5;
   let guestLifetimeCount = 0;
   if (isGuest) {
-    guestLifetimeCount = await incrementGuestLifetimeCount(deviceId);
+    guestLifetimeCount = await getGuestLifetimeCount(deviceId);
     if (guestLifetimeCount >= GUEST_LIFETIME_LIMIT) {
       return res.status(429).json({
         success: false,
@@ -4852,6 +4838,7 @@ app.post("/api/query/track", async (req: Request, res: Response) => {
         limitType: "guest_lifetime",
       });
     }
+    guestLifetimeCount = await incrementGuestLifetimeCount(deviceId);
   }
 
   const updatedDeviceCount = await incrementDeviceQueryCount(deviceId, today, isGuest);
@@ -6010,7 +5997,7 @@ app.get("/api/category/:category", async (req: Request, res: Response) => {
   trackQueryTelemetry(topic);
 
   // Auto-record search history into PostgreSQL DB if user is authenticated
-  const currentUser = getCurrentUser(req);
+  const currentUser = await getCurrentUserWithFreshState(req);
   if (currentUser && topic) {
     recordSearchHistory(currentUser.id, topic, category).catch(() => {});
   }
@@ -7507,6 +7494,15 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
+function serializeJsonForHtml(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 // Topic Pages Expiry Cleanup Job (Purges/Expires topic pages inactive for > 45 days)
 async function cleanupExpiredTopics(): Promise<number> {
   if (!dbPool) return 0;
@@ -7527,7 +7523,7 @@ async function cleanupExpiredTopics(): Promise<number> {
 // Admin Trigger for Expiry Cleanup
 app.post("/api/admin/cleanup-topics", async (req: Request, res: Response) => {
   const adminToken = req.headers["x-admin-token"];
-  if (typeof adminToken !== "string" || !tokensMatch(adminToken.trim(), ADMIN_TOKEN)) {
+  if (typeof adminToken !== "string" || !isValidAdminSession(adminToken.trim())) {
     return res.status(401).json({ error: "Unauthorized access to admin cleanup endpoint." });
   }
   const count = await cleanupExpiredTopics();
@@ -7664,8 +7660,8 @@ app.get("/topic/:slug", async (req: Request, res: Response) => {
     <meta property="twitter:title" content="${escapeHtml(displayTitle)}" />
     <meta property="twitter:description" content="${escapeHtml(metaDesc)}" />
     <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
-    <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
-    <script>window.__INITIAL_TOPIC_DATA__ = ${JSON.stringify({ slug: cleanSlug, topic: topicName, overviewData })};</script>
+    <script type="application/ld+json">${serializeJsonForHtml(jsonLd)}</script>
+    <script>window.__INITIAL_TOPIC_DATA__ = ${serializeJsonForHtml({ slug: cleanSlug, topic: topicName, overviewData })};</script>
   `;
 
   // Pre-rendered visible semantic body content for search engine crawlers before JS hydration
