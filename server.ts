@@ -4626,13 +4626,13 @@ async function getUserTotalDailyQueryCount(userId: string, dateStr: string): Pro
 }
 
 // Tab Usage & Device Rate Limiting Verification Helper
-async function recordAndVerifyTabUsage(req: Request, category: string): Promise<{ allowed: boolean; status?: number; errorPayload?: any; currentCount?: number }> {
+async function recordAndVerifyTabUsage(req: Request, category: string, resolvedUser?: any | null): Promise<{ allowed: boolean; status?: number; errorPayload?: any; currentCount?: number }> {
   const GATED_TABS = ["research", "software", "qa", "chat", "counsel", "learn"];
   if (!GATED_TABS.includes(category)) {
     return { allowed: true };
   }
 
-  const currentUser = await getCurrentUserWithFreshState(req);
+  const currentUser = resolvedUser === undefined ? await getCurrentUserWithFreshState(req) : resolvedUser;
   const deviceId = currentUser
     ? ((req.headers["x-device-id"] as string) || (req.headers["X-Device-ID"] as string) || (req.query.deviceId as string) || (req.body?.deviceId as string) || "dev-unknown")
     : getTrustedGuestDeviceId(req);
@@ -6003,7 +6003,7 @@ app.get("/api/category/:category", async (req: Request, res: Response) => {
   }
 
   // Check & Record Tab Usage Limits for Gated Tabs (Research, Software)
-  const usageCheck = await recordAndVerifyTabUsage(req, category);
+  const usageCheck = await recordAndVerifyTabUsage(req, category, currentUser);
   if (!usageCheck.allowed) {
     return res.status(usageCheck.status || 400).json(usageCheck.errorPayload);
   }
@@ -7857,7 +7857,13 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    }));
     app.get("*", (req: Request, res: Response) => {
       res.sendFile(path.join(distPath, "index.html"));
     });

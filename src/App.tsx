@@ -14,7 +14,6 @@ import { PaywallModal } from './components/chat/PaywallModal';
 import { PwaShortcutModal } from './components/chat/PwaShortcutModal';
 import { AuthModal } from './components/AuthModal';
 import { NotesSidePanel } from './components/NotesSidePanel';
-import { ProductTour } from './components/ProductTour';
 import { ExpertPersona, matchExpert } from './data/experts';
 import { usePersonas } from './hooks/usePersonas';
 import { ChatMode, ChatMessage } from './types/chat';
@@ -43,6 +42,9 @@ const KnowledgeGraphModal = lazy(() =>
 );
 const AndroidDownloadPage = lazy(() =>
   import('./components/AndroidDownloadPage').then((m) => ({ default: m.AndroidDownloadPage }))
+);
+const ProductTour = lazy(() =>
+  import('./components/ProductTour').then((m) => ({ default: m.ProductTour }))
 );
 
 export default function App() {
@@ -625,7 +627,9 @@ export default function App() {
       </Suspense>
 
       {/* Guided Product Tour */}
-      <ProductTour />
+      <Suspense fallback={null}>
+        <ProductTour />
+      </Suspense>
 
       {/* Subtle Save Note Toast Notification */}
       {saveNoteToast && (
