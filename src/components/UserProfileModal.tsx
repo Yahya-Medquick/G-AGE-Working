@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X, User, History, Settings, Check, Shield, Search, Sparkles, Compass, Smartphone, Download } from "lucide-react";
 import { UserProfile } from "../types";
 import { useUser } from "../context/UserContext";
+import { ProExpiryBadge } from "./ProExpiryBadge";
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -55,6 +56,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     PRO / UNLIMITED
                   </span>
                 )}
+                {isPaid && <ProExpiryBadge />}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">{profile.email}</p>
             </div>

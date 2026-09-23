@@ -38,6 +38,7 @@ interface UserContextType {
   updateProfile: (updated: Partial<UserProfile>) => Promise<void>;
   updatePreferences: (prefs: Partial<UserProfile["preferences"]>) => Promise<void>;
   refreshUserSession: () => Promise<void>;
+  proExpiresAt: string | null;
 }
 
 const defaultProfile: UserProfile = {
@@ -54,6 +55,17 @@ const defaultProfile: UserProfile = {
     compactView: false,
   },
 };
+
+function readProExpiryFromJwt(): string | null {
+  try {
+    const token = localStorage.getItem("bifrost_session_token");
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.pro_expires_at === "string" ? payload.pro_expires_at : null;
+  } catch (_) {
+    return null;
+  }
+}
 
 const UserContext = createContext<UserContextType>({
   user: null,
@@ -80,6 +92,7 @@ const UserContext = createContext<UserContextType>({
   updateProfile: async () => {},
   updatePreferences: async () => {},
   refreshUserSession: async () => {},
+  proExpiresAt: null,
 });
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -92,6 +105,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [mode, setMode] = useState<"research" | "learning">(() => {
     return (localStorage.getItem("bifrost_mode") as any) || "research";
   });
+  const proExpiresAt = user?.pro_expires_at || null;
 
   // Onboarding state
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean>(() => {
@@ -108,7 +122,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const authUser = await fetchCurrentUser();
       if (authUser) {
-        setUser(authUser);
+        setUser({ ...authUser, pro_expires_at: authUser.pro_expires_at || readProExpiryFromJwt() });
         setIsGuest(false);
         localStorage.removeItem("bifrost_guest_mode");
         if (authUser.preferred_mode) {
@@ -203,7 +217,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const authUser = await registerWithPhone(payload);
       if (authUser) {
-        setUser(authUser);
+        setUser({ ...authUser, pro_expires_at: authUser.pro_expires_at || readProExpiryFromJwt() });
         setIsGuest(false);
         if (authUser.preferred_mode) {
           setMode(authUser.preferred_mode);
@@ -226,7 +240,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await loginWithCredentials(username, password);
       if (result.user && !result.requiresOtp) {
-        setUser(result.user);
+        setUser({ ...result.user, pro_expires_at: result.user.pro_expires_at || readProExpiryFromJwt() });
         setIsGuest(false);
         if (result.user.preferred_mode) {
           setMode(result.user.preferred_mode);
@@ -249,7 +263,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const authUser = await verifyNewDevice(payload);
       if (authUser) {
-        setUser(authUser);
+        setUser({ ...authUser, pro_expires_at: authUser.pro_expires_at || readProExpiryFromJwt() });
         setIsGuest(false);
         if (authUser.preferred_mode) {
           setMode(authUser.preferred_mode);
@@ -272,7 +286,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const authUser = await loginWithGoogle(payload);
       if (authUser) {
-        setUser(authUser);
+        setUser({ ...authUser, pro_expires_at: authUser.pro_expires_at || readProExpiryFromJwt() });
         setIsGuest(false);
         localStorage.removeItem("bifrost_guest_mode");
         if (authUser.preferred_mode) setMode(authUser.preferred_mode);
@@ -361,6 +375,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateProfile,
         updatePreferences,
         refreshUserSession: loadUserSession,
+        proExpiresAt,
       }}
     >
       {children}

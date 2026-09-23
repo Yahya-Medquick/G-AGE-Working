@@ -17,6 +17,8 @@ import { NotesSidePanel } from './components/NotesSidePanel';
 import { ExpertPersona, matchExpert } from './data/experts';
 import { usePersonas } from './hooks/usePersonas';
 import { ChatMode, ChatMessage } from './types/chat';
+import { PublicQAPage } from './components/PublicQAPage';
+import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
 
 // Lazy-loaded secondary modals for optimal performance
 const AdminDashboardModal = lazy(() =>
@@ -48,6 +50,9 @@ const ProductTour = lazy(() =>
 );
 
 export default function App() {
+  if (window.location.pathname.startsWith('/q/')) return <PublicQAPage />;
+  if (/^\/persona\/[^/]+\/questions\/?$/.test(window.location.pathname)) return <PersonaQuestionsPage />;
+
   const { theme, toggleTheme } = useTheme();
   const { notes, addNote } = useNotes();
   const { user, isLoggedIn } = useUser();
@@ -347,7 +352,7 @@ export default function App() {
   );
 
   // Send message handler (invokes /api/chat/message with mode, specs, and persona prompt)
-  const handleSendMessage = async (content: string, modeOverride?: ChatMode, imageBase64?: string) => {
+  const handleSendMessage = async (content: string, modeOverride?: ChatMode, imageBase64?: string, savePublic = true) => {
     if (!content.trim() && !imageBase64) return;
 
     if (!canExecuteQuery()) {
@@ -387,6 +392,7 @@ export default function App() {
           mode: targetMode,
           specs: currentSession.specs || {},
           variant: currentSession.variant || expertVariant,
+          savePublic,
           messages: newMessages.map((m) => ({ role: m.role, content: m.content, imageBase64: m.imageBase64 })),
         }),
       });

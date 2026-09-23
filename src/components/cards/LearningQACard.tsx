@@ -19,6 +19,7 @@ import {
 import { MarkdownRenderer } from "../MarkdownRenderer";
 import { useNotes } from "../../hooks/useNotes";
 import { useUser } from "../../context/UserContext";
+import { ProExpiryBadge } from "../ProExpiryBadge";
 
 interface MCQ {
   question: string;
@@ -340,6 +341,7 @@ export const LearningQACard: React.FC = () => {
                     <span>PRO ONLY</span>
                   </span>
                 )}
+                {isPaid && <ProExpiryBadge />}
               </label>
               {!isPaid && (
                 <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">

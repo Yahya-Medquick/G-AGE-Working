@@ -22,6 +22,7 @@ import {
 import { ExpertPersona } from '../../data/experts';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useUser } from '../../context/UserContext';
+import { ProExpiryBadge } from '../ProExpiryBadge';
 
 interface PersonaPanelProps {
   isOpen: boolean;
@@ -502,6 +503,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
               }`}>
                 {isPaid ? 'PRO ACTIVE' : 'PRO ONLY'}
               </span>
+              {isPaid && <ProExpiryBadge />}
             </div>
             <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
               {isPaid

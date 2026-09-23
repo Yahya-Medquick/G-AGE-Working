@@ -25,6 +25,7 @@ export interface UserAuth {
   tier: 'free' | 'logged_out' | 'paid' | 'pro' | 'unlimited';
   has_seen_onboarding?: boolean;
   created_at?: string;
+  pro_expires_at?: string | null;
   preferred_mode?: 'research' | 'learning';
   is_guest?: boolean;
 }

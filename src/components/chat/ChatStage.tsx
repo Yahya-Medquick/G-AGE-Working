@@ -40,6 +40,7 @@ import {
   Camera,
   X,
   Lock,
+  LockOpen,
   Crown,
   Loader2,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ import { ChatSession, ChatMessage, ChatMode, ConceptSpecs, ExamSpecs, ResearchSp
 import { ExpertPersona, EXPERTS, EXPERTS_PK } from '../../data/experts';
 import { useUser } from '../../context/UserContext';
 import { MarkdownRenderer } from '../MarkdownRenderer';
+import { ProExpiryBadge } from '../ProExpiryBadge';
 import { SpecificationsAccordion } from './SpecificationsAccordion';
 import { MCQCard } from '../cards/MCQCard';
 import { VideoCard } from '../cards/VideoCard';
@@ -371,7 +373,7 @@ interface ChatStageProps {
   session: ChatSession | null;
   activePersona: ExpertPersona;
   variant: 'global' | 'pk';
-  onSendMessage: (content: string, modeOverride?: ChatMode, imageBase64?: string) => Promise<void>;
+  onSendMessage: (content: string, modeOverride?: ChatMode, imageBase64?: string, savePublic?: boolean) => Promise<void>;
   isLoading: boolean;
   onToggleLeftPanel: () => void;
   isLeftPanelOpen: boolean;
@@ -412,6 +414,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const isPaid = queryUsage.tier === 'paid' || user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
 
   const [inputText, setInputText] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -535,13 +538,15 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     if ((!inputText.trim() && !attachedImage) || isLoading) return;
     const msg = inputText.trim();
     const img = attachedImage;
+    const savePublic = !isPrivate;
     setInputText('');
     setAttachedImage(null);
     setImageFileName(null);
+    setIsPrivate(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-    await onSendMessage(msg, activeMode, img || undefined);
+    await onSendMessage(msg, activeMode, img || undefined, savePublic);
   };
 
   const handleCopyMessage = (msgId: string, content: string) => {
@@ -873,6 +878,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               {queryUsage.tier === 'paid' ? 'Pro' : `${queryUsage.remaining} Left`}
             </span>
           </button>
+          {isPaid && <ProExpiryBadge />}
 
           {!isRightPanelOpen && (
             <button
@@ -1586,6 +1592,20 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 className="flex-1 max-h-36 py-1.5 px-1 bg-transparent text-sm text-[#111b21] dark:text-[#e9edef] placeholder:text-slate-400 dark:placeholder:text-slate-400 resize-none focus:outline-none leading-relaxed"
               />
             </form>
+
+            <button
+              onClick={() => setIsPrivate((value) => !value)}
+              type="button"
+              className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                isPrivate
+                  ? 'bg-rose-100 border-rose-300 text-rose-600 dark:bg-rose-950/50 dark:border-rose-800 dark:text-rose-300'
+                  : 'bg-white/80 border-slate-300 text-slate-500 dark:bg-[#202c33] dark:border-[#2a3942] dark:text-slate-300'
+              }`}
+              title={isPrivate ? 'Private question' : 'Public question'}
+              aria-label={isPrivate ? 'Private question' : 'Public question'}
+            >
+              {isPrivate ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />}
+            </button>
 
             {/* WhatsApp Signature Circular Green Send Button */}
             <button

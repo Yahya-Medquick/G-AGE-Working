@@ -106,6 +106,7 @@ async function initDatabaseSchema() {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS trusted_devices TEXT[] DEFAULT '{}';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_mode VARCHAR(20) DEFAULT 'research';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_expires_at TIMESTAMPTZ;
         ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
       `);
       await dbPool.query(`
@@ -353,6 +354,28 @@ async function initDatabaseSchema() {
     `);
     await dbPool.query(`CREATE INDEX IF NOT EXISTS idx_persona_qa_slug ON persona_qa_log(persona_slug);`);
 
+    // 16c. Public Q&A pages
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS public_qa_pages (
+        id SERIAL PRIMARY KEY,
+        slug VARCHAR(300) UNIQUE NOT NULL,
+        canonical_id INTEGER REFERENCES public_qa_pages(id) ON DELETE SET NULL,
+        question_text TEXT NOT NULL,
+        answer_text TEXT NOT NULL,
+        persona_slug VARCHAR(64) NOT NULL,
+        persona_name VARCHAR(255) NOT NULL,
+        persona_group VARCHAR(64),
+        view_count INTEGER DEFAULT 0,
+        is_published BOOLEAN DEFAULT true,
+        flagged_for_review BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_qa_persona ON public_qa_pages(persona_slug);
+      CREATE INDEX IF NOT EXISTS idx_qa_pub ON public_qa_pages(is_published);
+      CREATE INDEX IF NOT EXISTS idx_qa_created ON public_qa_pages(created_at DESC);
+    `);
+
     // 17. Expert Personas Management Table (Unified Single Source of Truth)
     await dbPool.query(`
       CREATE TABLE IF NOT EXISTS expert_personas (
@@ -490,6 +513,69 @@ async function initDatabaseSchema() {
 
 if (dbPool) {
   initDatabaseSchema();
+}
+
+export function generateQASlug(q: string): string {
+  const words = q
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .split(/[\s-]+/)
+    .filter(Boolean);
+  const slugWords: string[] = [];
+  let length = 0;
+  for (const word of words) {
+    const nextLength = length + (slugWords.length ? 1 : 0) + word.length;
+    if (nextLength > 60) break;
+    slugWords.push(word);
+    length = nextLength;
+  }
+  const base = slugWords.join("-");
+  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const suffix = Array.from(crypto.randomBytes(4), (byte) => alphabet[byte % alphabet.length]).join("");
+  return `${base}-${suffix}`;
+}
+
+export function isQualityQuery(q: string, a: string): boolean {
+  const query = q.trim();
+  const words = query.match(/[a-z0-9]+(?:'[a-z0-9]+)?/gi) ?? [];
+  const hasLetters = /[a-z]/i.test(query);
+  const hasContactPattern = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/i.test(`${q} ${a}`)
+    || /(?:\+?\d[\d\s().-]{7,}\d)/.test(`${q} ${a}`);
+  if (words.length < 6 || hasContactPattern || a.trim().length < 100) return false;
+  if (words.length === 1 || (hasLetters && query === query.toUpperCase())) return false;
+  return true;
+}
+
+export async function findCanonicalPage(q: string): Promise<number | null> {
+  if (!dbPool) return null;
+  const normalize = (value: string): string[] => value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const queryWords = new Set(normalize(q));
+  if (queryWords.size === 0) return null;
+
+  const result = await dbPool.query<{ id: number; question_text: string }>(`
+    SELECT id, question_text
+    FROM public_qa_pages
+    WHERE is_published = true
+    ORDER BY view_count DESC
+    LIMIT 200
+  `);
+  let bestId: number | null = null;
+  let bestSimilarity = 0;
+  for (const row of result.rows) {
+    const candidateWords = new Set(normalize(row.question_text));
+    const sharedWords = [...queryWords].filter((word) => candidateWords.has(word)).length;
+    const similarity = sharedWords / Math.max(queryWords.size, candidateWords.size);
+    if (similarity > bestSimilarity) {
+      bestSimilarity = similarity;
+      bestId = row.id;
+    }
+  }
+  return bestSimilarity > 0.75 ? bestId : null;
 }
 
 // Session tokens use the required JWT signing secret.
@@ -4181,6 +4267,35 @@ Only output this marker when the question is clearly outside your domain. Never 
         ).catch((e: any) => console.warn("persona_qa_log insert failed:", e.message));
       }
     }
+
+    // Public Q&A indexing is deliberately detached so it never delays the chat response.
+    const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user");
+    const userMessage = typeof lastUserMessage?.content === "string" ? lastUserMessage.content.trim() : "";
+    if (req.body?.savePublic !== false && userMessage && isQualityQuery(userMessage, reply)) {
+      void (async () => {
+        try {
+          const canonicalId = await findCanonicalPage(userMessage);
+          const slug = generateQASlug(userMessage);
+          await dbPool?.query(
+            `INSERT INTO public_qa_pages
+             (slug, canonical_id, question_text, answer_text, persona_slug, persona_name, persona_group, is_published)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+             ON CONFLICT (slug) DO NOTHING`,
+            [
+              slug,
+              canonicalId,
+              userMessage,
+              reply,
+              persona?.slug || personaId || "expert",
+              persona?.name || "G-AGE Expert",
+              personaGroupName,
+            ]
+          );
+        } catch (error: any) {
+          console.warn("Public Q&A save failed:", error?.message || error);
+        }
+      })();
+    }
     // Debug: log if marker present
     if (reply.includes('SUGGEST_GROUP') || reply.includes('[[')) {
       console.log('[DOMAIN REDIRECT] Marker found in reply:', reply.slice(-200));
@@ -4197,6 +4312,138 @@ Only output this marker when the question is clearly outside your domain. Never 
   } catch (error: any) {
     console.error("Chat API Error:", error);
     return res.status(500).json({ error: error.message || "Failed to generate chat response." });
+  }
+});
+
+// GET /q/:slug - Public Q&A page data
+app.get("/q/:slug", async (req: Request, res: Response) => {
+  if (!dbPool) return res.status(404).json({ error: "Q&A page not found." });
+  try {
+    const result = await dbPool.query(
+      `SELECT page.*, canonical.slug AS canonical_slug
+       FROM public_qa_pages page
+       LEFT JOIN public_qa_pages canonical ON canonical.id = page.canonical_id
+       WHERE page.slug = $1 AND page.is_published = true
+       LIMIT 1`,
+      [req.params.slug]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Q&A page not found." });
+    const page = result.rows[0];
+    if (page.canonical_id !== null && page.canonical_slug) {
+      return res.redirect(301, `/q/${page.canonical_slug}`);
+    }
+    void dbPool.query(
+      "UPDATE public_qa_pages SET view_count = view_count + 1 WHERE id = $1",
+      [page.id]
+    ).catch((error: any) => console.warn("Q&A view increment failed:", error?.message || error));
+    return res.json(page);
+  } catch (error: any) {
+    console.warn("Public Q&A lookup failed:", error?.message || error);
+    return res.status(500).json({ error: "Failed to load Q&A page." });
+  }
+});
+
+// GET /persona/:personaSlug/questions - Published canonical questions for a persona
+app.get("/persona/:personaSlug/questions", async (req: Request, res: Response) => {
+  const offset = Math.max(0, Number.parseInt(String(req.query.offset || "0"), 10) || 0);
+  if (!dbPool) return res.json({ questions: [] });
+  try {
+    const result = await dbPool.query(
+      `SELECT id, slug, question_text, persona_name, view_count, created_at
+       FROM public_qa_pages
+       WHERE persona_slug = $1 AND is_published = true AND canonical_id IS NULL
+       ORDER BY view_count DESC, created_at DESC
+       LIMIT 50 OFFSET $2`,
+      [req.params.personaSlug, offset]
+    );
+    return res.json({ questions: result.rows });
+  } catch (error: any) {
+    console.warn("Persona Q&A lookup failed:", error?.message || error);
+    return res.status(500).json({ error: "Failed to load persona questions." });
+  }
+});
+
+// GET /sitemap-qa.xml - XML sitemap for published Q&A pages
+app.get("/sitemap-qa.xml", async (_req: Request, res: Response) => {
+  const escapeXml = (value: string): string => value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+  try {
+    const result = dbPool
+      ? await dbPool.query(
+        `SELECT slug, updated_at
+         FROM public_qa_pages
+         WHERE is_published = true
+         ORDER BY updated_at DESC
+         LIMIT 50000`
+      )
+      : { rows: [] };
+    const urls = result.rows.map((row: any) => `
+    <url><loc>https://gageai.org/q/${escapeXml(row.slug)}</loc><lastmod>${new Date(row.updated_at).toISOString()}</lastmod></url>`).join("");
+    res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}
+</urlset>`);
+  } catch (error: any) {
+    console.warn("Q&A sitemap generation failed:", error?.message || error);
+    return res.status(500).type("application/xml").send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"></urlset>");
+  }
+});
+
+function requireQaAdminToken(req: Request, res: Response): boolean {
+  const token = req.headers["x-admin-token"];
+  if (typeof token !== "string" || !isValidAdminSession(token.trim())) {
+    res.status(401).json({ error: "Unauthorized." });
+    return false;
+  }
+  return true;
+}
+
+// PATCH /api/v1/qa/admin/:id/unpublish
+app.patch("/api/v1/qa/admin/:id/unpublish", async (req: Request, res: Response) => {
+  if (!requireQaAdminToken(req, res)) return;
+  if (!dbPool) return res.status(503).json({ error: "Database unavailable." });
+  try {
+    const result = await dbPool.query(
+      "UPDATE public_qa_pages SET is_published = false, updated_at = NOW() WHERE id = $1",
+      [req.params.id]
+    );
+    return result.rowCount ? res.json({ success: true }) : res.status(404).json({ error: "Q&A page not found." });
+  } catch (_) {
+    return res.status(500).json({ error: "Failed to unpublish Q&A page." });
+  }
+});
+
+// PATCH /api/v1/qa/admin/:id/flag
+app.patch("/api/v1/qa/admin/:id/flag", async (req: Request, res: Response) => {
+  if (!requireQaAdminToken(req, res)) return;
+  if (!dbPool) return res.status(503).json({ error: "Database unavailable." });
+  try {
+    const result = await dbPool.query(
+      "UPDATE public_qa_pages SET flagged_for_review = true, updated_at = NOW() WHERE id = $1",
+      [req.params.id]
+    );
+    return result.rowCount ? res.json({ success: true }) : res.status(404).json({ error: "Q&A page not found." });
+  } catch (_) {
+    return res.status(500).json({ error: "Failed to flag Q&A page." });
+  }
+});
+
+// GET /api/v1/qa/admin/flagged
+app.get("/api/v1/qa/admin/flagged", async (req: Request, res: Response) => {
+  if (!requireQaAdminToken(req, res)) return;
+  if (!dbPool) return res.json({ pages: [] });
+  try {
+    const result = await dbPool.query(
+      `SELECT * FROM public_qa_pages
+       WHERE flagged_for_review = true AND is_published = true
+       ORDER BY created_at DESC`
+    );
+    return res.json({ pages: result.rows });
+  } catch (_) {
+    return res.status(500).json({ error: "Failed to load flagged Q&A pages." });
   }
 });
 
@@ -5301,7 +5548,12 @@ app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
     // 1. Update in PostgreSQL
     if (dbPool) {
       const updateRes = await dbPool.query(
-        "UPDATE users SET tier = $1, last_active_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, username, phone, email, name, tier",
+        `UPDATE users
+         SET tier = $1,
+             pro_expires_at = CASE WHEN $1 IN ('paid', 'pro') THEN NOW() + INTERVAL '30 days' ELSE pro_expires_at END,
+             last_active_at = CURRENT_TIMESTAMP
+         WHERE id = $2
+         RETURNING id, username, phone, email, name, tier, pro_expires_at`,
         [normalizedTier, id]
       );
 
@@ -5339,6 +5591,7 @@ app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
             name: updatedUser.name,
             avatar_url: updatedUser.avatar_url,
             tier: normalizedTier,
+            pro_expires_at: updatedUser.pro_expires_at || null,
             has_seen_onboarding: updatedUser.has_seen_onboarding,
             preferred_mode: updatedUser.preferred_mode || "research",
           },
