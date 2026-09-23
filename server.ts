@@ -4406,13 +4406,22 @@ app.get("/sitemap-qa.xml", async (_req: Request, res: Response) => {
       )
       : { rows: [] };
     const urls = result.rows.map((row: any) => `
-    <url><loc>https://gageai.org/q/${escapeXml(row.slug)}</loc><lastmod>${new Date(row.updated_at).toISOString()}</lastmod></url>`).join("");
-    res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
+  <url>
+    <loc>https://gageai.org/q/${escapeXml(row.slug)}</loc>
+    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`).join("");
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}
 </urlset>`);
   } catch (error: any) {
     console.warn("Q&A sitemap generation failed:", error?.message || error);
-    return res.status(500).type("application/xml").send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"></urlset>");
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    return res.status(500).send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+</urlset>`);
   }
 });
 
