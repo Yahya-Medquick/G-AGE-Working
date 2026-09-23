@@ -1061,6 +1061,53 @@ async function fetchWithRetry<T>(
 }
 
 const app = express();
+
+// GET /sitemap-qa.xml - XML sitemap for published Q&A pages
+app.get('/sitemap-qa.xml', async (req: Request, res: Response) => {
+  const escapeXml = (value: string): string => value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+  try {
+    if (!dbPool) {
+      console.error("[sitemap] DB pool is unavailable");
+      throw new Error("Database pool is unavailable");
+    }
+    console.log("[sitemap] querying public_qa_pages...");
+    const publishStateResult = await dbPool.query(
+      "SELECT slug, is_published FROM public_qa_pages LIMIT 10"
+    );
+    console.log("[sitemap] publish states:", publishStateResult.rows);
+    const result = await dbPool.query(
+      `SELECT slug, updated_at FROM public_qa_pages
+       WHERE is_published = true
+       ORDER BY updated_at DESC
+       LIMIT 50000`
+    );
+    console.log("[sitemap] rows:", result.rows.length);
+    const rows = result.rows;
+    const urls = rows.map((row: any) => `
+  <url>
+    <loc>https://gageai.org/q/${escapeXml(row.slug)}</loc>
+    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`).join("");
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}
+</urlset>`);
+  } catch (error: any) {
+    console.error("[sitemap] DB error:", error);
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    return res.status(500).send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+</urlset>`);
+  }
+});
+
 // Railway sits behind one trusted proxy; this makes Express derive req.ip from the client address safely.
 app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT) || 3000;
@@ -1687,7 +1734,7 @@ function getGemini(): GoogleGenAI | null {
 // ----------------------------------------------------------------------
 const GEMINI_MODEL_CHAIN = [
   "gemini-2.5-flash",
-  "gemini-2.5-pro",
+  "gemini-2.5-flash",
 ];
 
 // OpenRouter Tiers:
@@ -4389,52 +4436,6 @@ app.get("/persona/:personaSlug/questions", async (req: Request, res: Response) =
   } catch (error: any) {
     console.warn("Persona Q&A lookup failed:", error?.message || error);
     return res.status(500).json({ error: "Failed to load persona questions." });
-  }
-});
-
-// GET /sitemap-qa.xml - XML sitemap for published Q&A pages
-app.get("/sitemap-qa.xml", async (_req: Request, res: Response) => {
-  const escapeXml = (value: string): string => value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-  try {
-    if (!dbPool) {
-      console.error("[sitemap] DB pool is unavailable");
-      throw new Error("Database pool is unavailable");
-    }
-    console.log("[sitemap] querying public_qa_pages...");
-    const publishStateResult = await dbPool.query(
-      "SELECT slug, is_published FROM public_qa_pages LIMIT 10"
-    );
-    console.log("[sitemap] publish states:", publishStateResult.rows);
-    const result = await dbPool.query(
-      `SELECT slug, updated_at FROM public_qa_pages
-       WHERE is_published = true
-       ORDER BY updated_at DESC
-       LIMIT 50000`
-    );
-    console.log("[sitemap] rows:", result.rows.length);
-    const rows = result.rows;
-    const urls = rows.map((row: any) => `
-  <url>
-    <loc>https://gageai.org/q/${escapeXml(row.slug)}</loc>
-    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>`).join("");
-    res.setHeader("Content-Type", "application/xml; charset=utf-8");
-    res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}
-</urlset>`);
-  } catch (error: any) {
-    console.error("[sitemap] DB error:", error);
-    res.setHeader("Content-Type", "application/xml; charset=utf-8");
-    return res.status(500).send(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-</urlset>`);
   }
 });
 
