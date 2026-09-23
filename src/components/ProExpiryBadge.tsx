@@ -30,7 +30,6 @@ export const ProExpiryBadge: React.FC = () => {
   return (
     <span className="inline-flex items-center gap-1">
       <span title={title} className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${tone}`}>{label}</span>
-      {expiresAt && <a href="/?upgrade=pro" className="text-[10px] font-semibold text-indigo-600 hover:underline dark:text-indigo-400">Renew</a>}
     </span>
   );
 };
