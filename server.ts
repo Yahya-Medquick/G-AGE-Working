@@ -4411,14 +4411,14 @@ app.get("/sitemap-qa.xml", async (_req: Request, res: Response) => {
     );
     console.log("[sitemap] publish states:", publishStateResult.rows);
     const result = await dbPool.query(
-      `SELECT slug, updated_at
-       FROM public_qa_pages
+      `SELECT slug, updated_at FROM public_qa_pages
        WHERE is_published = true
        ORDER BY updated_at DESC
        LIMIT 50000`
     );
-    console.log("[sitemap] rows returned:", result.rows.length);
-    const urls = result.rows.map((row: any) => `
+    console.log("[sitemap] rows:", result.rows.length);
+    const rows = result.rows;
+    const urls = rows.map((row: any) => `
   <url>
     <loc>https://gageai.org/q/${escapeXml(row.slug)}</loc>
     <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>
