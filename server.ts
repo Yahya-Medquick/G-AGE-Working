@@ -1592,6 +1592,30 @@ function startBackgroundJobRunner() {
   }, 1000 * 60 * 2); // Run every 2 minutes
 }
 
+async function downgradeExpiredPaidUsers(): Promise<void> {
+  if (!dbPool) return;
+  try {
+    const expiredUsers = await dbPool.query<{ id: string }>(
+      "SELECT id FROM users WHERE tier = 'paid' AND pro_expires_at < NOW()"
+    );
+    for (const user of expiredUsers.rows) {
+      await dbPool.query(
+        "UPDATE users SET tier = 'free', pro_expires_at = NULL WHERE id = $1",
+        [user.id]
+      );
+    }
+    if (expiredUsers.rows.length > 0) {
+      console.log(`[DB] Automatically downgraded ${expiredUsers.rows.length} expired paid users.`);
+    }
+  } catch (error: any) {
+    console.warn("Expired paid user downgrade failed:", error?.message || error);
+  }
+}
+
+setInterval(() => {
+  void downgradeExpiredPaidUsers();
+}, 1000 * 60 * 60 * 24);
+
 // Start Background Refresh Loop
 startBackgroundJobRunner();
 
@@ -5573,11 +5597,12 @@ app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
     const normalizedTier = String(tier).toLowerCase();
 
     // 1. Update in PostgreSQL
+    let updatedUser: any = null;
     if (dbPool) {
       const updateRes = await dbPool.query(
         `UPDATE users
          SET tier = $1,
-             pro_expires_at = CASE WHEN $1 IN ('paid', 'pro') THEN NOW() + INTERVAL '30 days' ELSE pro_expires_at END,
+             pro_expires_at = CASE WHEN $1 IN ('paid', 'pro') THEN NOW() + INTERVAL '30 days' WHEN $1 = 'free' THEN NULL ELSE pro_expires_at END,
              last_active_at = CURRENT_TIMESTAMP
          WHERE id = $2
          RETURNING id, username, phone, email, name, tier, pro_expires_at`,
@@ -5587,17 +5612,26 @@ app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
       if (updateRes.rowCount === 0) {
         return res.status(404).json({ error: "User not found in database." });
       }
+      updatedUser = updateRes.rows[0];
     }
 
     // 2. Update in-memory user map
     if (inMemoryUsers.has(id)) {
       const memUser = inMemoryUsers.get(id);
       memUser.tier = normalizedTier;
+      memUser.pro_expires_at = normalizedTier === "paid" || normalizedTier === "pro"
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        : normalizedTier === "free" ? null : memUser.pro_expires_at;
       inMemoryUsers.set(id, memUser);
+      updatedUser = memUser;
     } else {
       for (const [_key, val] of inMemoryUsers.entries()) {
         if (val.id === id) {
           val.tier = normalizedTier;
+          val.pro_expires_at = normalizedTier === "paid" || normalizedTier === "pro"
+            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            : normalizedTier === "free" ? null : val.pro_expires_at;
+          updatedUser = val;
           break;
         }
       }
@@ -5606,9 +5640,6 @@ app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
     // Issue fresh JWT if upgrading the currently logged-in user
     const currentUser = getCurrentUser(req);
     if (currentUser && String(currentUser.id) === String(id)) {
-      const updatedUser = dbPool
-        ? (await dbPool.query("SELECT * FROM users WHERE id = $1", [id])).rows[0]
-        : inMemoryUsers.get(id);
       if (updatedUser) {
         const newToken = jwt.sign(
           {
@@ -5638,6 +5669,8 @@ app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
       success: true,
       userId: id,
       tier: normalizedTier,
+      user: updatedUser,
+      pro_expires_at: updatedUser?.pro_expires_at || null,
       message: `User tier successfully updated to '${normalizedTier}'.`,
       tokenRefreshed: !!(currentUser && String(currentUser.id) === String(id)),
     });
