@@ -62,6 +62,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userTierFilter, setUserTierFilter] = useState<"all" | "free" | "paid">("all");
   const [updatingUserTierId, setUpdatingUserTierId] = useState<string | null>(null);
+  const [updatingUserExpiryId, setUpdatingUserExpiryId] = useState<string | null>(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "entities" | "cache" | "apikeys" | "personas" | "users">("overview");
@@ -208,6 +209,30 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
       alert(err.message || "Failed to update user tier");
     } finally {
       setUpdatingUserTierId(null);
+    }
+  };
+
+  const handleUpdateUserExpiry = async (userId: string, value: string) => {
+    setUpdatingUserExpiryId(userId);
+    try {
+      const proExpiresAt = value ? new Date(value).toISOString() : null;
+      const res = await fetch(`/api/admin/users/${userId}/pro-expiry`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-Admin-Token": adminToken },
+        body: JSON.stringify({ proExpiresAt }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update Pro expiry date");
+      }
+      const data = await res.json();
+      setUsersList((prev) => prev.map((u) => u.id === userId ? { ...u, pro_expires_at: data.pro_expires_at } : u));
+      setRefreshMessage("Pro expiry date updated");
+      setTimeout(() => setRefreshMessage(null), 3500);
+    } catch (error: any) {
+      alert(error.message || "Failed to update Pro expiry date");
+    } finally {
+      setUpdatingUserExpiryId(null);
     }
   };
 
@@ -817,10 +842,10 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     <Activity className="w-4 h-4 text-emerald-500" />
                   </div>
                   <div className="text-2xl font-black text-slate-900 dark:text-white">
-                    {stats.backgroundJobsStatus.entitiesRefreshed}
+                    {stats.backgroundJobsStatus?.entitiesRefreshed ?? stats.entitiesRefreshedCount ?? 0}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1">
-                    {stats.backgroundJobsStatus.lastRunAt ? `Last refresh: ${new Date(stats.backgroundJobsStatus.lastRunAt).toLocaleString()}` : "No refreshes yet"}
+                    {stats.backgroundJobsStatus?.lastRunAt || stats.lastEntityRefreshAt ? `Last refresh: ${new Date(stats.backgroundJobsStatus?.lastRunAt || stats.lastEntityRefreshAt).toLocaleString()}` : "No refreshes yet"}
                   </div>
                 </div>
               </div>
@@ -1976,6 +2001,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                         <th className="py-3 px-4">Phone / Contact</th>
                         <th className="py-3 px-4">Queries Today</th>
                         <th className="py-3 px-4">Current Tier</th>
+                        <th className="py-3 px-4">Pro Expiry</th>
                         <th className="py-3 px-4 text-right">Manual Tier Upgrade / Downgrade</th>
                       </tr>
                     </thead>
@@ -2058,6 +2084,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                                 )}
                               </td>
 
+                              <td className="py-3.5 px-4">
+                                <input
+                                  type="datetime-local"
+                                  defaultValue={u.pro_expires_at ? new Date(u.pro_expires_at).toISOString().slice(0, 16) : ""}
+                                  onBlur={(event) => handleUpdateUserExpiry(u.id, event.target.value)}
+                                  disabled={updatingUserExpiryId === u.id}
+                                  className="w-40 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-[10px] text-slate-700 dark:text-slate-200 disabled:opacity-50"
+                                  title="Set or clear Pro expiry date"
+                                />
+                              </td>
+
                               <td className="py-3.5 px-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   {isPaid ? (
@@ -2095,7 +2132,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
                       {usersList.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="py-8 text-center text-slate-400">
+                          <td colSpan={6} className="py-8 text-center text-slate-400">
                             No registered users found.
                           </td>
                         </tr>

@@ -297,6 +297,8 @@ export interface AdminStats {
     entitiesRefreshed: number;
     nextRunSeconds: number;
   };
+  entitiesRefreshedCount?: number;
+  lastEntityRefreshAt?: string;
 }
 
 export interface UserProfile {

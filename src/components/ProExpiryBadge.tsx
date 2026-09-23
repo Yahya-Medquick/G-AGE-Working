@@ -4,13 +4,13 @@ import { useUser } from "../context/UserContext";
 export const ProExpiryBadge: React.FC = () => {
   const { user, proExpiresAt } = useUser();
   const isPro = user?.tier === "paid" || user?.tier === "pro" || user?.tier === "unlimited";
-  if (!isPro) return null;
+  if (!isPro || !proExpiresAt) return null;
 
-  const expiresAt = proExpiresAt ? new Date(proExpiresAt) : null;
-  const daysLeft = expiresAt ? Math.ceil((expiresAt.getTime() - Date.now()) / 86400000) : null;
-  const hoursLeft = expiresAt ? Math.ceil((expiresAt.getTime() - Date.now()) / 3600000) : null;
-  const label = daysLeft === null ? "∞" : daysLeft >= 3 ? `${daysLeft}d` : hoursLeft !== null && hoursLeft < 24 ? `${Math.max(0, hoursLeft)}h` : `${Math.max(0, daysLeft)}d`;
-  const tone = daysLeft === null || daysLeft > 7
+  const expiresAt = new Date(proExpiresAt);
+  const daysLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 86400000);
+  const hoursLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 3600000);
+  const label = daysLeft >= 3 ? `${daysLeft}d` : hoursLeft < 24 ? `${Math.max(0, hoursLeft)}h` : `${Math.max(0, daysLeft)}d`;
+  const tone = daysLeft > 7
     ? "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
     : daysLeft >= 3
       ? "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800"

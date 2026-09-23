@@ -60,8 +60,12 @@ function readProExpiryFromJwt(): string | null {
   try {
     const token = localStorage.getItem("bifrost_session_token");
     if (!token) return null;
-    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return typeof payload.pro_expires_at === "string" ? payload.pro_expires_at : null;
+    const tokenParts = token.split(".");
+    const encodedPayload = tokenParts[1];
+    if (!encodedPayload) return null;
+    const decoded = JSON.parse(atob(encodedPayload.replace(/-/g, "+").replace(/_/g, "/")));
+    const proExpiresAt = decoded?.pro_expires_at ?? null;
+    return typeof proExpiresAt === "string" ? proExpiresAt : null;
   } catch (_) {
     return null;
   }

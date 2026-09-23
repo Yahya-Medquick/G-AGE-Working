@@ -5494,6 +5494,7 @@ app.get("/api/admin/users", async (_req: Request, res: Response) => {
           COALESCE(u.tier, 'free') AS tier, 
           u.created_at, 
           u.last_active_at,
+          u.pro_expires_at,
           COALESCE(
             (SELECT dl.query_count FROM device_limits dl 
              WHERE dl.device_id = ANY(u.trusted_devices) AND dl.usage_date = $1 
@@ -5528,6 +5529,32 @@ app.get("/api/admin/users", async (_req: Request, res: Response) => {
   } catch (err: any) {
     console.error("[Admin GET /api/admin/users error]:", err);
     return res.status(500).json({ error: "Failed to fetch users list." });
+  }
+});
+
+app.patch("/api/admin/users/:id/pro-expiry", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { proExpiresAt } = req.body || {};
+  if (proExpiresAt !== null && (typeof proExpiresAt !== "string" || Number.isNaN(Date.parse(proExpiresAt)))) {
+    return res.status(400).json({ error: "proExpiresAt must be a valid date or null." });
+  }
+  try {
+    if (dbPool) {
+      const result = await dbPool.query(
+        "UPDATE users SET pro_expires_at = $1 WHERE id = $2 RETURNING id, pro_expires_at",
+        [proExpiresAt, id]
+      );
+      if (!result.rowCount) return res.status(404).json({ error: "User not found." });
+      return res.json({ success: true, ...result.rows[0] });
+    }
+    const user = inMemoryUsers.get(id);
+    if (!user) return res.status(404).json({ error: "User not found." });
+    user.pro_expires_at = proExpiresAt;
+    inMemoryUsers.set(id, user);
+    return res.json({ success: true, id, pro_expires_at: proExpiresAt });
+  } catch (error: any) {
+    console.error("[Admin PATCH /api/admin/users/:id/pro-expiry error]:", error);
+    return res.status(500).json({ error: "Failed to update Pro expiry date." });
   }
 });
 
