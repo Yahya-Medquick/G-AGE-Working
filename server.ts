@@ -3150,7 +3150,7 @@ app.get("/api/auth/me", async (req: Request, res: Response) => {
   let fullUser = userPayload;
   if (dbPool && userPayload.id) {
     try {
-      const resDb = await dbPool.query("SELECT id, username, name, phone, avatar_url, tier, has_seen_onboarding, created_at, preferred_mode FROM users WHERE id = $1", [userPayload.id]);
+      const resDb = await dbPool.query("SELECT id, username, name, phone, avatar_url, tier, pro_expires_at, has_seen_onboarding, created_at, preferred_mode FROM users WHERE id = $1", [userPayload.id]);
       if (resDb.rows.length > 0) {
         fullUser = {
           ...userPayload,
@@ -5583,6 +5583,11 @@ app.patch("/api/admin/users/:id/pro-expiry", async (req: Request, res: Response)
 });
 
 app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
+  console.log("[Admin PATCH /api/admin/users/:id/tier] request", {
+    userId: req.params.id,
+    requestedTier: req.body?.tier,
+    whereId: req.params.id,
+  });
   try {
     const { id } = req.params;
     const { tier } = req.body || {};
@@ -5599,15 +5604,17 @@ app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
     // 1. Update in PostgreSQL
     let updatedUser: any = null;
     if (dbPool) {
-      const updateRes = await dbPool.query(
-        `UPDATE users
-         SET tier = $1,
-             pro_expires_at = CASE WHEN $1 IN ('paid', 'pro') THEN NOW() + INTERVAL '30 days' WHEN $1 = 'free' THEN NULL ELSE pro_expires_at END,
-             last_active_at = CURRENT_TIMESTAMP
-         WHERE id = $2
-         RETURNING id, username, phone, email, name, tier, pro_expires_at`,
-        [normalizedTier, id]
-      );
+      const updateRes = normalizedTier === "paid"
+        ? await dbPool.query(
+          `UPDATE users SET tier=$1, pro_expires_at=NOW() + INTERVAL '30 days'
+           WHERE id=$2 RETURNING id, tier, pro_expires_at`,
+          [normalizedTier, id]
+        )
+        : await dbPool.query(
+          `UPDATE users SET tier=$1, pro_expires_at=NULL
+           WHERE id=$2 RETURNING id, tier, pro_expires_at`,
+          [normalizedTier, id]
+        );
 
       if (updateRes.rowCount === 0) {
         return res.status(404).json({ error: "User not found in database." });
@@ -5675,7 +5682,7 @@ app.patch("/api/admin/users/:id/tier", async (req: Request, res: Response) => {
       tokenRefreshed: !!(currentUser && String(currentUser.id) === String(id)),
     });
   } catch (err: any) {
-    console.error("[Admin PATCH /api/admin/users/:id/tier error]:", err);
+    console.error("[Admin PATCH /api/admin/users/:id/tier error]", err);
     return res.status(500).json({ error: "Failed to update user tier." });
   }
 });

@@ -4,7 +4,17 @@ import { useUser } from "../context/UserContext";
 export const ProExpiryBadge: React.FC = () => {
   const { user, proExpiresAt } = useUser();
   const isPro = user?.tier === "paid" || user?.tier === "pro" || user?.tier === "unlimited";
-  if (!isPro || !proExpiresAt) return null;
+  if (!isPro) return null;
+  if (!proExpiresAt) {
+    return (
+      <span
+        title="Pro does not expire"
+        className="px-1.5 py-0.5 rounded-full border text-[10px] font-bold bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
+      >
+        ∞
+      </span>
+    );
+  }
 
   const expiresAt = new Date(proExpiresAt);
   const daysLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 86400000);
