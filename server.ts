@@ -375,6 +375,11 @@ async function initDatabaseSchema() {
       CREATE INDEX IF NOT EXISTS idx_qa_pub ON public_qa_pages(is_published);
       CREATE INDEX IF NOT EXISTS idx_qa_created ON public_qa_pages(created_at DESC);
     `);
+    await dbPool.query(`
+      UPDATE public_qa_pages
+      SET is_published = true
+      WHERE is_published IS NULL;
+    `);
 
     // 17. Expert Personas Management Table (Unified Single Source of Truth)
     await dbPool.query(`
@@ -4396,15 +4401,23 @@ app.get("/sitemap-qa.xml", async (_req: Request, res: Response) => {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
   try {
-    const result = dbPool
-      ? await dbPool.query(
-        `SELECT slug, updated_at
-         FROM public_qa_pages
-         WHERE is_published = true
-         ORDER BY updated_at DESC
-         LIMIT 50000`
-      )
-      : { rows: [] };
+    if (!dbPool) {
+      console.error("[sitemap] DB pool is unavailable");
+      throw new Error("Database pool is unavailable");
+    }
+    console.log("[sitemap] querying public_qa_pages...");
+    const publishStateResult = await dbPool.query(
+      "SELECT slug, is_published FROM public_qa_pages LIMIT 10"
+    );
+    console.log("[sitemap] publish states:", publishStateResult.rows);
+    const result = await dbPool.query(
+      `SELECT slug, updated_at
+       FROM public_qa_pages
+       WHERE is_published = true
+       ORDER BY updated_at DESC
+       LIMIT 50000`
+    );
+    console.log("[sitemap] rows returned:", result.rows.length);
     const urls = result.rows.map((row: any) => `
   <url>
     <loc>https://gageai.org/q/${escapeXml(row.slug)}</loc>
@@ -4417,7 +4430,7 @@ app.get("/sitemap-qa.xml", async (_req: Request, res: Response) => {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}
 </urlset>`);
   } catch (error: any) {
-    console.warn("Q&A sitemap generation failed:", error?.message || error);
+    console.error("[sitemap] DB error:", error);
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
     return res.status(500).send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
