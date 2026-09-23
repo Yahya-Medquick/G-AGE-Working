@@ -19,7 +19,7 @@ export const PublicQAPage: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    fetch(`/q/${encodeURIComponent(slug)}`)
+    fetch(`/api/q/${encodeURIComponent(slug)}`)
       .then(async (response) => {
         if (response.status === 404) {
           setNotFound(true);

@@ -4391,8 +4391,8 @@ Only output this marker when the question is clearly outside your domain. Never 
   }
 });
 
-// GET /q/:slug - Public Q&A page data
-app.get("/q/:slug", async (req: Request, res: Response) => {
+// GET /api/q/:slug - Public Q&A page data
+app.get("/api/q/:slug", async (req: Request, res: Response) => {
   if (!dbPool) return res.status(404).json({ error: "Q&A page not found." });
   try {
     const result = await dbPool.query(
@@ -4419,8 +4419,8 @@ app.get("/q/:slug", async (req: Request, res: Response) => {
   }
 });
 
-// GET /persona/:personaSlug/questions - Published canonical questions for a persona
-app.get("/persona/:personaSlug/questions", async (req: Request, res: Response) => {
+// GET /api/persona/:personaSlug/questions - Published canonical questions for a persona
+app.get("/api/persona/:personaSlug/questions", async (req: Request, res: Response) => {
   const offset = Math.max(0, Number.parseInt(String(req.query.offset || "0"), 10) || 0);
   if (!dbPool) return res.json({ questions: [] });
   try {

@@ -17,7 +17,7 @@ export const PersonaQuestionsPage: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    fetch(`/persona/${encodeURIComponent(personaSlug)}/questions`)
+    fetch(`/api/persona/${encodeURIComponent(personaSlug)}/questions`)
       .then((response) => response.json())
       .then((data) => {
         if (!active) return;
