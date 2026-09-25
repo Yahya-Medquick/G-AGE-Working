@@ -14,6 +14,101 @@ import { sanitizeInput, evaluateContentQuality } from "./src/utils/security";
 
 const { Pool } = pg;
 
+type ResearchPaperSource = {
+  title: string;
+  doi: string;
+  year: number | null;
+  author: string;
+  abstract: string;
+};
+
+type ResearchWikipediaSource = {
+  title: string;
+  extract: string;
+  url: string;
+};
+
+type ResearchNewsSource = {
+  title: string;
+  url: string;
+  source: string;
+};
+
+type ResearchSources = {
+  papers: ResearchPaperSource[];
+  wikipedia: ResearchWikipediaSource | null;
+  news: ResearchNewsSource[];
+};
+
+function reconstructOpenAlexAbstract(invertedIndex: Record<string, number[]> | undefined): string {
+  if (!invertedIndex) return "";
+  return Object.entries(invertedIndex)
+    .flatMap(([word, positions]) => positions.map((position) => ({ word, position })))
+    .sort((a, b) => a.position - b.position)
+    .map(({ word }) => word)
+    .join(" ");
+}
+
+async function fetchResearchPapers(query: string): Promise<ResearchPaperSource[]> {
+  const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per_page=5&select=title,abstract_inverted_index,doi,publication_year,authorships`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`OpenAlex API returned HTTP ${response.status}`);
+  const data = await response.json();
+  if (!Array.isArray(data?.results)) return [];
+  return data.results.map((work: any) => ({
+    title: typeof work.title === "string" ? work.title : "Untitled paper",
+    doi: typeof work.doi === "string"
+      ? (work.doi.startsWith("http") ? work.doi : `https://doi.org/${work.doi}`)
+      : "",
+    year: typeof work.publication_year === "number" ? work.publication_year : null,
+    author: work.authorships?.[0]?.author?.display_name || "Unknown author",
+    abstract: reconstructOpenAlexAbstract(work.abstract_inverted_index),
+  }));
+}
+
+async function fetchWikipediaSummary(query: string): Promise<ResearchWikipediaSource | null> {
+  const fetchSummary = async (title: string) => {
+    const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    const pageUrl = data?.content_urls?.desktop?.page;
+    if (!data?.title || !data?.extract || !pageUrl) return null;
+    return { title: data.title, extract: data.extract, url: pageUrl };
+  };
+
+  const direct = await fetchSummary(query);
+  if (direct) return direct;
+
+  const searchResponse = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=1`);
+  if (!searchResponse.ok) return null;
+  const searchData = await searchResponse.json();
+  const firstResult = searchData?.query?.search?.[0]?.title;
+  return firstResult ? fetchSummary(firstResult) : null;
+}
+
+async function fetchResearchNews(query: string): Promise<ResearchNewsSource[]> {
+  const apiKey = process.env.GNEWS_API_KEY?.trim();
+  console.log("[GNews] API key configured:", Boolean(apiKey));
+  if (!apiKey) return [];
+
+  try {
+    console.log("[GNews] fetching...");
+    const res = await fetch(`https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&token=${encodeURIComponent(apiKey)}&lang=en&max=5`);
+    console.log("[GNews] response status:", res.status);
+    const data = await res.json();
+    console.log("[GNews] data:", JSON.stringify(data).slice(0, 200));
+    if (!Array.isArray(data?.articles) || data.articles.length === 0) return [];
+    return data.articles.map((article: any) => ({
+      title: typeof article.title === "string" ? article.title : "Untitled news article",
+      url: typeof article.url === "string" ? article.url : "",
+      source: article.source?.name || "Unknown source",
+    })).filter((article: ResearchNewsSource) => article.url);
+  } catch (error) {
+    console.error("[GNews] error:", error);
+    return [];
+  }
+}
+
 // Secret Hygiene Check on Startup (Requirement 1)
 function requireSecret(name: string): string {
   const value = process.env[name]?.trim();
@@ -4219,6 +4314,7 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
 
     // Mode-specific instructions
     let modeInstruction = "";
+    let researchSources: ResearchSources = { papers: [], wikipedia: null, news: [] };
     if (mode === "concept") {
       const level = specs.concept?.level || "intermediate";
       modeInstruction = `
@@ -4253,7 +4349,43 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       const recency = specs.research?.recency || "5_years";
       const minCitations = specs.research?.minCitations || "any";
       const includeCode = specs.research?.includeCode !== false;
+      const researchQuery = [...messages].reverse().find((message: any) => message.role === "user")?.content?.trim() || "";
+      const [papersResult, wikipediaResult, newsResult] = await Promise.allSettled([
+        fetchResearchPapers(researchQuery),
+        fetchWikipediaSummary(researchQuery),
+        fetchResearchNews(researchQuery),
+      ]);
+      researchSources = {
+        papers: papersResult.status === "fulfilled" ? papersResult.value : [],
+        wikipedia: wikipediaResult.status === "fulfilled" ? wikipediaResult.value : null,
+        news: newsResult.status === "fulfilled" ? newsResult.value : [],
+      };
+
+      const paperContext = researchSources.papers.map((paper) => {
+        const doi = paper.doi || "No DOI available";
+        return `- ${paper.title} (${paper.year || "n.d."}) by ${paper.author} | DOI: ${doi}\n  Abstract: ${paper.abstract || "No abstract available."}`;
+      }).join("\n");
+      const wikipediaContext = researchSources.wikipedia
+        ? `${researchSources.wikipedia.title}: ${researchSources.wikipedia.extract}\nSource: ${researchSources.wikipedia.url}`
+        : "";
+      const newsContext = researchSources.news
+        .map((article) => `- ${article.title} | ${article.source} | ${article.url}`)
+        .join("\n");
+      const researchContext = [
+        paperContext && `ACADEMIC PAPERS (OpenAlex):\n${paperContext}`,
+        wikipediaContext && `WIKIPEDIA SUMMARY:\n${wikipediaContext}`,
+        newsContext && `RECENT NEWS (GNews):\n${newsContext}`,
+      ].filter(Boolean).join("\n\n");
+
       modeInstruction = `
+You are in research mode. Base your response on these verified sources:
+
+${researchContext}
+
+Cite these sources in your response where relevant.
+Prioritize academic papers for factual claims.
+Include DOI links for papers you reference.
+
 [MODE: RESEARCH & LITERATURE SYNTHESIS]
 - Recency Filter: ${recency}
 - Min Citations: ${minCitations}
@@ -4379,12 +4511,14 @@ Only output this marker when the question is clearly outside your domain. Never 
       console.log('[DOMAIN REDIRECT] No marker in reply. Persona group:', personaGroupName, '| Reply end:', reply.slice(-100));
     }
 
-    return res.json({
+    const responsePayload: Record<string, any> = {
       reply,
       mode,
       personaId: persona?.slug || persona?.id || personaId || "expert",
       timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-    });
+    };
+    if (mode === "research") responsePayload.sources = researchSources;
+    return res.json(responsePayload);
   } catch (error: any) {
     console.error("Chat API Error:", error);
     return res.status(500).json({ error: error.message || "Failed to generate chat response." });

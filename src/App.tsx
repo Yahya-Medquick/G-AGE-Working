@@ -426,6 +426,7 @@ export default function App() {
         timestamp: data.timestamp || new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
         mode: targetMode,
         personaId: currentSession.personaId,
+        metadata: targetMode === 'research' && data.sources ? { sources: data.sources } : undefined,
       };
 
       updateSessionMessages(currentSession.id, [...newMessages, assistantMessage], newTitle);

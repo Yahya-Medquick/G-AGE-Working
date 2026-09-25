@@ -1140,6 +1140,65 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                       </div>
                     )}
 
+                    {msg.mode === 'research' && msg.metadata?.sources && (
+                      <details className="mt-3 pt-3 border-t border-slate-100 dark:border-[#2a3942] group">
+                        <summary className="flex items-center justify-between cursor-pointer list-none text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                          <span>Sources</span>
+                          <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-2 space-y-2 text-xs">
+                          {msg.metadata.sources.papers.length > 0 && (
+                            <div className="space-y-1.5">
+                              <div className="text-[10px] font-semibold uppercase text-slate-400">Academic Papers</div>
+                              {msg.metadata.sources.papers.map((paper, paperIndex) => (
+                                <a
+                                  key={`source-paper-${paperIndex}`}
+                                  href={paper.doi || undefined}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-start gap-2 text-slate-700 dark:text-slate-200 hover:text-[#00a884] dark:hover:text-[#25d366]"
+                                >
+                                  <ExternalLink className="w-3 h-3 mt-0.5 shrink-0" />
+                                  <span>{paper.title} ({paper.year || 'n.d.'}) by {paper.author}</span>
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                          {msg.metadata.sources.wikipedia && (
+                            <div>
+                              <div className="text-[10px] font-semibold uppercase text-slate-400 mb-1">Wikipedia</div>
+                              <a
+                                href={msg.metadata.sources.wikipedia.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 text-slate-700 dark:text-slate-200 hover:text-[#00a884] dark:hover:text-[#25d366]"
+                              >
+                                <ExternalLink className="w-3 h-3 shrink-0" />
+                                <span>{msg.metadata.sources.wikipedia.title}</span>
+                              </a>
+                            </div>
+                          )}
+                          {msg.metadata.sources.news.length > 0 && (
+                            <div className="space-y-1.5">
+                              <div className="text-[10px] font-semibold uppercase text-slate-400">Recent News</div>
+                              {msg.metadata.sources.news.map((article, articleIndex) => (
+                                <a
+                                  key={`source-news-${articleIndex}`}
+                                  href={article.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-start gap-2 text-slate-700 dark:text-slate-200 hover:text-[#00a884] dark:hover:text-[#25d366]"
+                                >
+                                  <ExternalLink className="w-3 h-3 mt-0.5 shrink-0" />
+                                  <span>{article.title} <span className="text-slate-400">({article.source})</span></span>
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </details>
+                    )}
+
                     {/* EXPLORE MORE INTERACTIVE WHATSAPP-STYLE ATTACHMENT CARD - Only for valid non-error responses */}
                     {!msg.content.startsWith('⚠️') && (() => {
                       const msgTopicData = extractedTopics[msg.id];

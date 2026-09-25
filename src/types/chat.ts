@@ -37,11 +37,23 @@ export interface ChatMessageMetadata {
     commonPitfalls?: string;
     rubric?: string;
   };
-  sources?: Array<{
-    title: string;
-    url?: string;
-    snippet?: string;
-  }>;
+  sources?: {
+    papers: Array<{
+      title: string;
+      doi: string;
+      year: number | null;
+      author: string;
+    }>;
+    wikipedia: {
+      title: string;
+      url: string;
+    } | null;
+    news: Array<{
+      title: string;
+      url: string;
+      source: string;
+    }>;
+  };
   papers?: Array<{
     title: string;
     authors?: string[];
