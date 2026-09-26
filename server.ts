@@ -66,8 +66,42 @@ function getXmlText(value: unknown): string {
   return "";
 }
 
-async function fetchResearchPapers(query: string): Promise<ResearchPaperSource[]> {
-  const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per_page=5&select=title,abstract_inverted_index,doi,publication_year,authorships`;
+function getOpenAlexYearFilter(recency: string): string {
+  const currentYear = new Date().getFullYear();
+  if (recency === "2_years" || recency === "2024-26") {
+    return `from_publication_date:${currentYear - 2}-01-01`;
+  }
+  if (recency === "5_years") {
+    return `from_publication_date:${currentYear - 5}-01-01`;
+  }
+  return "";
+}
+
+function getOpenAlexFilters(recency: string, minCitations: string, openAccessOnly = false): string {
+  const citationFilter = minCitations === "500+"
+    ? "cited_by_count:>500"
+    : minCitations === "50+" ? "cited_by_count:>50" : "";
+  return [
+    openAccessOnly ? "is_oa:true" : "",
+    getOpenAlexYearFilter(recency),
+    citationFilter,
+  ].filter(Boolean).join(",");
+}
+
+async function fetchResearchPapers(
+  query: string,
+  recency = "5_years",
+  minCitations = "any"
+): Promise<ResearchPaperSource[]> {
+  const params = new URLSearchParams({
+    search: query,
+    sort: "relevance_score:desc",
+    "per-page": "5",
+    select: "title,abstract_inverted_index,doi,publication_year,authorships",
+  });
+  const filters = getOpenAlexFilters(recency, minCitations);
+  if (filters) params.set("filter", filters);
+  const url = `https://api.openalex.org/works?${params.toString()}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`OpenAlex API returned HTTP ${response.status}`);
   const data = await response.json();
@@ -1804,8 +1838,17 @@ app.get("/api/explore/papers", async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
     if (!query) return res.status(400).json({ error: "Query required" });
-    const encoded = encodeURIComponent(query);
-    const url = `https://api.openalex.org/works?search=${encoded}&filter=is_oa:true&sort=cited_by_count:desc&per-page=8&select=id,title,authorships,publication_year,doi,primary_location,cited_by_count,open_access`;
+    const recency = (req.query.recency as string) || "5_years";
+    const minCitations = (req.query.minCitations as string) || "any";
+    const filters = getOpenAlexFilters(recency, minCitations, true);
+    const params = new URLSearchParams({
+      search: query,
+      filter: filters,
+      sort: "relevance_score:desc",
+      "per-page": "8",
+      select: "id,title,authorships,publication_year,doi,primary_location,cited_by_count,open_access",
+    });
+    const url = `https://api.openalex.org/works?${params.toString()}`;
     const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
     if (!response.ok) throw new Error("OpenAlex API error");
     const data = await response.json();
@@ -1860,8 +1903,16 @@ app.get("/api/explore/research-news", async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
     if (!query) return res.status(400).json({ error: "Query required" });
-    const encoded = encodeURIComponent(query + " research");
-    const url = `https://api.openalex.org/works?search=${encoded}&sort=publication_date:desc&per-page=8&select=id,title,authorships,publication_year,primary_location,open_access,doi`;
+    const recency = (req.query.recency as string) || "5_years";
+    const filters = getOpenAlexFilters(recency, "any");
+    const params = new URLSearchParams({
+      search: `${query} research`,
+      sort: "publication_date:desc",
+      "per-page": "8",
+      select: "id,title,authorships,publication_year,primary_location,open_access,doi",
+    });
+    if (filters) params.set("filter", filters);
+    const url = `https://api.openalex.org/works?${params.toString()}`;
     const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
     if (!response.ok) throw new Error("OpenAlex news error");
     const data = await response.json();
@@ -4655,7 +4706,13 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
     const shouldFetchFinance = isFinanceQuery(message, personaGroup);
     const sourceRequests = [
       fetchBraveSearch(message),
-      mode === "research" ? fetchResearchPapers(message) : Promise.resolve([] as ResearchPaperSource[]),
+      mode === "research"
+        ? fetchResearchPapers(
+            message,
+            specs.research?.recency || "5_years",
+            specs.research?.minCitations || "any"
+          )
+        : Promise.resolve([] as ResearchPaperSource[]),
       mode === "research" ? fetchWikipediaSummary(message) : Promise.resolve(null as ResearchWikipediaSource | null),
       fetchResearchNews(message),
       mode === "research" ? fetchArXiv(message) : Promise.resolve(null),
@@ -7251,7 +7308,7 @@ async function handleResearchCategory(topic: string, page: number, limit: number
     const fetchLimit = Math.max(30, limit * 3);
     const url = `https://api.openalex.org/works?search=${encodeURIComponent(
       topic
-    )}&page=${page}&per_page=${fetchLimit}&sort=cited_by_count:desc`;
+    )}&page=${page}&per_page=${fetchLimit}&sort=relevance_score:desc`;
     const data = await fetchWithTimeout(url, {}, 5000);
 
     const papers = (data.results || []).map((work: any) => {

@@ -215,20 +215,25 @@ const ExploreNewsSection: React.FC<{ topic: string; query?: string }> = ({ topic
 
 
 // ─── Research Mode: Papers Section ───────────────────────────────────────────
-const ExplorePapersSection: React.FC<{ topic: string }> = ({ topic }) => {
+const ExplorePapersSection: React.FC<{
+  topic: string;
+  recency: ResearchSpecs['recency'];
+  minCitations: ResearchSpecs['minCitations'];
+}> = ({ topic, recency, minCitations }) => {
   const [papers, setPapers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    fetch(`/api/explore/papers?q=${encodeURIComponent(topic)}`)
+    const params = new URLSearchParams({ q: topic, recency, minCitations });
+    fetch(`/api/explore/papers?${params.toString()}`)
       .then(r => r.json())
       .then(data => { if (isMounted) setPapers(data.papers || []); })
       .catch(err => console.error("Papers error:", err))
       .finally(() => { if (isMounted) setLoading(false); });
     return () => { isMounted = false; };
-  }, [topic]);
+  }, [topic, recency, minCitations]);
 
   if (loading) return (
     <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
@@ -320,20 +325,24 @@ const ExploreReposSection: React.FC<{ topic: string }> = ({ topic }) => {
 };
 
 // ─── Research Mode: Research News Section ────────────────────────────────────
-const ExploreResearchNewsSection: React.FC<{ topic: string }> = ({ topic }) => {
+const ExploreResearchNewsSection: React.FC<{
+  topic: string;
+  recency: ResearchSpecs['recency'];
+}> = ({ topic, recency }) => {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    fetch(`/api/explore/research-news?q=${encodeURIComponent(topic)}`)
+    const params = new URLSearchParams({ q: topic, recency });
+    fetch(`/api/explore/research-news?${params.toString()}`)
       .then(r => r.json())
       .then(data => { if (isMounted) setItems(data.items || []); })
       .catch(err => console.error("Research news error:", err))
       .finally(() => { if (isMounted) setLoading(false); });
     return () => { isMounted = false; };
-  }, [topic]);
+  }, [topic, recency]);
 
   if (loading) return (
     <div className="py-6 text-center text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
@@ -1418,9 +1427,20 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
                                   {activeMode === 'research' ? (
                                     <>
-                                      {activeExploreTab === 'papers' && <ExplorePapersSection topic={targetTopic} />}
+                                      {activeExploreTab === 'papers' && (
+                                        <ExplorePapersSection
+                                          topic={targetTopic}
+                                          recency={session?.specs?.research?.recency || '5_years'}
+                                          minCitations={session?.specs?.research?.minCitations || 'any'}
+                                        />
+                                      )}
                                       {activeExploreTab === 'repos' && <ExploreReposSection topic={targetTopic} />}
-                                      {activeExploreTab === 'research-news' && <ExploreResearchNewsSection topic={targetTopic} />}
+                                      {activeExploreTab === 'research-news' && (
+                                        <ExploreResearchNewsSection
+                                          topic={targetTopic}
+                                          recency={session?.specs?.research?.recency || '5_years'}
+                                        />
+                                      )}
                                     </>
                                   ) : (
                                     <>
