@@ -203,38 +203,40 @@ async function fetchResearchNews(query: string): Promise<ResearchNewsSource[]> {
   }
 }
 
-async function fetchBraveSearch(query: string): Promise<{ snippets: string[]; urls: string[] } | null> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+async function fetchBraveSearch(query: string): Promise<any[]> {
   try {
-    const apiKey = process.env.BRAVE_API_KEY?.trim();
-    if (!apiKey) return null;
+    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return [];
+    const data = await res.json();
 
-    const controller = new AbortController();
-    timeout = setTimeout(() => controller.abort(), 2500);
-    const response = await fetch(
-      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=3`,
-      {
-        headers: {
-          Accept: "application/json",
-          "X-Subscription-Token": apiKey,
-        },
-        signal: controller.signal,
+    const results: any[] = [];
+
+    if (data.AbstractText) {
+      results.push({
+        title: data.Heading || query,
+        url: data.AbstractURL || "",
+        snippet: data.AbstractText,
+        source: data.AbstractSource || "DuckDuckGo",
+      });
+    }
+
+    if (Array.isArray(data.RelatedTopics)) {
+      for (const topic of data.RelatedTopics.slice(0, 5)) {
+        if (topic.Text && topic.FirstURL) {
+          results.push({
+            title: topic.Text.split(" - ")[0] || topic.Text,
+            url: topic.FirstURL,
+            snippet: topic.Text,
+            source: "DuckDuckGo",
+          });
+        }
       }
-    );
-    if (!response.ok) return null;
+    }
 
-    const data = await response.json();
-    const results = data?.web?.results;
-    if (!Array.isArray(results)) return null;
-
-    return {
-      snippets: results.map((result: any) => result.description).filter((snippet: any) => typeof snippet === "string"),
-      urls: results.map((result: any) => result.url).filter((url: any) => typeof url === "string"),
-    };
+    return results;
   } catch {
-    return null;
-  } finally {
-    if (timeout !== undefined) clearTimeout(timeout);
+    return [];
   }
 }
 
@@ -415,9 +417,6 @@ function requireSecret(name: string): string {
 
 const ADMIN_TOKEN = requireSecret("ADMIN_TOKEN");
 const JWT_SECRET = requireSecret("JWT_SECRET");
-if (!process.env.BRAVE_API_KEY?.trim()) {
-  console.warn("[Brave Search] Optional BRAVE_API_KEY environment variable is not set.");
-}
 if (!process.env.EXCHANGE_RATE_API_KEY?.trim()) {
   console.warn("[Exchange Rates] Optional EXCHANGE_RATE_API_KEY environment variable is not set.");
 }
@@ -1512,7 +1511,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
       gemini: !!process.env.GEMINI_API_KEY,
       openrouter: !!process.env.OPENROUTER_API_KEY,
       gnews: !!process.env.GNEWS_API_KEY,
-      brave: !!process.env.BRAVE_API_KEY,
+      brave: true,
       exchangeRate: !!process.env.EXCHANGE_RATE_API_KEY,
       arxiv: true,
       pubmed: true,
@@ -4680,7 +4679,7 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
     };
 
     const liveContext = [
-      parallelSources.braveSearch && `\n\n[LIVE WEB CONTEXT - ${new Date().toISOString()}]\n${parallelSources.braveSearch.snippets.join("\n")}`,
+      parallelSources.braveSearch?.length && `\n\n[LIVE WEB CONTEXT - ${new Date().toISOString()}]\n${parallelSources.braveSearch.map((result: any) => `${result.title}: ${result.snippet}${result.url ? ` (${result.url})` : ""}`).join("\n")}`,
       mode === "research" && parallelSources.arxiv && `\n\n[RECENT ARXIV PAPERS]\n${parallelSources.arxiv.papers.map((paper) => `${paper.title} (${paper.date}): ${paper.summary}`).join("\n")}`,
       mode === "research" && parallelSources.pubmed && `\n\n[PUBMED ARTICLES]\n${parallelSources.pubmed.articles.map((article) => `${article.title}: ${article.abstract}`).join("\n")}`,
       parallelSources.exchangeRates && `\n\n[LIVE EXCHANGE RATES - USD base]\nPKR: ${parallelSources.exchangeRates.rates.PKR}, EUR: ${parallelSources.exchangeRates.rates.EUR}, GBP: ${parallelSources.exchangeRates.rates.GBP}`,
@@ -4886,7 +4885,7 @@ Only output this marker when the question is clearly outside your domain. Never 
       medical: parallelSources.pubmed?.articles || [],
       wikipedia: researchSources.wikipedia,
       news: researchSources.news,
-      web: parallelSources.braveSearch?.snippets || [],
+      web: parallelSources.braveSearch || [],
       finance: parallelSources.exchangeRates,
       crypto: parallelSources.cryptoRates,
     };
@@ -8724,7 +8723,7 @@ async function startServer() {
   console.log("Gemini API:        ", process.env.GEMINI_API_KEY ? "✅" : "❌ MISSING");
   console.log("OpenRouter:        ", process.env.OPENROUTER_API_KEY ? "✅" : "❌ MISSING");
   console.log("GNews:             ", process.env.GNEWS_API_KEY ? "✅" : "❌ MISSING");
-  console.log("Brave Search:      ", process.env.BRAVE_API_KEY ? "✅" : "⚠️  missing (optional)");
+  console.log("DuckDuckGo:        ", "✅ no key needed");
   console.log("Exchange Rate:     ", process.env.EXCHANGE_RATE_API_KEY ? "✅" : "⚠️  missing (optional)");
   console.log("arXiv:             ", "✅ no key needed");
   console.log("PubMed:            ", "✅ no key needed");
