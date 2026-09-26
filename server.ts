@@ -4679,13 +4679,13 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
     };
 
     const liveContext = [
-      parallelSources.braveSearch?.length && `\n\n[LIVE WEB CONTEXT - ${new Date().toISOString()}]\n${parallelSources.braveSearch.map((result: any) => `${result.title}: ${result.snippet}${result.url ? ` (${result.url})` : ""}`).join("\n")}`,
-      mode === "research" && parallelSources.arxiv && `\n\n[RECENT ARXIV PAPERS]\n${parallelSources.arxiv.papers.map((paper) => `${paper.title} (${paper.date}): ${paper.summary}`).join("\n")}`,
-      mode === "research" && parallelSources.pubmed && `\n\n[PUBMED ARTICLES]\n${parallelSources.pubmed.articles.map((article) => `${article.title}: ${article.abstract}`).join("\n")}`,
-      parallelSources.exchangeRates && `\n\n[LIVE EXCHANGE RATES - USD base]\nPKR: ${parallelSources.exchangeRates.rates.PKR}, EUR: ${parallelSources.exchangeRates.rates.EUR}, GBP: ${parallelSources.exchangeRates.rates.GBP}`,
-      parallelSources.cryptoRates && `\n\n[LIVE CRYPTO PRICES]\nBTC: $${parallelSources.cryptoRates.btc_usd} / PKR ${parallelSources.cryptoRates.btc_pkr}`,
-      parallelSources.weather && `\n\n[CURRENT PAKISTAN WEATHER]\nTemp: ${parallelSources.weather.temp_c}°C, Precipitation: ${parallelSources.weather.precipitation_mm}mm`,
-      parallelSources.npmPackage && `\n\n[NPM PACKAGE INFO]\n${parallelSources.npmPackage.name}@${parallelSources.npmPackage.version}: ${parallelSources.npmPackage.description}`,
+      parallelSources.braveSearch?.length && `\n\n[LIVE DATA - WEB SEARCH - fetched just now]\n${parallelSources.braveSearch.map((result: any) => `${result.title}: ${result.snippet}${result.url ? ` (${result.url})` : ""}`).join("\n")}`,
+      mode === "research" && parallelSources.arxiv?.papers.length && `\n\n[LIVE DATA - RESEARCH PAPERS - fetched just now]\n${parallelSources.arxiv.papers.map((paper) => `${paper.title} (${paper.date}): ${paper.summary}`).join("\n")}`,
+      mode === "research" && parallelSources.pubmed?.articles.length && `\n\n[LIVE DATA - RESEARCH PAPERS - fetched just now]\n${parallelSources.pubmed.articles.map((article) => `${article.title}: ${article.abstract}`).join("\n")}`,
+      parallelSources.exchangeRates && `\n\n[LIVE DATA - EXCHANGE RATES - fetched just now - USD base]\nPKR: ${parallelSources.exchangeRates.rates.PKR}, EUR: ${parallelSources.exchangeRates.rates.EUR}, GBP: ${parallelSources.exchangeRates.rates.GBP}`,
+      parallelSources.cryptoRates && `\n\n[LIVE DATA - CRYPTO PRICES - fetched just now]\nBTC: $${parallelSources.cryptoRates.btc_usd} / PKR ${parallelSources.cryptoRates.btc_pkr}`,
+      parallelSources.weather && `\n\n[LIVE DATA - CURRENT PAKISTAN WEATHER - fetched just now]\nTemp: ${parallelSources.weather.temp_c}°C, Precipitation: ${parallelSources.weather.precipitation_mm}mm`,
+      parallelSources.npmPackage && `\n\n[LIVE DATA - NPM PACKAGE INFO - fetched just now]\n${parallelSources.npmPackage.name}@${parallelSources.npmPackage.version}: ${parallelSources.npmPackage.description}`,
     ].filter(Boolean).join("");
     baseSystemPrompt += liveContext;
 
@@ -4735,9 +4735,9 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
         .map((article) => `- ${article.title} | ${article.source} | ${article.url}`)
         .join("\n");
       const researchContext = [
-        paperContext && `ACADEMIC PAPERS (OpenAlex):\n${paperContext}`,
-        wikipediaContext && `WIKIPEDIA SUMMARY:\n${wikipediaContext}`,
-        newsContext && `RECENT NEWS (GNews):\n${newsContext}`,
+        paperContext && `[LIVE DATA - RESEARCH PAPERS - fetched just now] (OpenAlex):\n${paperContext}`,
+        wikipediaContext && `[LIVE DATA - RESEARCH REFERENCE - fetched just now] (Wikipedia):\n${wikipediaContext}`,
+        newsContext && `[LIVE DATA - CURRENT NEWS - fetched just now] (GNews):\n${newsContext}`,
       ].filter(Boolean).join("\n\n");
 
       modeInstruction = `
@@ -4782,7 +4782,9 @@ Replace THE_BEST_MATCHING_GROUP with the single most relevant group from this ex
 Pick the closest match from this list only. Never invent a group name not in this list.
 Only output this marker when the question is clearly outside your domain. Never output it for questions within your domain.` : "";
 
-    const fullSystemInstruction = `${baseSystemPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.`;
+    const liveDataDirective = `CRITICAL INSTRUCTION: Today's date is ${new Date().toISOString().split("T")[0]}. You MUST answer using ONLY the real-time data provided below in the [LIVE DATA] sections. Do NOT use your training memory for facts, news, prices, or research papers. If live data is provided, it is always more accurate and current than your training. Always mention specific details from the live data in your answer.`;
+    const liveDataClosingInstruction = "If the user asks about current dates, events, or recent data, always refer to the [LIVE DATA] sections above. Never say a future date 'does not exist yet' — check the live data first.";
+    const fullSystemInstruction = `${liveDataDirective}\n\n${baseSystemPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}`;
 
     // Check if any message has image attachment (Pro feature)
     const hasImageAttachment = messages.some((m: any) => m.imageBase64 && typeof m.imageBase64 === "string" && m.imageBase64.length > 50);
