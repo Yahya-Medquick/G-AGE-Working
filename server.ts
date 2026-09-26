@@ -208,6 +208,7 @@ async function fetchBraveSearch(query: string): Promise<any[]> {
     const data = await res.json();
 
     const results: any[] = [];
+    console.log("[DDG] query:", query);
 
     if (data.AbstractText) {
       results.push({
@@ -231,6 +232,7 @@ async function fetchBraveSearch(query: string): Promise<any[]> {
       }
     }
 
+    console.log("[DDG] results count:", results.length, "abstract:", data.AbstractText?.slice(0, 100) || "none");
     return results;
   } catch {
     return [];
