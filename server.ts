@@ -1526,6 +1526,20 @@ app.get("/api/health", (_req: Request, res: Response) => {
   });
 });
 
+app.get("/api/debug/sources", async (req: Request, res: Response) => {
+  const query = (req.query.q as string) || "Pakistan news";
+  const [gnews, arxiv, pubmed] = await Promise.allSettled([
+    fetchResearchNews(query),
+    fetchArXiv(query),
+    fetchPubMed(query),
+  ]);
+  res.json({
+    gnews: gnews.status === "fulfilled" ? gnews.value : (gnews.reason as any)?.message,
+    arxiv: arxiv.status === "fulfilled" ? arxiv.value : (arxiv.reason as any)?.message,
+    pubmed: pubmed.status === "fulfilled" ? pubmed.value : (pubmed.reason as any)?.message,
+  });
+});
+
 // Railway sits behind one trusted proxy; this makes Express derive req.ip from the client address safely.
 app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT) || 3000;
