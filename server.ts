@@ -4631,7 +4631,7 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
     }
 
     const personaGroup = persona?.group_name || "";
-    let baseSystemPrompt = persona?.system_prompt || "You are a world-class domain expert specialist and academic mentor.";
+    const personaPrompt = persona?.system_prompt || "You are a world-class domain expert specialist and academic mentor.";
 
     // Global Length & Conciseness Rule requested by user
     const concisenessMandate = `
@@ -4689,9 +4689,18 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       news: parallelSources.news,
     };
 
-    const liveContext = [
+    const openAlexContext = mode === "research" ? parallelSources.papers.map((paper) => {
+      const doi = paper.doi || "No DOI available";
+      return `- ${paper.title} (${paper.year || "n.d."}) by ${paper.author} | DOI: ${doi}\n  Abstract: ${paper.abstract || "No abstract available."}`;
+    }).join("\n") : "";
+    const wikipediaContext = mode === "research" && researchSources.wikipedia
+      ? `${researchSources.wikipedia.title}: ${researchSources.wikipedia.extract}\nSource: ${researchSources.wikipedia.url}`
+      : "";
+    const liveDataContext = [
       parallelSources.braveSearch?.length && `\n\n[LIVE DATA - WEB SEARCH - fetched just now]\n${parallelSources.braveSearch.map((result: any) => `${result.title}: ${result.snippet}${result.url ? ` (${result.url})` : ""}`).join("\n")}`,
       parallelSources.news.length && `\n\n[LIVE DATA - CURRENT NEWS - fetched just now]\n${parallelSources.news.map((article) => `- ${article.title} | ${article.source} | ${article.url}`).join("\n")}`,
+      openAlexContext && `\n\n[LIVE DATA - RESEARCH PAPERS - fetched just now] (OpenAlex)\n${openAlexContext}`,
+      wikipediaContext && `\n\n[LIVE DATA - RESEARCH REFERENCE - fetched just now] (Wikipedia)\n${wikipediaContext}`,
       mode === "research" && parallelSources.arxiv?.papers.length && `\n\n[LIVE DATA - RESEARCH PAPERS - fetched just now]\n${parallelSources.arxiv.papers.map((paper) => `${paper.title} (${paper.date}): ${paper.summary}`).join("\n")}`,
       mode === "research" && parallelSources.pubmed?.articles.length && `\n\n[LIVE DATA - RESEARCH PAPERS - fetched just now]\n${parallelSources.pubmed.articles.map((article) => `${article.title}: ${article.abstract}`).join("\n")}`,
       parallelSources.exchangeRates && `\n\n[LIVE DATA - EXCHANGE RATES - fetched just now - USD base]\nPKR: ${parallelSources.exchangeRates.rates.PKR}, EUR: ${parallelSources.exchangeRates.rates.EUR}, GBP: ${parallelSources.exchangeRates.rates.GBP}`,
@@ -4699,7 +4708,6 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       parallelSources.weather && `\n\n[LIVE DATA - CURRENT PAKISTAN WEATHER - fetched just now]\nTemp: ${parallelSources.weather.temp_c}°C, Precipitation: ${parallelSources.weather.precipitation_mm}mm`,
       parallelSources.npmPackage && `\n\n[LIVE DATA - NPM PACKAGE INFO - fetched just now]\n${parallelSources.npmPackage.name}@${parallelSources.npmPackage.version}: ${parallelSources.npmPackage.description}`,
     ].filter(Boolean).join("");
-    baseSystemPrompt += liveContext;
 
     if (mode === "concept") {
       const level = specs.concept?.level || "intermediate";
@@ -4736,22 +4744,8 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       const minCitations = specs.research?.minCitations || "any";
       const includeCode = specs.research?.includeCode !== false;
 
-      const paperContext = researchSources.papers.map((paper) => {
-        const doi = paper.doi || "No DOI available";
-        return `- ${paper.title} (${paper.year || "n.d."}) by ${paper.author} | DOI: ${doi}\n  Abstract: ${paper.abstract || "No abstract available."}`;
-      }).join("\n");
-      const wikipediaContext = researchSources.wikipedia
-        ? `${researchSources.wikipedia.title}: ${researchSources.wikipedia.extract}\nSource: ${researchSources.wikipedia.url}`
-        : "";
-      const researchContext = [
-        paperContext && `[LIVE DATA - RESEARCH PAPERS - fetched just now] (OpenAlex):\n${paperContext}`,
-        wikipediaContext && `[LIVE DATA - RESEARCH REFERENCE - fetched just now] (Wikipedia):\n${wikipediaContext}`,
-      ].filter(Boolean).join("\n\n");
-
       modeInstruction = `
-You are in research mode. Base your response on these verified sources:
-
-${researchContext}
+You are in research mode. Base your response on the verified sources in the [LIVE DATA] sections above.
 
 Cite these sources in your response where relevant.
 Prioritize academic papers for factual claims.
@@ -4791,8 +4785,9 @@ Pick the closest match from this list only. Never invent a group name not in thi
 Only output this marker when the question is clearly outside your domain. Never output it for questions within your domain.` : "";
 
     const liveDataDirective = `CRITICAL INSTRUCTION: Today's date is ${new Date().toISOString().split("T")[0]}. You MUST answer using ONLY the real-time data provided below in the [LIVE DATA] sections. Do NOT use your training memory for facts, news, prices, or research papers. If live data is provided, it is always more accurate and current than your training. Always mention specific details from the live data in your answer.`;
+    const liveDataOverrideInstruction = `OVERRIDE INSTRUCTION: Regardless of your persona role, when [LIVE DATA] sections are provided below, you MUST use them to answer questions about current events, news, or recent developments. Never say you lack access to real-time data when [LIVE DATA] sections are present in this prompt.`;
     const liveDataClosingInstruction = "If the user asks about current dates, events, or recent data, always refer to the [LIVE DATA] sections above. Never say a future date 'does not exist yet' — check the live data first.";
-    const fullSystemInstruction = `${liveDataDirective}\n\n${baseSystemPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}`;
+    const fullSystemInstruction = `${liveDataDirective}\n\n${liveDataOverrideInstruction}\n\n${liveDataContext}\n\n${personaPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}`;
 
     // Check if any message has image attachment (Pro feature)
     const hasImageAttachment = messages.some((m: any) => m.imageBase64 && typeof m.imageBase64 === "string" && m.imageBase64.length > 50);
