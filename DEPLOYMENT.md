@@ -78,8 +78,12 @@ In the **Variables** tab of your Railway service, add the following parameters:
 - `PORT`: `3000`
 - `APP_URL`: `https://bifrostai.up.railway.app`
 - `GEMINI_API_KEY`: *(Your Google Gemini API Key)*
+- `GEMINI_API_KEY_1`: *(Additional Gemini API key)*
+- `GEMINI_API_KEY_3`: *(Additional Gemini API key)*
 - `ADMIN_TOKEN`: *(A custom secure password string for your Admin panel)*
 - `JWT_SECRET`: *(A long, random secret used to sign user session tokens)*
+
+Keep the existing `GEMINI_API_KEY`, `GEMINI_API_KEY_1`, and `GEMINI_API_KEY_3` variables configured. These same keys work across all Gemini models in the fallback chain.
 
 ### Step 4: Verify Deployment
 Railway will automatically detect the root `Dockerfile`, build the multi-stage image, and expose the domain at `bifrostai.up.railway.app`. Verify that:

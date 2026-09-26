@@ -2164,8 +2164,12 @@ function getGemini(): GoogleGenAI | null {
 // Ultra-Resilient Provider Fallback: OpenRouter Cost-Aware Dynamic Routing
 // ----------------------------------------------------------------------
 const GEMINI_MODEL_CHAIN = [
+  "gemini-1.5-flash",       // 1500/day free - primary
+  "gemini-1.5-flash",       // second key attempt
+  "gemini-2.0-flash-lite",  // 1500/day free - secondary
   "gemini-3.6-flash",
   "gemini-3.6-flash",
+  "gemini-3.6-flash",       // third key
 ];
 
 // OpenRouter Tiers:
