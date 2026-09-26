@@ -10,6 +10,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { XMLParser } from "fast-xml-parser";
 import { sanitizeInput, evaluateContentQuality } from "./src/utils/security";
 
 const { Pool } = pg;
@@ -40,6 +41,9 @@ type ResearchSources = {
   news: ResearchNewsSource[];
 };
 
+let ratesCache: { data: any; fetchedAt: number } | null = null;
+let cryptoCache: { data: any; fetchedAt: number } | null = null;
+
 function reconstructOpenAlexAbstract(invertedIndex: Record<string, number[]> | undefined): string {
   if (!invertedIndex) return "";
   return Object.entries(invertedIndex)
@@ -47,6 +51,19 @@ function reconstructOpenAlexAbstract(invertedIndex: Record<string, number[]> | u
     .sort((a, b) => a.position - b.position)
     .map(({ word }) => word)
     .join(" ");
+}
+
+const researchXmlParser = new XMLParser({ ignoreAttributes: true, parseTagValue: false, trimValues: true });
+
+function getXmlText(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") return String(value).trim();
+  if (Array.isArray(value)) return value.map(getXmlText).filter(Boolean).join(" ");
+  if (value && typeof value === "object") {
+    const text = (value as Record<string, unknown>)["#text"];
+    if (text !== undefined) return getXmlText(text);
+    return Object.values(value).map(getXmlText).filter(Boolean).join(" ");
+  }
+  return "";
 }
 
 async function fetchResearchPapers(query: string): Promise<ResearchPaperSource[]> {
@@ -64,6 +81,83 @@ async function fetchResearchPapers(query: string): Promise<ResearchPaperSource[]
     author: work.authorships?.[0]?.author?.display_name || "Unknown author",
     abstract: reconstructOpenAlexAbstract(work.abstract_inverted_index),
   }));
+}
+
+async function fetchArXiv(query: string): Promise<{ label: "Recent arXiv Papers"; papers: Array<{ title: string; summary: string; date: string; url: string }> } | null> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), 3000);
+    const response = await fetch(
+      `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&max_results=3&sortBy=submittedDate&sortOrder=descending`,
+      { signal: controller.signal }
+    );
+    if (!response.ok) return null;
+
+    const data = researchXmlParser.parse(await response.text());
+    if (!data?.feed) return null;
+    const rawEntries = data?.feed?.entry;
+    const entries = rawEntries == null ? [] : Array.isArray(rawEntries) ? rawEntries : [rawEntries];
+    return {
+      label: "Recent arXiv Papers",
+      papers: entries.map((entry: any) => ({
+        title: getXmlText(entry.title),
+        summary: getXmlText(entry.summary).slice(0, 300),
+        date: getXmlText(entry.published),
+        url: getXmlText(entry.id),
+      })),
+    };
+  } catch {
+    return null;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+async function fetchPubMed(query: string): Promise<{ articles: Array<{ title: string; abstract: string; date: string }> } | null> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), 4000);
+    const searchResponse = await fetch(
+      `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=3&retmode=json`,
+      { signal: controller.signal }
+    );
+    if (!searchResponse.ok) return null;
+
+    const searchData = await searchResponse.json();
+    const ids = searchData?.esearchresult?.idlist;
+    if (!Array.isArray(ids)) return null;
+    if (ids.length === 0) return { articles: [] };
+
+    const articleResponse = await fetch(
+      `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${ids.join(",")}&retmode=xml&rettype=abstract`,
+      { signal: controller.signal }
+    );
+    if (!articleResponse.ok) return null;
+
+    const articleData = researchXmlParser.parse(await articleResponse.text());
+    if (!articleData?.PubmedArticleSet) return null;
+    const rawArticles = articleData?.PubmedArticleSet?.PubmedArticle;
+    const articles = rawArticles == null ? [] : Array.isArray(rawArticles) ? rawArticles : [rawArticles];
+    return {
+      articles: articles.map((record: any) => {
+        const article = record?.MedlineCitation?.Article;
+        const pubDate = article?.Journal?.JournalIssue?.PubDate;
+        const date = getXmlText(pubDate?.MedlineDate) ||
+          [pubDate?.Year, pubDate?.Month, pubDate?.Day].map(getXmlText).filter(Boolean).join(" ");
+        return {
+          title: getXmlText(article?.ArticleTitle),
+          abstract: getXmlText(article?.Abstract?.AbstractText).slice(0, 250),
+          date,
+        };
+      }),
+    };
+  } catch {
+    return null;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
 }
 
 async function fetchWikipediaSummary(query: string): Promise<ResearchWikipediaSource | null> {
@@ -109,6 +203,207 @@ async function fetchResearchNews(query: string): Promise<ResearchNewsSource[]> {
   }
 }
 
+async function fetchBraveSearch(query: string): Promise<{ snippets: string[]; urls: string[] } | null> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const apiKey = process.env.BRAVE_API_KEY?.trim();
+    if (!apiKey) return null;
+
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), 2500);
+    const response = await fetch(
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=3`,
+      {
+        headers: {
+          Accept: "application/json",
+          "X-Subscription-Token": apiKey,
+        },
+        signal: controller.signal,
+      }
+    );
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const results = data?.web?.results;
+    if (!Array.isArray(results)) return null;
+
+    return {
+      snippets: results.map((result: any) => result.description).filter((snippet: any) => typeof snippet === "string"),
+      urls: results.map((result: any) => result.url).filter((url: any) => typeof url === "string"),
+    };
+  } catch {
+    return null;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+async function fetchExchangeRates(): Promise<{ rates: { PKR: number; EUR: number; GBP: number; SAR: number; AED: number; CNY: number } } | null> {
+  const now = Date.now();
+  if (ratesCache && now - ratesCache.fetchedAt < 60 * 60 * 1000) return ratesCache.data;
+
+  const apiKey = process.env.EXCHANGE_RATE_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), 2000);
+    const response = await fetch(
+      `https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`,
+      { signal: controller.signal }
+    );
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const conversionRates = data?.conversion_rates;
+    const currencies = ["PKR", "EUR", "GBP", "SAR", "AED", "CNY"] as const;
+    if (!currencies.every((currency) => typeof conversionRates?.[currency] === "number")) return null;
+
+    const result = {
+      rates: {
+        PKR: conversionRates.PKR,
+        EUR: conversionRates.EUR,
+        GBP: conversionRates.GBP,
+        SAR: conversionRates.SAR,
+        AED: conversionRates.AED,
+        CNY: conversionRates.CNY,
+      },
+    };
+    ratesCache = { data: result, fetchedAt: Date.now() };
+    return result;
+  } catch {
+    return null;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+async function fetchCryptoRates(): Promise<{ btc_usd: number; btc_pkr: number; eth_usd: number; eth_pkr: number } | null> {
+  const now = Date.now();
+  if (cryptoCache && now - cryptoCache.fetchedAt < 5 * 60 * 1000) return cryptoCache.data;
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), 2000);
+    const response = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether&vs_currencies=usd,pkr",
+      { signal: controller.signal }
+    );
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const result = {
+      btc_usd: data?.bitcoin?.usd,
+      btc_pkr: data?.bitcoin?.pkr,
+      eth_usd: data?.ethereum?.usd,
+      eth_pkr: data?.ethereum?.pkr,
+    };
+    if (!Object.values(result).every((rate) => typeof rate === "number")) return null;
+
+    cryptoCache = { data: result, fetchedAt: Date.now() };
+    return result;
+  } catch {
+    return null;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+function isFinanceQuery(query: string, personaGroup: string): boolean {
+  return personaGroup.includes("Economics") || personaGroup.includes("Finance") ||
+    /\b(price|rate|exchange|stock|crypto|bitcoin|pkr|usd|rupee|currency|market|invest)\b/i.test(query);
+}
+
+async function fetchWeather(query: string): Promise<{ temp_c: number; precipitation_mm: number; windspeed: number; condition: string } | null> {
+  if (!/\b(weather|temperature|climate|heat|rain|flood|storm|humidity|forecast|monsoon)\b/i.test(query)) return null;
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), 2000);
+    const response = await fetch(
+      "https://api.open-meteo.com/v1/forecast?latitude=30.3753&longitude=69.3451&current=temperature_2m,precipitation,windspeed_10m,weathercode",
+      { signal: controller.signal }
+    );
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const current = data?.current;
+    if (![current?.temperature_2m, current?.precipitation, current?.windspeed_10m, current?.weathercode].every(Number.isFinite)) return null;
+
+    const conditions: Record<number, string> = {
+      0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+      45: "Fog", 48: "Depositing rime fog", 51: "Light drizzle", 53: "Moderate drizzle",
+      55: "Dense drizzle", 56: "Light freezing drizzle", 57: "Dense freezing drizzle",
+      61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain", 66: "Light freezing rain",
+      67: "Heavy freezing rain", 71: "Slight snow", 73: "Moderate snow", 75: "Heavy snow",
+      77: "Snow grains", 80: "Slight rain showers", 81: "Moderate rain showers",
+      82: "Violent rain showers", 85: "Slight snow showers", 86: "Heavy snow showers",
+      95: "Thunderstorm", 96: "Thunderstorm with slight hail", 99: "Thunderstorm with heavy hail",
+    };
+    return {
+      temp_c: current.temperature_2m,
+      precipitation_mm: current.precipitation,
+      windspeed: current.windspeed_10m,
+      condition: conditions[current.weathercode] || "Unknown",
+    };
+  } catch {
+    return null;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+async function fetchNpmPackage(query: string): Promise<{ name: string; version: string; description: string; weeklyDownloads: number } | null> {
+  if (!/\b(npm|package|library|module|install|version|dependency|dependencies)\b/i.test(query)) return null;
+  const packageName = query.match(/(?:npm|install|package)\s+([\w@/\-]+)/i)?.[1];
+  if (!packageName) return null;
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), 2000);
+    const response = await fetch(`https://registry.npmjs.org/${packageName}`, { signal: controller.signal });
+    if (!response.ok) return null;
+
+    const packageData = await response.json();
+    const latestVersion = packageData?.["dist-tags"]?.latest;
+    const latest = latestVersion ? packageData?.versions?.[latestVersion] : null;
+    if (!packageData?.name || typeof latest?.version !== "string") return null;
+
+    const downloadsResponse = await fetch(
+      `https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(packageName)}`,
+      { signal: controller.signal }
+    );
+    if (!downloadsResponse.ok) return null;
+    const downloadsData = await downloadsResponse.json();
+    if (typeof downloadsData?.downloads !== "number") return null;
+
+    return {
+      name: packageData.name,
+      version: latest.version,
+      description: typeof latest.description === "string" ? latest.description : packageData.description || "",
+      weeklyDownloads: downloadsData.downloads,
+    };
+  } catch {
+    return null;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+function isHealthQuery(query: string, personaGroup: string): boolean {
+  return personaGroup.includes("Health") || personaGroup.includes("Biology") || personaGroup.includes("Neuroscience") ||
+    /\b(disease|symptom|treatment|medicine|drug|clinical|health|patient|diagnosis|therapy)\b/i.test(query);
+}
+
+function isTechQuery(query: string, personaGroup: string): boolean {
+  return personaGroup.includes("Software") || personaGroup.includes("Data Science") || personaGroup.includes("Technology") ||
+    /\b(code|api|library|framework|database|algorithm|deploy|server|function|debug)\b/i.test(query);
+}
+
 // Secret Hygiene Check on Startup (Requirement 1)
 function requireSecret(name: string): string {
   const value = process.env[name]?.trim();
@@ -120,6 +415,12 @@ function requireSecret(name: string): string {
 
 const ADMIN_TOKEN = requireSecret("ADMIN_TOKEN");
 const JWT_SECRET = requireSecret("JWT_SECRET");
+if (!process.env.BRAVE_API_KEY?.trim()) {
+  console.warn("[Brave Search] Optional BRAVE_API_KEY environment variable is not set.");
+}
+if (!process.env.EXCHANGE_RATE_API_KEY?.trim()) {
+  console.warn("[Exchange Rates] Optional EXCHANGE_RATE_API_KEY environment variable is not set.");
+}
 const firebaseAdminApp = getApps().length > 0
   ? getApps()[0]
   : initializeApp({
@@ -1201,6 +1502,29 @@ app.get('/sitemap-qa.xml', async (req: Request, res: Response) => {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 </urlset>`);
   }
+});
+
+app.get("/api/health", (_req: Request, res: Response) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    integrations: {
+      gemini: !!process.env.GEMINI_API_KEY,
+      openrouter: !!process.env.OPENROUTER_API_KEY,
+      gnews: !!process.env.GNEWS_API_KEY,
+      brave: !!process.env.BRAVE_API_KEY,
+      exchangeRate: !!process.env.EXCHANGE_RATE_API_KEY,
+      arxiv: true,
+      pubmed: true,
+      coingecko: true,
+      openMeteo: true,
+      npm: true,
+    },
+    modes: {
+      allModes: ["brave", "weather", "npm", "crypto", "exchange"],
+      researchOnly: ["arxiv", "pubmed", "openalex", "wikipedia", "gnews"],
+    },
+  });
 });
 
 // Railway sits behind one trusted proxy; this makes Express derive req.ip from the client address safely.
@@ -2461,19 +2785,6 @@ app.get(["/api/ask", "/api/internal/ask"], async (req: Request, res: Response) =
 app.use("/api/v1", verifyApiKeyMiddleware);
 
 // API Routes
-app.get("/api/health", (_req: Request, res: Response) => {
-  res.json({
-    status: "ok",
-    app: "G-AGE AI Engine",
-    version: "2.5.0",
-    timestamp: new Date().toISOString(),
-    database: {
-      status: dbStatusString,
-      error: dbErrorMsg,
-    }
-  });
-});
-
 // Readiness Probe Endpoint for Container Orchestrators (Kubernetes / Cloud Run)
 app.get(["/api/ready", "/api/v1/ready"], (_req: Request, res: Response) => {
   const isHealthy = entityRegistry.size > 0;
@@ -4262,18 +4573,28 @@ app.post("/api/counsel", counselRateLimiter, async (req: Request, res: Response)
 // POST /api/chat/message - Chat-first persona endpoint with mode & specifications support
 app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Response) => {
   try {
+    const body = req.body || {};
     const {
       sessionId,
-      personaId,
-      mode = "concept",
+      personaId: requestedPersonaId,
+      persona_slug,
+      mode: requestedMode,
+      chatMode,
+      message: requestMessage,
       specs = {},
       messages = [],
       variant = "global"
-    } = req.body || {};
+    } = body;
+    const personaId = persona_slug || requestedPersonaId;
+    const mode = requestedMode || chatMode || "concept";
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: "messages array is required." });
     }
+    const latestUserMessage = [...messages].reverse().find((item: any) => item.role === "user")?.content;
+    const message = typeof requestMessage === "string" && requestMessage.trim()
+      ? requestMessage.trim()
+      : typeof latestUserMessage === "string" ? latestUserMessage.trim() : "";
 
     // Verify rate limit & guest lifetime limit
     const usageCheck = await recordAndVerifyTabUsage(req, "chat");
@@ -4299,6 +4620,7 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       }
     }
 
+    const personaGroup = persona?.group_name || "";
     let baseSystemPrompt = persona?.system_prompt || "You are a world-class domain expert specialist and academic mentor.";
 
     // Global Length & Conciseness Rule requested by user
@@ -4314,7 +4636,60 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
 
     // Mode-specific instructions
     let modeInstruction = "";
-    let researchSources: ResearchSources = { papers: [], wikipedia: null, news: [] };
+    const shouldFetchFinance = isFinanceQuery(message, personaGroup);
+    const sourceRequests = [
+      fetchBraveSearch(message),
+      mode === "research" ? fetchResearchPapers(message) : Promise.resolve([] as ResearchPaperSource[]),
+      mode === "research" ? fetchWikipediaSummary(message) : Promise.resolve(null as ResearchWikipediaSource | null),
+      mode === "research" ? fetchResearchNews(message) : Promise.resolve([] as ResearchNewsSource[]),
+      mode === "research" ? fetchArXiv(message) : Promise.resolve(null),
+      mode === "research" && isHealthQuery(message, personaGroup) ? fetchPubMed(message) : Promise.resolve(null),
+      shouldFetchFinance ? fetchExchangeRates() : Promise.resolve(null),
+      shouldFetchFinance ? fetchCryptoRates() : Promise.resolve(null),
+      fetchWeather(message),
+      fetchNpmPackage(message),
+    ] as const;
+    const [
+      braveSearchResult,
+      papersResult,
+      wikipediaResult,
+      newsResult,
+      arxivResult,
+      pubmedResult,
+      exchangeRatesResult,
+      cryptoRatesResult,
+      weatherResult,
+      npmPackageResult,
+    ] = await Promise.allSettled(sourceRequests);
+    const parallelSources = {
+      braveSearch: braveSearchResult.status === "fulfilled" ? braveSearchResult.value : null,
+      papers: papersResult.status === "fulfilled" ? papersResult.value : [],
+      wikipedia: wikipediaResult.status === "fulfilled" ? wikipediaResult.value : null,
+      news: newsResult.status === "fulfilled" ? newsResult.value : [],
+      arxiv: arxivResult.status === "fulfilled" ? arxivResult.value : null,
+      pubmed: pubmedResult.status === "fulfilled" ? pubmedResult.value : null,
+      exchangeRates: exchangeRatesResult.status === "fulfilled" ? exchangeRatesResult.value : null,
+      cryptoRates: cryptoRatesResult.status === "fulfilled" ? cryptoRatesResult.value : null,
+      weather: weatherResult.status === "fulfilled" ? weatherResult.value : null,
+      npmPackage: npmPackageResult.status === "fulfilled" ? npmPackageResult.value : null,
+    };
+    const researchSources: ResearchSources = {
+      papers: parallelSources.papers,
+      wikipedia: parallelSources.wikipedia,
+      news: parallelSources.news,
+    };
+
+    const liveContext = [
+      parallelSources.braveSearch && `\n\n[LIVE WEB CONTEXT - ${new Date().toISOString()}]\n${parallelSources.braveSearch.snippets.join("\n")}`,
+      mode === "research" && parallelSources.arxiv && `\n\n[RECENT ARXIV PAPERS]\n${parallelSources.arxiv.papers.map((paper) => `${paper.title} (${paper.date}): ${paper.summary}`).join("\n")}`,
+      mode === "research" && parallelSources.pubmed && `\n\n[PUBMED ARTICLES]\n${parallelSources.pubmed.articles.map((article) => `${article.title}: ${article.abstract}`).join("\n")}`,
+      parallelSources.exchangeRates && `\n\n[LIVE EXCHANGE RATES - USD base]\nPKR: ${parallelSources.exchangeRates.rates.PKR}, EUR: ${parallelSources.exchangeRates.rates.EUR}, GBP: ${parallelSources.exchangeRates.rates.GBP}`,
+      parallelSources.cryptoRates && `\n\n[LIVE CRYPTO PRICES]\nBTC: $${parallelSources.cryptoRates.btc_usd} / PKR ${parallelSources.cryptoRates.btc_pkr}`,
+      parallelSources.weather && `\n\n[CURRENT PAKISTAN WEATHER]\nTemp: ${parallelSources.weather.temp_c}°C, Precipitation: ${parallelSources.weather.precipitation_mm}mm`,
+      parallelSources.npmPackage && `\n\n[NPM PACKAGE INFO]\n${parallelSources.npmPackage.name}@${parallelSources.npmPackage.version}: ${parallelSources.npmPackage.description}`,
+    ].filter(Boolean).join("");
+    baseSystemPrompt += liveContext;
+
     if (mode === "concept") {
       const level = specs.concept?.level || "intermediate";
       modeInstruction = `
@@ -4349,17 +4724,6 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       const recency = specs.research?.recency || "5_years";
       const minCitations = specs.research?.minCitations || "any";
       const includeCode = specs.research?.includeCode !== false;
-      const researchQuery = [...messages].reverse().find((message: any) => message.role === "user")?.content?.trim() || "";
-      const [papersResult, wikipediaResult, newsResult] = await Promise.allSettled([
-        fetchResearchPapers(researchQuery),
-        fetchWikipediaSummary(researchQuery),
-        fetchResearchNews(researchQuery),
-      ]);
-      researchSources = {
-        papers: papersResult.status === "fulfilled" ? papersResult.value : [],
-        wikipedia: wikipediaResult.status === "fulfilled" ? wikipediaResult.value : null,
-        news: newsResult.status === "fulfilled" ? newsResult.value : [],
-      };
 
       const paperContext = researchSources.papers.map((paper) => {
         const doi = paper.doi || "No DOI available";
@@ -4517,7 +4881,15 @@ Only output this marker when the question is clearly outside your domain. Never 
       personaId: persona?.slug || persona?.id || personaId || "expert",
       timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     };
-    if (mode === "research") responsePayload.sources = researchSources;
+    responsePayload.sources = {
+      papers: [...researchSources.papers, ...(parallelSources.arxiv?.papers || [])],
+      medical: parallelSources.pubmed?.articles || [],
+      wikipedia: researchSources.wikipedia,
+      news: researchSources.news,
+      web: parallelSources.braveSearch?.snippets || [],
+      finance: parallelSources.exchangeRates,
+      crypto: parallelSources.cryptoRates,
+    };
     return res.json(responsePayload);
   } catch (error: any) {
     console.error("Chat API Error:", error);
@@ -8347,6 +8719,19 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  console.log("=== G-AGE API INTEGRATIONS ===");
+  console.log("Gemini API:        ", process.env.GEMINI_API_KEY ? "✅" : "❌ MISSING");
+  console.log("OpenRouter:        ", process.env.OPENROUTER_API_KEY ? "✅" : "❌ MISSING");
+  console.log("GNews:             ", process.env.GNEWS_API_KEY ? "✅" : "❌ MISSING");
+  console.log("Brave Search:      ", process.env.BRAVE_API_KEY ? "✅" : "⚠️  missing (optional)");
+  console.log("Exchange Rate:     ", process.env.EXCHANGE_RATE_API_KEY ? "✅" : "⚠️  missing (optional)");
+  console.log("arXiv:             ", "✅ no key needed");
+  console.log("PubMed:            ", "✅ no key needed");
+  console.log("CoinGecko:         ", "✅ no key needed");
+  console.log("Open-Meteo:        ", "✅ no key needed");
+  console.log("npm Registry:      ", "✅ no key needed");
+  console.log("==============================");
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 G-AGE AI Engine running on http://localhost:${PORT}`);
