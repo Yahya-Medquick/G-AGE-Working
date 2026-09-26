@@ -183,10 +183,12 @@ async function fetchWikipediaSummary(query: string): Promise<ResearchWikipediaSo
 async function fetchResearchNews(query: string): Promise<ResearchNewsSource[]> {
   const apiKey = process.env.GNEWS_API_KEY?.trim();
   console.log("[GNews] API key configured:", Boolean(apiKey));
+  console.log("[GNews] key length:", apiKey?.length);
   if (!apiKey) return [];
 
   try {
     console.log("[GNews] fetching...");
+    console.log("[GNews] URL:", `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&token=REDACTED&lang=en&max=5`);
     const res = await fetch(`https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&token=${encodeURIComponent(apiKey)}&lang=en&max=5`);
     console.log("[GNews] response status:", res.status);
     const data = await res.json();
