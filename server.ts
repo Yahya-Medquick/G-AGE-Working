@@ -4654,7 +4654,7 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       fetchBraveSearch(message),
       mode === "research" ? fetchResearchPapers(message) : Promise.resolve([] as ResearchPaperSource[]),
       mode === "research" ? fetchWikipediaSummary(message) : Promise.resolve(null as ResearchWikipediaSource | null),
-      mode === "research" ? fetchResearchNews(message) : Promise.resolve([] as ResearchNewsSource[]),
+      fetchResearchNews(message),
       mode === "research" ? fetchArXiv(message) : Promise.resolve(null),
       mode === "research" && isHealthQuery(message, personaGroup) ? fetchPubMed(message) : Promise.resolve(null),
       shouldFetchFinance ? fetchExchangeRates() : Promise.resolve(null),
@@ -4694,6 +4694,7 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
 
     const liveContext = [
       parallelSources.braveSearch?.length && `\n\n[LIVE DATA - WEB SEARCH - fetched just now]\n${parallelSources.braveSearch.map((result: any) => `${result.title}: ${result.snippet}${result.url ? ` (${result.url})` : ""}`).join("\n")}`,
+      parallelSources.news.length && `\n\n[LIVE DATA - CURRENT NEWS - fetched just now]\n${parallelSources.news.map((article) => `- ${article.title} | ${article.source} | ${article.url}`).join("\n")}`,
       mode === "research" && parallelSources.arxiv?.papers.length && `\n\n[LIVE DATA - RESEARCH PAPERS - fetched just now]\n${parallelSources.arxiv.papers.map((paper) => `${paper.title} (${paper.date}): ${paper.summary}`).join("\n")}`,
       mode === "research" && parallelSources.pubmed?.articles.length && `\n\n[LIVE DATA - RESEARCH PAPERS - fetched just now]\n${parallelSources.pubmed.articles.map((article) => `${article.title}: ${article.abstract}`).join("\n")}`,
       parallelSources.exchangeRates && `\n\n[LIVE DATA - EXCHANGE RATES - fetched just now - USD base]\nPKR: ${parallelSources.exchangeRates.rates.PKR}, EUR: ${parallelSources.exchangeRates.rates.EUR}, GBP: ${parallelSources.exchangeRates.rates.GBP}`,
@@ -4745,13 +4746,9 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       const wikipediaContext = researchSources.wikipedia
         ? `${researchSources.wikipedia.title}: ${researchSources.wikipedia.extract}\nSource: ${researchSources.wikipedia.url}`
         : "";
-      const newsContext = researchSources.news
-        .map((article) => `- ${article.title} | ${article.source} | ${article.url}`)
-        .join("\n");
       const researchContext = [
         paperContext && `[LIVE DATA - RESEARCH PAPERS - fetched just now] (OpenAlex):\n${paperContext}`,
         wikipediaContext && `[LIVE DATA - RESEARCH REFERENCE - fetched just now] (Wikipedia):\n${wikipediaContext}`,
-        newsContext && `[LIVE DATA - CURRENT NEWS - fetched just now] (GNews):\n${newsContext}`,
       ].filter(Boolean).join("\n\n");
 
       modeInstruction = `
