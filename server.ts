@@ -181,26 +181,21 @@ async function fetchWikipediaSummary(query: string): Promise<ResearchWikipediaSo
 }
 
 async function fetchResearchNews(query: string): Promise<ResearchNewsSource[]> {
-  const apiKey = process.env.GNEWS_API_KEY?.trim();
-  console.log("[GNews] API key configured:", Boolean(apiKey));
-  console.log("[GNews] key length:", apiKey?.length);
+  const apiKey = process.env.NEWSDATA_API_KEY?.trim();
   if (!apiKey) return [];
-
   try {
-    console.log("[GNews] fetching...");
-    console.log("[GNews] URL:", `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&token=REDACTED&lang=en&max=5`);
-    const res = await fetch(`https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&token=${encodeURIComponent(apiKey)}&lang=en&max=5`);
-    console.log("[GNews] response status:", res.status);
+    const url = `https://newsdata.io/api/1/news?apikey=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&language=en&size=5`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
     const data = await res.json();
-    console.log("[GNews] data:", JSON.stringify(data).slice(0, 200));
-    if (!Array.isArray(data?.articles) || data.articles.length === 0) return [];
-    return data.articles.map((article: any) => ({
-      title: typeof article.title === "string" ? article.title : "Untitled news article",
-      url: typeof article.url === "string" ? article.url : "",
-      source: article.source?.name || "Unknown source",
+    if (!Array.isArray(data?.results) || data.results.length === 0) return [];
+    return data.results.map((article: any) => ({
+      title: typeof article.title === "string" ? article.title : "Untitled",
+      url: typeof article.link === "string" ? article.link : "",
+      source: article.source_id || "NewsData",
     })).filter((article: ResearchNewsSource) => article.url);
   } catch (error) {
-    console.error("[GNews] error:", error);
+    console.error("[NewsData] error:", error);
     return [];
   }
 }
@@ -1512,7 +1507,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
     integrations: {
       gemini: !!process.env.GEMINI_API_KEY,
       openrouter: !!process.env.OPENROUTER_API_KEY,
-      gnews: !!process.env.GNEWS_API_KEY,
+      gnews: !!process.env.NEWSDATA_API_KEY,
       brave: true,
       exchangeRate: !!process.env.EXCHANGE_RATE_API_KEY,
       arxiv: true,
@@ -7938,37 +7933,30 @@ Return valid JSON matching this schema:
 
 // 7. NEWS (News API with intelligent AI topic discovery & pagination support)
 async function handleNewsCategory(topic: string, page: number, limit: number, offset: number = (page - 1) * limit) {
-  const apiKey = process.env.GNEWS_API_KEY;
+  const apiKey = process.env.NEWSDATA_API_KEY?.trim();
   if (apiKey) {
     try {
-      return await fetchWithRetry(async () => {
-        const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(topic)}&lang=en&max=${Math.min(limit, 10)}&apikey=${apiKey}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`GNews API returned HTTP ${res.status}`);
-        const data = await res.json();
-        const articles = (data.articles || []).map((art: any, index: number) => ({
-          id: `news-${offset + index}-${encodeURIComponent(art.title || topic).slice(0, 20)}`,
-          title: art.title || `News regarding ${topic}`,
-          source: art.source?.name || "News Source",
-          description: art.description || art.content || "",
-          url: art.url,
-          imageUrl: art.image || "",
-          publishedAt: art.publishedAt || new Date().toISOString(),
-          author: art.source?.name || "Editorial Desk",
-        }));
-        const totalResults = typeof data.totalArticles === "number" ? data.totalArticles : articles.length;
-        const hasMore = (offset + articles.length) < totalResults && articles.length >= limit;
-        return {
-          topic,
-          category: "news",
-          items: articles,
-          pagination: { page, limit, offset, hasMore, total: totalResults },
-          cached: false,
-          timestamp: Date.now(),
-        };
-      });
+      const newsResults = await fetchResearchNews(topic);
+      const articles = newsResults.slice(0, limit).map((article, index) => ({
+        id: `news-${offset + index}-${encodeURIComponent(article.title || topic).slice(0, 20)}`,
+        title: article.title || `News regarding ${topic}`,
+        source: article.source || "NewsData",
+        description: "",
+        url: article.url,
+        imageUrl: "",
+        publishedAt: "",
+        author: article.source || "NewsData",
+      }));
+      return {
+        topic,
+        category: "news",
+        items: articles,
+        pagination: { page, limit, offset, hasMore: false, total: articles.length },
+        cached: false,
+        timestamp: Date.now(),
+      };
     } catch (err) {
-      console.warn("GNews API call failed:", err);
+      console.warn("NewsData API call failed:", err);
     }
   }
 
@@ -8737,7 +8725,7 @@ async function startServer() {
   console.log("=== G-AGE API INTEGRATIONS ===");
   console.log("Gemini API:        ", process.env.GEMINI_API_KEY ? "✅" : "❌ MISSING");
   console.log("OpenRouter:        ", process.env.OPENROUTER_API_KEY ? "✅" : "❌ MISSING");
-  console.log("GNews:             ", process.env.GNEWS_API_KEY ? "✅" : "❌ MISSING");
+  console.log("NewsData.io:       ", process.env.NEWSDATA_API_KEY ? "✅" : "❌ MISSING");
   console.log("DuckDuckGo:        ", "✅ no key needed");
   console.log("Exchange Rate:     ", process.env.EXCHANGE_RATE_API_KEY ? "✅" : "⚠️  missing (optional)");
   console.log("arXiv:             ", "✅ no key needed");
