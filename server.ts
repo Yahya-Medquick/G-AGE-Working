@@ -2215,19 +2215,19 @@ function getGemini(): GoogleGenAI | null {
 // Ultra-Resilient Provider Fallback: OpenRouter Cost-Aware Dynamic Routing
 // ----------------------------------------------------------------------
 const GEMINI_MODEL_CHAIN = [
-  "gemini-1.5-flash",       // 1500/day free - primary
-  "gemini-1.5-flash",       // second key attempt
-  "gemini-2.0-flash-lite",  // 1500/day free - secondary
-  "gemini-3.6-flash",
-  "gemini-3.6-flash",
-  "gemini-3.6-flash",       // third key
+  "gemini-3.6-flash",   // key 1 — primary, best quality
+  "gemini-3.6-flash",   // key 2
+  "gemini-3.6-flash",   // key 3
+  "gemini-2.5-flash",   // key 1 — 1500/day free quota
+  "gemini-2.5-flash",   // key 2
+  "gemini-2.5-flash",   // key 3
 ];
 
 // OpenRouter Tiers:
 // Detailed / Long / Vision Questions: Flagship models first
 const OPENROUTER_DETAILED_MODELS = [
-  "google/gemini-3.6-flash",
   "deepseek/deepseek-chat",
+  "google/gemini-3.6-flash",
   "openai/gpt-4o-mini",
   "meta-llama/llama-3.3-70b-instruct",
 ];
