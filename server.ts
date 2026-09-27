@@ -8632,7 +8632,7 @@ app.get("/robots.txt", (req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/plain");
   res.send(`User-agent: *
 Allow: /
-Sitemap: ${domain.includes("gageai.org") ? "https://gageai.org/sitemap-qa.xml" : `${domain}/sitemap-qa.xml`}
+Sitemap: https://gageai.org/sitemap-qa.xml
 `);
 });
 
