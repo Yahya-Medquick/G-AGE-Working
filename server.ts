@@ -8750,7 +8750,8 @@ if (false) {
 
   res.header("Content-Type", "application/xml");
   res.send(sitemapXml);
-});
+}); // end if(false)
+} // close if(false) wrapper
 
 // Centralized Error Handling Middleware (Prevents Sensitive Stack Leakage)
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
