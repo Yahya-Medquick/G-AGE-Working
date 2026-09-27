@@ -8632,7 +8632,7 @@ app.get("/robots.txt", (req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/plain");
   res.send(`User-agent: *
 Allow: /
-Sitemap: ${domain.includes("gageai.org") ? "https://gageai.org/sitemap.xml" : `${domain}/sitemap.xml`}
+Sitemap: ${domain.includes("gageai.org") ? "https://gageai.org/sitemap-qa.xml" : `${domain}/sitemap-qa.xml`}
 `);
 });
 
@@ -8674,7 +8674,11 @@ app.get("/persona/:slug", async (req: Request, res: Response) => {
 </html>`);
 });
 
-app.get("/sitemap.xml", async (req: Request, res: Response) => {
+app.get("/sitemap.xml", (req: Request, res: Response) => {
+  res.redirect(301, "/sitemap-qa.xml");
+});
+// OLD sitemap.xml route removed — redirects to sitemap-qa.xml
+if (false) {
   // Fetch all topic slugs saved in your database (mapped from searched_pages in PostgreSQL)
   let topics: { slug: string; updated_at: string }[] = [];
   if (dbPool) {
