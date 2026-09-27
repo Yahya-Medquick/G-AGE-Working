@@ -9,3 +9,4 @@ cmds = ["npm run build"]
 
 [start]
 cmd = "npm run start"
+
