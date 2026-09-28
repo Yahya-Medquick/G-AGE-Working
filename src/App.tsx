@@ -106,6 +106,24 @@ export default function App() {
 
   // Loading state for Gemini stream
   const [isLoadingMessage, setIsLoadingMessage] = useState<boolean>(false);
+  const [revealingReply, setRevealingReply] = useState<{ sessionId: string; message: ChatMessage } | null>(null);
+  const activeSessionIdRef = useRef(activeSessionId);
+  activeSessionIdRef.current = activeSessionId;
+  const revealIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const revealFinishRef = useRef<(() => { sessionId: string; messages: ChatMessage[] } | null) | null>(null);
+  const skipReveal = useCallback(() => revealFinishRef.current?.() || null, []);
+
+  useEffect(() => () => {
+    skipReveal();
+  }, [skipReveal]);
+
+  const previousActiveSessionIdRef = useRef(activeSessionId);
+  useEffect(() => {
+    if (previousActiveSessionIdRef.current !== activeSessionId) {
+      skipReveal();
+      previousActiveSessionIdRef.current = activeSessionId;
+    }
+  }, [activeSessionId, skipReveal]);
 
   // Modals state
   const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
@@ -232,6 +250,9 @@ export default function App() {
   const currentPersonaId = activeSession?.personaId || 'hamza';
   const activePersona: ExpertPersona =
     activeExpertSet[currentPersonaId] || activeExpertSet['hamza'] || Object.values(activeExpertSet)[0];
+  const displayedSession = activeSession && revealingReply?.sessionId === activeSession.id
+    ? { ...activeSession, messages: [...activeSession.messages, revealingReply.message] }
+    : activeSession;
 
   // Best domain match persona suggestion
   const suggestedPersona = useMemo(() => {
@@ -322,11 +343,12 @@ export default function App() {
 
   // Create new chat
   const handleNewChat = useCallback(() => {
+    skipReveal();
     createSession('hamza', 'concept', 'General Discussion', 'New Chat', expertVariant);
     if (window.innerWidth < 1024) {
       setIsLeftPanelOpen(false);
     }
-  }, [createSession, expertVariant]);
+  }, [createSession, expertVariant, skipReveal]);
 
   // Keyboard shortcut: Ctrl+K or Cmd+K for New Chat
   useEffect(() => {
@@ -363,6 +385,8 @@ export default function App() {
   const handleSendMessage = async (content: string, modeOverride?: ChatMode, imageBase64?: string, savePublic = true) => {
     if (!content.trim() && !imageBase64) return;
 
+    const finalizedReveal = skipReveal();
+
     if (!canExecuteQuery()) {
       triggerPaywall();
       return;
@@ -381,7 +405,10 @@ export default function App() {
       imageBase64: imageBase64 || undefined,
     };
 
-    const newMessages = [...currentSession.messages, userMessage];
+    const currentMessages = finalizedReveal?.sessionId === currentSession.id
+      ? finalizedReveal.messages
+      : currentSession.messages;
+    const newMessages = [...currentMessages, userMessage];
 
     // If first user message, update session title
     const isFirstUserMsg = currentSession.messages.filter((m) => m.role === 'user').length === 0;
@@ -426,7 +453,6 @@ export default function App() {
       }
 
       const data = await response.json();
-      refreshUsage();
 
       const assistantMessage: ChatMessage = {
         id: `msg_${Date.now()}_a`,
@@ -438,7 +464,60 @@ export default function App() {
         metadata: targetMode === 'research' && data.sources ? { sources: data.sources } : undefined,
       };
 
-      updateSessionMessages(currentSession.id, [...newMessages, assistantMessage], newTitle);
+      const fullReply = assistantMessage.content;
+      const completeMessages = [...newMessages, assistantMessage];
+      if (activeSessionIdRef.current !== currentSession.id) {
+        updateSessionMessages(currentSession.id, completeMessages, newTitle);
+        refreshUsage();
+        return;
+      }
+
+      setRevealingReply({
+        sessionId: currentSession.id,
+        message: { ...assistantMessage, content: '' },
+      });
+
+      let completed = false;
+      const finishReveal = () => {
+        if (completed) return { sessionId: currentSession.id, messages: completeMessages };
+        completed = true;
+        if (revealIntervalRef.current) clearInterval(revealIntervalRef.current);
+        revealIntervalRef.current = null;
+        revealFinishRef.current = null;
+        setRevealingReply(null);
+        const finalMessage = { ...assistantMessage, content: fullReply };
+        const finalMessages = [...newMessages, finalMessage];
+        updateSessionMessages(currentSession.id, finalMessages, newTitle);
+        refreshUsage();
+        return { sessionId: currentSession.id, messages: finalMessages };
+      };
+
+      revealFinishRef.current = finishReveal;
+      const tokens = fullReply.match(/\s+|\S+/g) || [];
+      const totalWords = tokens.filter((token) => /\S/.test(token)).length;
+      const wordsPerTick = Math.max(1, Math.ceil(totalWords / 60));
+      let tokenIndex = 0;
+
+      revealIntervalRef.current = setInterval(() => {
+        let wordsRevealed = 0;
+        while (tokenIndex < tokens.length && wordsRevealed < wordsPerTick) {
+          if (/\S/.test(tokens[tokenIndex])) wordsRevealed += 1;
+          tokenIndex += 1;
+        }
+        while (tokenIndex < tokens.length && /^\s+$/.test(tokens[tokenIndex])) {
+          tokenIndex += 1;
+        }
+
+        if (tokenIndex >= tokens.length) {
+          finishReveal();
+          return;
+        }
+
+        setRevealingReply({
+          sessionId: currentSession.id,
+          message: { ...assistantMessage, content: tokens.slice(0, tokenIndex).join('') },
+        });
+      }, 40);
     } catch (err: any) {
       console.warn('Chat error:', err);
       const errorMsg: ChatMessage = {
@@ -484,6 +563,7 @@ export default function App() {
         sessions={sessions}
         activeSessionId={activeSessionId}
         onSelectSession={(id) => {
+          skipReveal();
           selectSession(id);
           if (window.innerWidth < 1024) setIsLeftPanelOpen(false);
         }}
@@ -508,25 +588,34 @@ export default function App() {
       />
 
       {/* 2. CENTER PANEL: MAIN CHAT STAGE */}
-      <ChatStage
-        session={activeSession}
-        activePersona={activePersona}
-        variant={expertVariant}
-        language={language}
-        onLanguageChange={handleLanguageChange}
-        onSendMessage={handleSendMessage}
-        isLoading={isLoadingMessage}
-        onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
-        isLeftPanelOpen={isLeftPanelOpen}
-        onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
-        isRightPanelOpen={isRightPanelOpen}
-        onUpdateSessionMeta={updateSessionMeta}
-        onSaveToNotes={handleSaveToNotes}
-        onOpenPaywall={triggerPaywall}
-        onOpenPersonaGroup={handleOpenPersonaGroup}
-        onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
-        queryUsage={usage}
-      />
+      <div
+        className="flex-1 min-w-0 h-full"
+        onClickCapture={(event) => {
+          if (event.target instanceof Element && event.target.closest('div.flex.flex-col.max-w-3xl.mx-auto.w-full')) {
+            skipReveal();
+          }
+        }}
+      >
+        <ChatStage
+          session={displayedSession}
+          activePersona={activePersona}
+          variant={expertVariant}
+          language={language}
+          onLanguageChange={handleLanguageChange}
+          onSendMessage={handleSendMessage}
+          isLoading={isLoadingMessage}
+          onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+          isLeftPanelOpen={isLeftPanelOpen}
+          onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
+          isRightPanelOpen={isRightPanelOpen}
+          onUpdateSessionMeta={updateSessionMeta}
+          onSaveToNotes={handleSaveToNotes}
+          onOpenPaywall={triggerPaywall}
+          onOpenPersonaGroup={handleOpenPersonaGroup}
+          onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
+          queryUsage={usage}
+        />
+      </div>
 
       {/* 3. RIGHT PANEL: EXPERT PERSONA SELECTOR */}
       <PersonaPanel
