@@ -395,6 +395,7 @@ export default function App() {
       savePublic?: boolean;
       isRegenerate?: boolean;
       isEdit?: boolean;
+      previousQuestion?: string;
       onEditFailure?: () => void;
       animate?: boolean;
     }
@@ -425,8 +426,10 @@ export default function App() {
           savePublic: options.savePublic ?? true,
           isRegenerate: options.isRegenerate ?? false,
           isEdit: options.isEdit ?? false,
+          previousQuestion: options.previousQuestion,
           language,
           messages: history.map((message) => ({
+            id: message.id,
             role: message.role,
             content: message.content,
             images: message.images?.length ? message.images : message.imageBase64 ? [message.imageBase64] : undefined,
@@ -627,6 +630,7 @@ export default function App() {
       messages: truncatedMessages,
       savePublic: true,
       isEdit: true,
+      previousQuestion: originalMessage.content,
       onEditFailure: () => updateSessionMessages(currentSession.id, previousMessages),
     });
   };

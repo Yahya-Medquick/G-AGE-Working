@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import pg from "pg";
+import type { PoolClient } from "pg";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -831,6 +832,14 @@ async function initDatabaseSchema() {
         persona_slug VARCHAR(64) NOT NULL,
         persona_name VARCHAR(255) NOT NULL,
         persona_group VARCHAR(64),
+        display_question TEXT,
+        display_question_status VARCHAR(16) NOT NULL DEFAULT 'pending',
+        display_question_attempts INTEGER NOT NULL DEFAULT 0,
+        is_publishable BOOLEAN NOT NULL DEFAULT true,
+        has_images BOOLEAN NOT NULL DEFAULT false,
+        answer_language VARCHAR(16) NOT NULL DEFAULT 'english',
+        source_session_id TEXT,
+        source_message_id TEXT,
         view_count INTEGER DEFAULT 0,
         is_published BOOLEAN DEFAULT true,
         flagged_for_review BOOLEAN DEFAULT false,
@@ -840,6 +849,22 @@ async function initDatabaseSchema() {
       CREATE INDEX IF NOT EXISTS idx_qa_persona ON public_qa_pages(persona_slug);
       CREATE INDEX IF NOT EXISTS idx_qa_pub ON public_qa_pages(is_published);
       CREATE INDEX IF NOT EXISTS idx_qa_created ON public_qa_pages(created_at DESC);
+    `);
+    await dbPool.query(`
+      ALTER TABLE public_qa_pages ADD COLUMN IF NOT EXISTS display_question TEXT;
+      ALTER TABLE public_qa_pages ADD COLUMN IF NOT EXISTS display_question_status VARCHAR(16) NOT NULL DEFAULT 'pending';
+      ALTER TABLE public_qa_pages ADD COLUMN IF NOT EXISTS display_question_attempts INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE public_qa_pages ADD COLUMN IF NOT EXISTS is_publishable BOOLEAN NOT NULL DEFAULT true;
+      ALTER TABLE public_qa_pages ADD COLUMN IF NOT EXISTS has_images BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE public_qa_pages ADD COLUMN IF NOT EXISTS answer_language VARCHAR(16) NOT NULL DEFAULT 'english';
+      ALTER TABLE public_qa_pages ADD COLUMN IF NOT EXISTS source_session_id TEXT;
+      ALTER TABLE public_qa_pages ADD COLUMN IF NOT EXISTS source_message_id TEXT;
+      CREATE INDEX IF NOT EXISTS idx_public_qa_display_queue
+        ON public_qa_pages(display_question_status, created_at)
+        WHERE display_question IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_public_qa_source_message
+        ON public_qa_pages(source_session_id, source_message_id)
+        WHERE source_session_id IS NOT NULL AND source_message_id IS NOT NULL;
     `);
     await dbPool.query(`
       UPDATE public_qa_pages
@@ -1017,6 +1042,175 @@ export function isQualityQuery(q: string, a: string): boolean {
   if (words.length === 1 || (hasLetters && query === query.toUpperCase())) return false;
   return true;
 }
+
+function isRomanUrduText(value: string): boolean {
+  const romanUrduWords = value.toLowerCase().match(/\b(kya|kaise|hai|hain|mein|aur|ke|ki|ko|se|mujhe|yeh|karna|hota|hoti|samjha)\b/g) || [];
+  return romanUrduWords.length >= 2;
+}
+
+function inferPublicQALanguage(answer: string, requestedLanguage?: string): 'english' | 'urdu' | 'roman-urdu' {
+  if (/[\u0600-\u06ff]/u.test(answer)) return 'urdu';
+  if (requestedLanguage === 'roman-urdu' || isRomanUrduText(answer)) return 'roman-urdu';
+  if (requestedLanguage === 'urdu') return 'urdu';
+  return 'english';
+}
+
+function isPublishablePublicQA(question: string, answer: string, hasImages: boolean): boolean {
+  const normalizedQuestion = question.trim().toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ');
+  const wordCount = normalizedQuestion.split(' ').filter(Boolean).length;
+  const trivialQuestion = /^(hi|hello|hey|thanks|thank you|how are you|good morning|good evening|assalam o alaikum|السلام علیکم|سلام|وعلیکم السلام)$/u.test(normalizedQuestion);
+  const invalidAnswer = answer.trim().length < 200
+    || /^\s*(?:⚠️|error\b|failed\b|quota exceeded\b)/i.test(answer)
+    || /connection error|\[object object\]|unable to generate response|failed to generate/i.test(answer);
+  return !hasImages && wordCount >= 4 && !trivialQuestion && !invalidAnswer;
+}
+
+function normalizeDisplayQuestion(value: string): string {
+  return value.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().replace(/\s+/g, ' ');
+}
+
+function areNearDuplicateQuestions(first: string, second: string): boolean {
+  const firstNormalized = normalizeDisplayQuestion(first);
+  const secondNormalized = normalizeDisplayQuestion(second);
+  if (!firstNormalized || !secondNormalized) return false;
+  if (firstNormalized === secondNormalized) return true;
+  const firstWords = new Set(firstNormalized.split(' '));
+  const secondWords = new Set(secondNormalized.split(' '));
+  const sharedWords = [...firstWords].filter((word) => secondWords.has(word)).length;
+  const unionSize = new Set([...firstWords, ...secondWords]).size;
+  const lengthRatio = Math.min(firstNormalized.length, secondNormalized.length) / Math.max(firstNormalized.length, secondNormalized.length);
+  return lengthRatio >= 0.8 && unionSize > 0 && sharedWords / unionSize >= 0.88;
+}
+
+let publicQAGenerationRunning = false;
+async function runPublicQAGenerationWorker(): Promise<void> {
+  const pool = dbPool;
+  if (!pool || publicQAGenerationRunning) return;
+  publicQAGenerationRunning = true;
+  let client: PoolClient | null = null;
+  let hasWorkerLock = false;
+  const workerLockId = 83721604;
+  try {
+    client = await pool.connect();
+    const lockResult = await client.query<{ locked: boolean }>(
+      'SELECT pg_try_advisory_lock($1) AS locked',
+      [workerLockId]
+    );
+    if (!lockResult.rows[0]?.locked) return;
+    hasWorkerLock = true;
+
+    const claimResult = await client.query(`
+      WITH candidate AS (
+        SELECT id
+        FROM public_qa_pages
+        WHERE is_published = true
+          AND is_publishable = true
+          AND display_question IS NULL
+          AND display_question_attempts < 3
+          AND (
+            display_question_status = 'pending'
+            OR (display_question_status = 'processing' AND updated_at < NOW() - INTERVAL '5 minutes')
+          )
+        ORDER BY created_at ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      UPDATE public_qa_pages AS page
+      SET display_question_status = 'processing',
+          display_question_attempts = page.display_question_attempts + 1,
+          updated_at = NOW()
+      FROM candidate
+      WHERE page.id = candidate.id
+      RETURNING page.id, page.slug, page.question_text, page.answer_text,
+                page.has_images, page.answer_language, page.display_question_attempts
+    `);
+    const page = claimResult.rows[0];
+    if (!page) return;
+
+    if (!isPublishablePublicQA(page.question_text, page.answer_text, page.has_images)) {
+      await client.query(
+        `UPDATE public_qa_pages
+         SET is_publishable = false, display_question_status = 'rejected', updated_at = NOW()
+         WHERE id = $1`,
+        [page.id]
+      );
+      return;
+    }
+
+    const language = inferPublicQALanguage(page.answer_text, page.answer_language);
+    const prompt = `Given the final answer below, write ONE clear, self-contained question that this answer responds to. Write in the SAME language as the answer: English for English, Urdu script for Urdu, or Roman Urdu for Roman Urdu. Keep technical terms in English. Make sense with no chat context. Include no personal names or personal details. End with a question mark. Return only the question text.\n\nFinal answer:\n${page.answer_text}`;
+    const generated = await callGeminiWithFallback({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      systemInstruction: 'Create one accurate public-facing question from the supplied answer. Follow the requested language and output format exactly.',
+    });
+    let displayQuestion = generated.text.trim().split(/\r?\n/).map((line) => line.trim()).find(Boolean) || '';
+    displayQuestion = displayQuestion
+      .replace(/^(?:question|سوال)\s*[:：]\s*/iu, '')
+      .replace(/^["'“”`]+|["'“”`]+$/gu, '')
+      .trim();
+    if (displayQuestion && !/[?؟]$/u.test(displayQuestion)) displayQuestion += '?';
+    const displayQuestionLength = [...displayQuestion].length;
+    if (displayQuestionLength < 15 || displayQuestionLength > 240) {
+      await client.query(
+        `UPDATE public_qa_pages
+         SET is_publishable = false, display_question_status = 'rejected', answer_language = $2, updated_at = NOW()
+         WHERE id = $1`,
+        [page.id, language]
+      );
+      return;
+    }
+
+    const existingResult = await client.query(
+      `SELECT id, display_question, answer_text
+       FROM public_qa_pages
+       WHERE id <> $1 AND is_published = true AND is_publishable = true
+         AND display_question IS NOT NULL AND display_question_status = 'complete'`,
+      [page.id]
+    );
+    const duplicateRows = existingResult.rows.filter((row: any) => areNearDuplicateQuestions(displayQuestion, row.display_question));
+    const candidates = [
+      { id: page.id, answer_text: page.answer_text, isNew: true },
+      ...duplicateRows.map((row: any) => ({ id: row.id, answer_text: row.answer_text, isNew: false })),
+    ];
+    candidates.sort((first, second) => second.answer_text.length - first.answer_text.length);
+    const winner = candidates[0];
+    for (const duplicate of duplicateRows) {
+      if (duplicate.id !== winner.id) {
+        await client.query(
+          'UPDATE public_qa_pages SET canonical_id = $2, updated_at = NOW() WHERE id = $1',
+          [duplicate.id, winner.id]
+        );
+      }
+    }
+    await client.query(
+      `UPDATE public_qa_pages
+       SET display_question = $2, display_question_status = 'complete', answer_language = $3,
+           canonical_id = $4, updated_at = NOW()
+       WHERE id = $1`,
+      [page.id, displayQuestion, language, winner.id === page.id ? null : winner.id]
+    );
+  } catch (error: any) {
+    console.warn('Public Q&A question generation failed:', error?.message || error);
+    if (client) {
+      await client.query(
+        `UPDATE public_qa_pages
+         SET display_question_status = CASE WHEN display_question_attempts >= 3 THEN 'failed' ELSE 'pending' END,
+             updated_at = NOW()
+         WHERE display_question_status = 'processing' AND display_question IS NULL`
+      ).catch((updateError: any) => console.warn('Public Q&A retry state update failed:', updateError?.message || updateError));
+    }
+  } finally {
+    if (client && hasWorkerLock) {
+      await client.query('SELECT pg_advisory_unlock($1)', [workerLockId]).catch(() => undefined);
+    }
+    client?.release();
+    publicQAGenerationRunning = false;
+  }
+}
+
+setInterval(() => {
+  void runPublicQAGenerationWorker();
+}, 30_000);
 
 export async function findCanonicalPage(q: string): Promise<number | null> {
   if (!dbPool) return null;
@@ -1541,18 +1735,16 @@ app.get('/sitemap-qa.xml', async (req: Request, res: Response) => {
       console.error("[sitemap] DB pool is unavailable");
       throw new Error("Database pool is unavailable");
     }
-    console.log("[sitemap] querying public_qa_pages...");
-    const publishStateResult = await dbPool.query(
-      "SELECT slug, is_published FROM public_qa_pages LIMIT 10"
-    );
-    console.log("[sitemap] publish states:", publishStateResult.rows);
     const result = await dbPool.query(
       `SELECT slug, updated_at FROM public_qa_pages
        WHERE is_published = true
+         AND is_publishable = true
+         AND display_question IS NOT NULL
+         AND display_question_status = 'complete'
+         AND canonical_id IS NULL
        ORDER BY updated_at DESC
        LIMIT 50000`
     );
-    console.log("[sitemap] rows:", result.rows.length);
     const rows = result.rows;
     const urls = rows.map((row: any) => `
   <url>
@@ -4967,29 +5159,100 @@ Only output this marker when the question is clearly outside your domain. Never 
       }
     }
 
-    // Public Q&A indexing is deliberately detached so it never delays the chat response.
+    // Public Q&A writes are detached so indexing never delays the chat response.
     const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user");
     const userMessage = typeof lastUserMessage?.content === "string" ? lastUserMessage.content.trim() : "";
-    if (req.body?.savePublic !== false && userMessage && isQualityQuery(userMessage, reply)) {
+    const requestImages = Array.isArray(lastUserMessage?.images)
+      ? lastUserMessage.images.length > 0
+      : typeof lastUserMessage?.imageBase64 === "string" && lastUserMessage.imageBase64.length > 50;
+    const requestLanguage = typeof req.body?.language === "string" ? req.body.language : "english";
+    const answerLanguage = inferPublicQALanguage(reply, requestLanguage);
+    const isPublicReplacement = req.body?.isRegenerate === true || req.body?.isEdit === true;
+    if (req.body?.savePublic !== false && userMessage) {
       void (async () => {
         try {
-          const canonicalId = await findCanonicalPage(userMessage);
-          const slug = generateQASlug(userMessage);
-          await dbPool?.query(
-            `INSERT INTO public_qa_pages
-             (slug, canonical_id, question_text, answer_text, persona_slug, persona_name, persona_group, is_published)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, true)
-             ON CONFLICT (slug) DO NOTHING`,
-            [
-              slug,
-              canonicalId,
-              userMessage,
-              reply,
-              persona?.slug || personaId || "expert",
-              persona?.name || "G-AGE Expert",
-              personaGroupName,
-            ]
-          );
+          const pool = dbPool;
+          if (!pool) return;
+          const personaSlug = persona?.slug || personaId || "expert";
+          const hasPublishableContent = isPublishablePublicQA(userMessage, reply, requestImages);
+          if (isPublicReplacement) {
+            const sourceSessionId = typeof req.body?.sessionId === "string" ? req.body.sessionId : null;
+            const sourceMessageId = typeof lastUserMessage?.id === "string" ? lastUserMessage.id : null;
+            const previousQuestion = typeof req.body?.previousQuestion === "string"
+              ? req.body.previousQuestion.trim().slice(0, 2000)
+              : userMessage.slice(0, 2000);
+            const existing = await pool.query(
+              `SELECT id FROM public_qa_pages
+               WHERE (
+                 $1::text IS NOT NULL AND $2::text IS NOT NULL
+                 AND source_session_id = $1 AND source_message_id = $2
+               ) OR (
+                 source_session_id IS NULL AND question_text = $3 AND persona_slug = $4
+               )
+               ORDER BY CASE WHEN source_session_id = $1 AND source_message_id = $2 THEN 0 ELSE 1 END,
+                        updated_at DESC
+               LIMIT 1`,
+              [sourceSessionId, sourceMessageId, previousQuestion, personaSlug]
+            );
+            const existingId = existing.rows[0]?.id;
+            if (existingId !== undefined) {
+              await pool.query(
+                `UPDATE public_qa_pages
+                 SET answer_text = $2, has_images = $3, is_publishable = $4,
+                     display_question_status = CASE
+                       WHEN NOT $4 THEN 'rejected'
+                       WHEN display_question IS NULL THEN 'pending'
+                       ELSE 'complete'
+                     END,
+                     updated_at = NOW()
+                 WHERE id = $1`,
+                [existingId, reply.slice(0, 5000), requestImages, hasPublishableContent]
+              );
+            }
+            return;
+          }
+
+          const initialSlug = `qa-pending-${crypto.randomUUID()}`;
+          const publishable = hasPublishableContent;
+          const client = await pool.connect();
+          try {
+            await client.query("BEGIN");
+            const inserted = await client.query(
+              `INSERT INTO public_qa_pages
+               (slug, question_text, answer_text, persona_slug, persona_name, persona_group,
+                display_question_status, is_publishable, has_images, answer_language,
+                source_session_id, source_message_id, is_published)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true)
+               ON CONFLICT (slug) DO NOTHING
+               RETURNING id`,
+              [
+                initialSlug,
+                userMessage.slice(0, 2000),
+                reply.slice(0, 5000),
+                personaSlug,
+                persona?.name || "G-AGE Expert",
+                personaGroupName,
+                publishable ? "pending" : "rejected",
+                publishable,
+                requestImages,
+                answerLanguage,
+                typeof req.body?.sessionId === "string" ? req.body.sessionId : null,
+                typeof lastUserMessage?.id === "string" ? lastUserMessage.id : null,
+              ]
+            );
+            const insertedId = inserted.rows[0]?.id;
+            if (insertedId !== undefined) {
+              const needsIdSlug = answerLanguage !== "english" || /[\u0600-\u06ff]/u.test(userMessage) || isRomanUrduText(userMessage);
+              const stableSlug = needsIdSlug ? `qa-${insertedId}-answer` : generateQASlug(userMessage);
+              await client.query("UPDATE public_qa_pages SET slug = $2 WHERE id = $1", [insertedId, stableSlug]);
+            }
+            await client.query("COMMIT");
+          } catch (error) {
+            await client.query("ROLLBACK").catch(() => undefined);
+            throw error;
+          } finally {
+            client.release();
+          }
         } catch (error: any) {
           console.warn("Public Q&A save failed:", error?.message || error);
         }
@@ -5029,7 +5292,11 @@ app.get("/api/q/:slug", async (req: Request, res: Response) => {
   if (!dbPool) return res.status(404).json({ error: "Q&A page not found." });
   try {
     const result = await dbPool.query(
-      `SELECT page.*, canonical.slug AS canonical_slug
+            `SELECT page.id, page.slug, page.display_question, page.answer_text,
+              page.persona_slug, page.persona_name, page.persona_group,
+              page.view_count, page.is_publishable, page.display_question_status,
+              page.answer_language, page.updated_at, page.canonical_id,
+              canonical.slug AS canonical_slug
        FROM public_qa_pages page
        LEFT JOIN public_qa_pages canonical ON canonical.id = page.canonical_id
        WHERE page.slug = $1 AND page.is_published = true
@@ -5041,11 +5308,25 @@ app.get("/api/q/:slug", async (req: Request, res: Response) => {
     if (page.canonical_id !== null && page.canonical_slug) {
       return res.redirect(301, `/q/${page.canonical_slug}`);
     }
+    const isIndexable = page.is_publishable === true && Boolean(page.display_question)
+      && page.display_question_status === "complete";
+    res.setHeader("X-Robots-Tag", isIndexable ? "index, follow" : "noindex, follow");
     void dbPool.query(
       "UPDATE public_qa_pages SET view_count = view_count + 1 WHERE id = $1",
       [page.id]
     ).catch((error: any) => console.warn("Q&A view increment failed:", error?.message || error));
-    return res.json(page);
+    return res.json({
+      slug: page.slug,
+      display_question: page.display_question,
+      answer_text: page.answer_text,
+      persona_slug: page.persona_slug,
+      persona_name: page.persona_name,
+      persona_group: page.persona_group,
+      view_count: page.view_count,
+      is_publishable: isIndexable,
+      answer_language: page.answer_language,
+      updated_at: page.updated_at,
+    });
   } catch (error: any) {
     console.warn("Public Q&A lookup failed:", error?.message || error);
     return res.status(500).json({ error: "Failed to load Q&A page." });
@@ -5058,9 +5339,11 @@ app.get("/api/persona/:personaSlug/questions", async (req: Request, res: Respons
   if (!dbPool) return res.json({ questions: [] });
   try {
     const result = await dbPool.query(
-      `SELECT id, slug, question_text, persona_name, view_count, created_at
+      `SELECT id, slug, display_question AS question_text, persona_name, view_count, created_at
        FROM public_qa_pages
-       WHERE persona_slug = $1 AND is_published = true AND canonical_id IS NULL
+       WHERE persona_slug = $1 AND is_published = true AND is_publishable = true
+         AND display_question IS NOT NULL AND display_question_status = 'complete'
+         AND canonical_id IS NULL
        ORDER BY view_count DESC, created_at DESC
        LIMIT 50 OFFSET $2`,
       [req.params.personaSlug, offset]

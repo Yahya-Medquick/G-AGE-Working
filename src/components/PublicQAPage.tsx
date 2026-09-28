@@ -4,12 +4,15 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 
 type PublicQA = {
   slug: string;
-  question_text: string;
+  display_question: string | null;
   answer_text: string;
   persona_slug: string;
   persona_name: string;
   persona_group?: string | null;
   view_count?: number;
+  is_publishable: boolean;
+  answer_language: 'english' | 'urdu' | 'roman-urdu';
+  updated_at: string;
 };
 
 export const PublicQAPage: React.FC = () => {
@@ -39,7 +42,14 @@ export const PublicQAPage: React.FC = () => {
 
   useEffect(() => {
     if (!page) return;
-    document.title = `${page.question_text} — ${page.persona_name} | G-AGE AI`;
+    const isIndexable = page.is_publishable && Boolean(page.display_question);
+    const language = page.answer_language === 'urdu' ? 'ur' : page.answer_language === 'roman-urdu' ? 'ur-Latn' : 'en';
+    const direction = page.answer_language === 'urdu' ? 'rtl' : 'ltr';
+    document.documentElement.lang = language;
+    document.documentElement.dir = direction;
+    document.title = isIndexable
+      ? `${page.display_question} — ${page.persona_name} | G-AGE AI`
+      : `Unlisted answer — ${page.persona_name} | G-AGE AI`;
     const description = page.answer_text.slice(0, 155);
     const setMeta = (name: string, content: string) => {
       let element = document.querySelector(`meta[name="${name}"]`);
@@ -51,6 +61,7 @@ export const PublicQAPage: React.FC = () => {
       element.setAttribute("content", content);
     };
     setMeta("description", description);
+    setMeta('robots', isIndexable ? 'index, follow' : 'noindex, follow');
 
     let canonical = document.querySelector<HTMLLinkElement>("link[rel=canonical]");
     if (!canonical) {
@@ -62,25 +73,27 @@ export const PublicQAPage: React.FC = () => {
 
     const schemaId = "qa-page-jsonld";
     document.getElementById(schemaId)?.remove();
-    const script = document.createElement("script");
-    script.id = schemaId;
-    script.type = "application/ld+json";
-    script.textContent = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "QAPage",
-      name: page.question_text,
-      mainEntity: {
-        "@type": "Question",
-        name: page.question_text,
-        answerCount: 1,
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: page.answer_text,
-          author: { "@type": "Person", name: page.persona_name },
+    if (isIndexable && page.display_question) {
+      const script = document.createElement("script");
+      script.id = schemaId;
+      script.type = "application/ld+json";
+      script.textContent = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "QAPage",
+        name: page.display_question,
+        mainEntity: {
+          "@type": "Question",
+          name: page.display_question,
+          answerCount: 1,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: page.answer_text,
+            author: { "@type": "Person", name: page.persona_name },
+          },
         },
-      },
-    });
-    document.head.appendChild(script);
+      });
+      document.head.appendChild(script);
+    }
     return () => document.getElementById(schemaId)?.remove();
   }, [page]);
 
@@ -92,7 +105,7 @@ export const PublicQAPage: React.FC = () => {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-5 py-8 sm:px-8">
+    <main lang={page.answer_language === 'urdu' ? 'ur' : page.answer_language === 'roman-urdu' ? 'ur-Latn' : 'en'} dir={page.answer_language === 'urdu' ? 'rtl' : 'ltr'} className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-5 py-8 sm:px-8">
       <article className="max-w-3xl mx-auto">
         <nav className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-8" aria-label="Breadcrumb">
           <a href="/" className="hover:text-indigo-500 inline-flex items-center gap-1"><Home className="w-3.5 h-3.5" /> Home</a>
@@ -101,7 +114,7 @@ export const PublicQAPage: React.FC = () => {
           <ChevronRight className="w-3.5 h-3.5" />
           <span className="text-slate-700 dark:text-slate-200">{page.persona_name}</span>
         </nav>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-5">{page.question_text}</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-5">{page.display_question || 'Unlisted answer'}</h1>
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">{page.persona_name.slice(0, 1)}</div>
           <span className="text-sm text-slate-600 dark:text-slate-300">Answered by <strong>{page.persona_name}</strong></span>
