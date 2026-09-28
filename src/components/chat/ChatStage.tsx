@@ -45,6 +45,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { ChatSession, ChatMessage, ChatMode, ConceptSpecs, ExamSpecs, ResearchSpecs } from '../../types/chat';
+import { type PixelCrop } from 'react-image-crop';
+import { ImageCropModal } from './ImageCropModal';
 import { ExpertPersona, EXPERTS, EXPERTS_PK } from '../../data/experts';
 import { useUser } from '../../context/UserContext';
 import { MarkdownRenderer } from '../MarkdownRenderer';
@@ -384,7 +386,7 @@ interface ChatStageProps {
   variant: 'global' | 'pk';
   language?: 'english' | 'roman-urdu' | 'urdu';
   onLanguageChange?: (lang: 'english' | 'roman-urdu' | 'urdu') => void;
-  onSendMessage: (content: string, modeOverride?: ChatMode, imageBase64?: string, savePublic?: boolean) => Promise<void>;
+  onSendMessage: (content: string, modeOverride?: ChatMode, images?: string[], savePublic?: boolean) => Promise<void>;
   onRegenerateMessage: (assistantId: string, userMessageIndex: number) => void;
   pendingReplyMessageIds: Set<string>;
   isLoading: boolean;
@@ -432,9 +434,14 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
   const [inputText, setInputText] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
-  const [attachedImage, setAttachedImage] = useState<string | null>(null);
-  const [imageFileName, setImageFileName] = useState<string | null>(null);
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [cropSource, setCropSource] = useState<string | null>(null);
+  const [imageNotice, setImageNotice] = useState('');
+  const [isImageProcessing, setIsImageProcessing] = useState(false);
+  const imageQueueRef = useRef<File[]>([]);
+  const cropProcessingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [isSpecsOpen, setIsSpecsOpen] = useState(false);
   const [showMCQCard, setShowMCQCard] = useState<boolean>(false);
@@ -518,78 +525,116 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     }
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload an image file (JPG, PNG, WebP).');
+  const compressImage = (source: string, crop?: PixelCrop) => new Promise<string>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const sourceX = crop ? Math.max(0, crop.x) : 0;
+      const sourceY = crop ? Math.max(0, crop.y) : 0;
+      const sourceWidth = crop ? Math.min(crop.width, image.naturalWidth - sourceX) : image.naturalWidth;
+      const sourceHeight = crop ? Math.min(crop.height, image.naturalHeight - sourceY) : image.naturalHeight;
+      const scale = Math.min(1, 1600 / Math.max(sourceWidth, sourceHeight));
+      const width = Math.max(1, Math.round(sourceWidth * scale));
+      const height = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('Canvas is unavailable'));
+        return;
+      }
+      context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+    };
+    image.onerror = () => reject(new Error('Image could not be decoded'));
+    image.src = source;
+  });
+
+  const readNextImageForCrop = (file?: File) => {
+    if (!file) {
+      cropProcessingRef.current = false;
+      setIsImageProcessing(false);
+      setCropSource(null);
       return;
     }
-    setImageFileName(file.name);
-
-    // Read and compress image client-side to ensure fast transmission and avoid payload errors
+    cropProcessingRef.current = true;
+    setIsImageProcessing(true);
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const rawDataUrl = reader.result as string;
-      const img = new Image();
-      img.onload = () => {
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
-        let { width, height } = img;
-
-        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-          if (width > height) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          } else {
-            width = Math.round((width * MAX_HEIGHT) / height);
-            height = MAX_HEIGHT;
-          }
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          setAttachedImage(compressedDataUrl);
-        } else {
-          setAttachedImage(rawDataUrl);
-        }
-      };
-      img.onerror = () => {
-        setAttachedImage(rawDataUrl);
-      };
-      img.src = rawDataUrl;
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setCropSource(reader.result);
+      } else {
+        setImageNotice('This image could not be opened.');
+        readNextImageForCrop(imageQueueRef.current.shift());
+      }
+    };
+    reader.onerror = () => {
+      setImageNotice('This image could not be opened.');
+      readNextImageForCrop(imageQueueRef.current.shift());
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
   };
 
-  const handleImageButtonClick = () => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    e.target.value = '';
+    const validFiles = selectedFiles.filter((file) => file.type.startsWith('image/'));
+    const slots = Math.max(0, 4 - attachedImages.length - imageQueueRef.current.length - Number(cropProcessingRef.current));
+    if (validFiles.length > slots) setImageNotice('You can attach up to 4 images per message.');
+    if (validFiles.length < selectedFiles.length) setImageNotice('Please select image files only.');
+    const acceptedFiles = validFiles.slice(0, slots);
+    imageQueueRef.current.push(...acceptedFiles);
+    if (!cropProcessingRef.current && imageQueueRef.current.length > 0) {
+      readNextImageForCrop(imageQueueRef.current.shift());
+    }
+  };
+
+  const finishImageCrop = async (crop?: PixelCrop) => {
+    if (!cropSource) return;
+    const source = cropSource;
+    setCropSource(null);
+    try {
+      if (crop) {
+        const compressed = await compressImage(source, crop);
+        setAttachedImages((current) => current.length < 4 ? [...current, compressed] : current);
+        setImageNotice('');
+      } else if (crop === undefined && source) {
+        const compressed = await compressImage(source);
+        setAttachedImages((current) => current.length < 4 ? [...current, compressed] : current);
+        setImageNotice('');
+      }
+    } catch {
+      setImageNotice('This image could not be processed. Please try another image.');
+    }
+    readNextImageForCrop(imageQueueRef.current.shift());
+  };
+
+  const cancelCurrentImage = () => {
+    setCropSource(null);
+    readNextImageForCrop(imageQueueRef.current.shift());
+  };
+
+  const handleImageButtonClick = (source: 'files' | 'camera') => {
     if (!isPaid) {
       onOpenPaywall();
       return;
     }
-    fileInputRef.current?.click();
+    (source === 'files' ? fileInputRef : cameraInputRef).current?.click();
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if ((!inputText.trim() && !attachedImage) || isLoading) return;
+    if ((!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing) return;
     const msg = inputText.trim();
-    const img = attachedImage;
+    const images = attachedImages;
     const savePublic = !isPrivate;
     setInputText('');
-    setAttachedImage(null);
-    setImageFileName(null);
+    setAttachedImages([]);
     setIsPrivate(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-    await onSendMessage(msg, activeMode, img || undefined, savePublic);
+    await onSendMessage(msg, activeMode, images.length ? images : undefined, savePublic);
   };
 
   const handleCopyMessage = (msgId: string, content: string) => {
@@ -994,6 +1039,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
         {/* Render WhatsApp Message Bubbles */}
         {session?.messages.map((msg, idx) => {
           const isAssistant = msg.role === 'assistant';
+          const messageImages = msg.images?.length ? msg.images : msg.imageBase64 ? [msg.imageBase64] : [];
           const latestAssistantIndex = session.messages.reduce(
             (latestIndex, message, index) => message.role === 'assistant' ? index : latestIndex,
             -1
@@ -1517,13 +1563,17 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                   </div>
                 ) : (
                   <div>
-                    {msg.imageBase64 && (
-                      <div className="mb-2.5 max-w-sm rounded-xl overflow-hidden border border-emerald-500/30 dark:border-emerald-400/20 bg-black/5 dark:bg-black/20 shadow-xs">
-                        <img
-                          src={msg.imageBase64}
-                          alt="Attached diagram or notes"
-                          className="w-full max-h-60 object-contain rounded-xl"
-                        />
+                    {messageImages.length > 0 && (
+                      <div className="mb-2.5 flex flex-wrap gap-2">
+                        {messageImages.map((image, imageIndex) => (
+                          <div key={imageIndex} className="h-20 w-20 overflow-hidden rounded-xl border border-emerald-500/30 bg-black/5 shadow-xs dark:border-emerald-400/20 dark:bg-black/20">
+                            <img
+                              src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
+                              alt={`Attached diagram or notes ${imageIndex + 1}`}
+                              className="h-full w-full rounded-xl object-cover"
+                            />
+                          </div>
+                        ))}
                       </div>
                     )}
                     <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -1538,8 +1588,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 {/* Minimalist Interactive Message Action Bar */}
                 {isAssistant && (
                   <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-[#2a3942]/70 flex items-center justify-between text-xs text-slate-400">
-                    {idx === latestAssistantIndex && (
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
                         <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
                         className="px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#111b21] hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer"
@@ -1575,10 +1624,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                           </>
                         )}
                         </button>
-                      </div>
-                    )}
+                    </div>
 
-                    <div className="flex items-center gap-1">
+                    {idx === latestAssistantIndex && (
+                      <div className="flex items-center gap-1">
                       <button
                         onClick={() => {
                           let userMessageIndex = -1;
@@ -1597,7 +1646,8 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                         <RotateCcw className="w-3.5 h-3.5 group-hover:-rotate-45 transition-transform" />
                         <span className="hidden sm:inline">Regenerate</span>
                       </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1632,50 +1682,34 @@ export const ChatStage: React.FC<ChatStageProps> = ({
       <div className="p-2 sm:p-3 border-t border-[#e9edef] dark:border-[#2a3942] bg-[#f0f2f5] dark:bg-[#202c33] shadow-md shrink-0 z-10">
         <div className="max-w-3xl mx-auto space-y-2">
           {/* Hidden File Input for Image Upload */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImageSelect}
-            accept="image/*"
-            className="hidden"
-          />
+          <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" multiple className="hidden" />
+          <input type="file" ref={cameraInputRef} onChange={handleImageSelect} accept="image/*" capture="environment" className="hidden" />
 
           {/* Attached Image Preview Strip */}
-          {attachedImage && (
-            <div className="p-2 rounded-2xl bg-white dark:bg-[#2a3942] border border-emerald-500/40 shadow-xs flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-1">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <img
-                  src={attachedImage}
-                  alt="Thumbnail preview"
-                  className="w-12 h-12 object-cover rounded-xl border border-emerald-500/30 shrink-0"
-                />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                      {imageFileName || 'Attached Image Question'}
-                    </span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold border border-emerald-500/30 shrink-0">
-                      PRO VISION
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                    Gemini will read handwritten notes, past papers, or diagrams.
-                  </p>
+          {attachedImages.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-500/40 bg-white p-2 dark:bg-[#2a3942]">
+              {attachedImages.map((image, index) => (
+                <div key={`${index}-${image.slice(0, 12)}`} className="relative h-14 w-14">
+                  <img
+                    src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
+                    alt={`Image attachment ${index + 1}`}
+                    className="h-full w-full rounded-lg border border-emerald-500/30 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAttachedImages((current) => current.filter((_, imageIndex) => imageIndex !== index))}
+                    className="absolute -right-1.5 -top-1.5 rounded-full bg-slate-800 p-0.5 text-white"
+                    title="Remove image"
+                    aria-label={`Remove image ${index + 1}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setAttachedImage(null);
-                  setImageFileName(null);
-                }}
-                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#32424b] text-slate-400 hover:text-rose-500 transition-colors cursor-pointer shrink-0"
-                title="Remove Image"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              ))}
+              <span className="text-xs text-slate-500 dark:text-slate-300">{attachedImages.length}/4 PRO VISION</span>
             </div>
           )}
+          {imageNotice && <p role="status" className="text-xs text-rose-600 dark:text-rose-400">{imageNotice}</p>}
 
           {/* Main Rounded Input Box & Actions */}
           <div className="flex items-end gap-2">
@@ -1687,21 +1721,21 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               <div className="relative flex items-center shrink-0 self-center pb-0.5">
                 <button
                   type="button"
-                  onClick={handleImageButtonClick}
+                  onClick={() => handleImageButtonClick('files')}
                   className={`p-1.5 rounded-full transition-all flex items-center justify-center cursor-pointer ${
-                    attachedImage
+                    attachedImages.length > 0
                       ? 'bg-emerald-500 text-white shadow-xs'
                       : isPaid
                       ? 'text-slate-500 hover:text-[#00a884] hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#32424b]'
                       : 'text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
                   }`}
-                  title={isPaid ? "Read image / diagram (Pro Vision)" : "Read Image (Pro Feature - Click to Upgrade)"}
+                  title={isPaid ? 'Choose images (Pro Vision)' : 'Choose images (Pro Feature - Click to Upgrade)'}
                 >
-                  <Camera className="w-5 h-5" />
+                  <Paperclip className="w-5 h-5" />
                 </button>
                 {!isPaid && (
                   <span
-                    onClick={handleImageButtonClick}
+                    onClick={() => handleImageButtonClick('files')}
                     className="absolute -top-1.5 -right-1 px-1 py-0.2 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black text-[8px] flex items-center gap-0.5 shadow-xs cursor-pointer tracking-tighter"
                     title="Pro Feature"
                   >
@@ -1710,6 +1744,15 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                   </span>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => handleImageButtonClick('camera')}
+                className="p-1.5 rounded-full text-slate-500 hover:text-[#00a884] hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#32424b]"
+                title={isPaid ? 'Take a photo (Pro Vision)' : 'Take a photo (Pro Feature)'}
+                aria-label="Take a photo"
+              >
+                <Camera className="h-5 w-5" />
+              </button>
 
               {/* Auto-growing Textarea */}
               <textarea
@@ -1720,7 +1763,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={
-                  attachedImage
+                  attachedImages.length > 0
                     ? "Ask a specific question about this image, or hit Send to transcribe & solve..."
                     : `Message ${activePersona.name} (English or Roman Urdu / Hinglish)...`
                 }
@@ -1746,7 +1789,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
             <button
               onClick={handleSubmit}
               type="button"
-              disabled={(!inputText.trim() && !attachedImage) || isLoading}
+              disabled={(!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing}
               className="w-11 h-11 rounded-full bg-[#00a884] hover:bg-[#029676] active:scale-95 text-white disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center shrink-0 shadow-sm cursor-pointer"
               title="Send Message (Enter)"
             >
@@ -1755,6 +1798,14 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           </div>
         </div>
       </div>
+      {cropSource && (
+        <ImageCropModal
+          src={cropSource}
+          onUseCrop={(crop) => void finishImageCrop(crop)}
+          onUseFullImage={() => void finishImageCrop()}
+          onCancel={cancelCurrentImage}
+        />
+      )}
     </div>
   );
 };

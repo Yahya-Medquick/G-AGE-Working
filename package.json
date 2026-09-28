@@ -41,6 +41,7 @@
     "pg": "^8.22.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "react-image-crop": "^11.1.2",
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",

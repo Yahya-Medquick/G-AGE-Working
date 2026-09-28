@@ -4898,8 +4898,15 @@ Only output this marker when the question is clearly outside your domain. Never 
         : 'LANGUAGE INSTRUCTION: Respond in English only.';
     const fullSystemInstruction = `${liveDataDirective}\n\n${liveDataOverrideInstruction}\n\n${liveDataContext}\n\n${personaPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}\n\n${languageInstruction}`;
 
+    const getMessageImages = (item: any): string[] => {
+      const images = Array.isArray(item.images) && item.images.length > 0
+        ? item.images
+        : typeof item.imageBase64 === "string" ? [item.imageBase64] : [];
+      return images.filter((image: any) => typeof image === "string" && image.length > 50);
+    };
+
     // Check if any message has image attachment (Pro feature)
-    const hasImageAttachment = messages.some((m: any) => m.imageBase64 && typeof m.imageBase64 === "string" && m.imageBase64.length > 50);
+    const hasImageAttachment = messages.some((item: any) => getMessageImages(item).length > 0);
     if (hasImageAttachment) {
       const user = getCurrentUser(req);
       const isPro = user && (user.tier === "paid" || user.tier === "pro" || user.tier === "unlimited");
@@ -4914,9 +4921,9 @@ Only output this marker when the question is clearly outside your domain. Never 
     // Map messages to Gemini contents format with multimodal vision support
     const contents = messages.map((m: any) => {
       const parts: any[] = [];
-      if (m.imageBase64 && typeof m.imageBase64 === "string" && m.imageBase64.length > 50) {
+      for (const imageBase64 of getMessageImages(m)) {
         try {
-          const parsed = parseBase64Image(m.imageBase64);
+          const parsed = parseBase64Image(imageBase64);
           parts.push({
             inlineData: {
               mimeType: parsed.mimeType,

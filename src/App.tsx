@@ -426,7 +426,7 @@ export default function App() {
           messages: history.map((message) => ({
             role: message.role,
             content: message.content,
-            imageBase64: message.imageBase64,
+            images: message.images?.length ? message.images : message.imageBase64 ? [message.imageBase64] : undefined,
           })),
         }),
       });
@@ -541,8 +541,8 @@ export default function App() {
   };
 
   // Normal sends append a user message, then share the indexed request flow.
-  const handleSendMessage = async (content: string, modeOverride?: ChatMode, imageBase64?: string, savePublic = true) => {
-    if (!content.trim() && !imageBase64) return;
+  const handleSendMessage = async (content: string, modeOverride?: ChatMode, images?: string[], savePublic = true) => {
+    if (!content.trim() && !images?.length) return;
     const finalizedReveal = skipReveal();
     if (!canExecuteQuery()) {
       triggerPaywall();
@@ -554,11 +554,11 @@ export default function App() {
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}_u`,
       role: 'user',
-      content: content.trim() || (imageBase64 ? 'Please analyze this attached image/diagram.' : ''),
+      content: content.trim() || (images?.length ? 'Please analyze these attached images/diagrams.' : ''),
       timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
       mode: targetMode,
       personaId: currentSession.personaId,
-      imageBase64: imageBase64 || undefined,
+      images: images?.length ? images : undefined,
     };
     const currentMessages = finalizedReveal?.sessionId === currentSession.id ? finalizedReveal.messages : currentSession.messages;
     const messages = [...currentMessages, userMessage];
