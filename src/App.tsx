@@ -394,6 +394,8 @@ export default function App() {
       newTitle?: string;
       savePublic?: boolean;
       isRegenerate?: boolean;
+      isEdit?: boolean;
+      onEditFailure?: () => void;
       animate?: boolean;
     }
   ) => {
@@ -422,6 +424,7 @@ export default function App() {
           variant: requestSession.variant || expertVariant,
           savePublic: options.savePublic ?? true,
           isRegenerate: options.isRegenerate ?? false,
+          isEdit: options.isEdit ?? false,
           language,
           messages: history.map((message) => ({
             role: message.role,
@@ -435,7 +438,7 @@ export default function App() {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 429 || response.status === 403 || errorData.isPaywall || errorData.paywallTrigger) {
           triggerPaywall();
-          if (!options.isRegenerate) {
+          if (!options.isRegenerate && !options.isEdit) {
             const limitMessage: ChatMessage = {
               id: `msg_${Date.now()}_a`,
               role: 'assistant',
@@ -447,6 +450,9 @@ export default function App() {
             const updatedMessages = [...messages];
             updatedMessages.splice(replyIndex, priorAssistant ? 1 : 0, limitMessage);
             updateSessionMessages(sessionId, updatedMessages, newTitle);
+          } else if (options.isEdit) {
+            options.onEditFailure?.();
+            setChatErrorToast(`Unable to save edit: ${errorData.message || errorData.error || 'Please try again.'}`);
           }
           return false;
         }
@@ -501,14 +507,15 @@ export default function App() {
         }, 40);
       } else {
         updateSessionMessages(sessionId, updatedMessages, newTitle);
-        if (!options.isRegenerate) refreshUsage();
+        if (!options.isRegenerate && !options.isEdit) refreshUsage();
       }
       return true;
     } catch (err: any) {
       console.warn('Chat error:', err);
       const errorText = err.message || 'Please check your connection and try again.';
-      if (options.isRegenerate) {
-        setChatErrorToast(`Unable to regenerate response: ${errorText}`);
+      if (options.isRegenerate || options.isEdit) {
+        if (options.isEdit) options.onEditFailure?.();
+        setChatErrorToast(`Unable to ${options.isEdit ? 'save edit' : 'regenerate response'}: ${errorText}`);
       } else {
         const errorMessage: ChatMessage = {
           id: `msg_${Date.now()}_a`,
@@ -598,6 +605,32 @@ export default function App() {
     });
   };
 
+  const handleEditMessage = async (messageId: string, content: string, images: string[]) => {
+    const currentSession = sessions.find((session) => session.id === activeSessionId);
+    if (!currentSession || inFlightSessionsRef.current.has(currentSession.id)) return false;
+    const messageIndex = currentSession.messages.findIndex((message) => message.id === messageId);
+    const originalMessage = currentSession.messages[messageIndex];
+    if (!originalMessage || originalMessage.role !== 'user') return false;
+
+    const previousMessages = currentSession.messages;
+    const editedMessage: ChatMessage = {
+      ...originalMessage,
+      content: content.trim(),
+      images: images.length ? images : undefined,
+      edited: true,
+    };
+    delete editedMessage.imageBase64;
+    const truncatedMessages = [...previousMessages.slice(0, messageIndex), editedMessage];
+    updateSessionMessages(currentSession.id, truncatedMessages);
+    return requestReplyAt(currentSession.id, messageIndex, {
+      session: currentSession,
+      messages: truncatedMessages,
+      savePublic: true,
+      isEdit: true,
+      onEditFailure: () => updateSessionMessages(currentSession.id, previousMessages),
+    });
+  };
+
   useEffect(() => {
     if (!chatErrorToast) return;
     const timer = setTimeout(() => setChatErrorToast(''), 5000);
@@ -680,6 +713,7 @@ export default function App() {
           onLanguageChange={handleLanguageChange}
           onSendMessage={handleSendMessage}
           onRegenerateMessage={handleRegenerateMessage}
+          onEditMessage={handleEditMessage}
           pendingReplyMessageIds={pendingReplyMessageIds}
           isLoading={!!activeSessionId && loadingSessionIds.has(activeSessionId)}
           onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}

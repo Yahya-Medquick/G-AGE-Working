@@ -388,6 +388,7 @@ interface ChatStageProps {
   onLanguageChange?: (lang: 'english' | 'roman-urdu' | 'urdu') => void;
   onSendMessage: (content: string, modeOverride?: ChatMode, images?: string[], savePublic?: boolean) => Promise<void>;
   onRegenerateMessage: (assistantId: string, userMessageIndex: number) => void;
+  onEditMessage: (messageId: string, content: string, images: string[]) => Promise<boolean>;
   pendingReplyMessageIds: Set<string>;
   isLoading: boolean;
   onToggleLeftPanel: () => void;
@@ -416,6 +417,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   onLanguageChange,
   onSendMessage,
   onRegenerateMessage,
+  onEditMessage,
   pendingReplyMessageIds,
   isLoading,
   onToggleLeftPanel,
@@ -435,6 +437,9 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [inputText, setInputText] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [editImages, setEditImages] = useState<string[]>([]);
   const [cropSource, setCropSource] = useState<string | null>(null);
   const [imageNotice, setImageNotice] = useState('');
   const [isImageProcessing, setIsImageProcessing] = useState(false);
@@ -579,7 +584,8 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     const selectedFiles = Array.from(e.target.files || []);
     e.target.value = '';
     const validFiles = selectedFiles.filter((file) => file.type.startsWith('image/'));
-    const slots = Math.max(0, 4 - attachedImages.length - imageQueueRef.current.length - Number(cropProcessingRef.current));
+    const activeImages = editingMessageId ? editImages : attachedImages;
+    const slots = Math.max(0, 4 - activeImages.length - imageQueueRef.current.length - Number(cropProcessingRef.current));
     if (validFiles.length > slots) setImageNotice('You can attach up to 4 images per message.');
     if (validFiles.length < selectedFiles.length) setImageNotice('Please select image files only.');
     const acceptedFiles = validFiles.slice(0, slots);
@@ -596,11 +602,13 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     try {
       if (crop) {
         const compressed = await compressImage(source, crop);
-        setAttachedImages((current) => current.length < 4 ? [...current, compressed] : current);
+        if (editingMessageId) setEditImages((current) => current.length < 4 ? [...current, compressed] : current);
+        else setAttachedImages((current) => current.length < 4 ? [...current, compressed] : current);
         setImageNotice('');
       } else if (crop === undefined && source) {
         const compressed = await compressImage(source);
-        setAttachedImages((current) => current.length < 4 ? [...current, compressed] : current);
+        if (editingMessageId) setEditImages((current) => current.length < 4 ? [...current, compressed] : current);
+        else setAttachedImages((current) => current.length < 4 ? [...current, compressed] : current);
         setImageNotice('');
       }
     } catch {
@@ -624,7 +632,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if ((!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing) return;
+    if (editingMessageId || (!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing) return;
     const msg = inputText.trim();
     const images = attachedImages;
     const savePublic = !isPrivate;
@@ -635,6 +643,32 @@ export const ChatStage: React.FC<ChatStageProps> = ({
       textareaRef.current.style.height = 'auto';
     }
     await onSendMessage(msg, activeMode, images.length ? images : undefined, savePublic);
+  };
+
+  const startEditMessage = (message: ChatMessage, images: string[]) => {
+    if (isLoading || isImageProcessing || editingMessageId) return;
+    setEditingMessageId(message.id);
+    setEditText(message.content);
+    setEditImages(images);
+    setImageNotice('');
+  };
+
+  const cancelEditMessage = () => {
+    if (isImageProcessing) return;
+    setEditingMessageId(null);
+    setEditText('');
+    setEditImages([]);
+    setImageNotice('');
+  };
+
+  const saveEditMessage = async (messageId: string) => {
+    if (!editText.trim() && editImages.length === 0) return;
+    if (isLoading || isImageProcessing) return;
+    await onEditMessage(messageId, editText, editImages);
+    setEditingMessageId(null);
+    setEditText('');
+    setEditImages([]);
+    setImageNotice('');
   };
 
   const handleCopyMessage = (msgId: string, content: string) => {
@@ -1563,25 +1597,68 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                   </div>
                 ) : (
                   <div>
-                    {messageImages.length > 0 && (
-                      <div className="mb-2.5 flex flex-wrap gap-2">
-                        {messageImages.map((image, imageIndex) => (
-                          <div key={imageIndex} className="h-20 w-20 overflow-hidden rounded-xl border border-emerald-500/30 bg-black/5 shadow-xs dark:border-emerald-400/20 dark:bg-black/20">
-                            <img
-                              src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
-                              alt={`Attached diagram or notes ${imageIndex + 1}`}
-                              className="h-full w-full rounded-xl object-cover"
-                            />
+                    {editingMessageId === msg.id ? (
+                      <div className="min-w-[min(80vw,28rem)] space-y-2">
+                        <textarea
+                          value={editText}
+                          onChange={(event) => setEditText(event.target.value)}
+                          disabled={isLoading || isImageProcessing}
+                          rows={3}
+                          className="w-full resize-y rounded-md border border-emerald-600/40 bg-white p-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/30 dark:bg-slate-900 dark:text-slate-100"
+                          aria-label="Edit your message"
+                        />
+                        {editImages.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {editImages.map((image, imageIndex) => (
+                              <div key={imageIndex} className="relative h-14 w-14">
+                                <img src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`} alt={`Edit attachment ${imageIndex + 1}`} className="h-full w-full rounded-md object-cover" />
+                                <button type="button" onClick={() => setEditImages((current) => current.filter((_, index) => index !== imageIndex))} disabled={isLoading || isImageProcessing} className="absolute -right-1 -top-1 rounded-full bg-slate-800 p-0.5 text-white disabled:opacity-40" aria-label={`Remove image ${imageIndex + 1}`}>
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <span className="mr-auto text-[10px] text-slate-500">{editImages.length}/4 images</span>
+                          <button type="button" onClick={() => handleImageButtonClick('files')} disabled={!isPaid || isLoading || isImageProcessing || editImages.length >= 4} className="rounded-md border border-slate-300 px-2 py-1 text-xs disabled:opacity-40 dark:border-slate-600" title="Add images">
+                            <Paperclip className="inline h-3.5 w-3.5" /> Add images
+                          </button>
+                          <button type="button" onClick={() => handleImageButtonClick('camera')} disabled={!isPaid || isLoading || isImageProcessing || editImages.length >= 4} className="rounded-md border border-slate-300 px-2 py-1 text-xs disabled:opacity-40 dark:border-slate-600" title="Take a photo">
+                            <Camera className="inline h-3.5 w-3.5" /> Photo
+                          </button>
+                          <button type="button" onClick={cancelEditMessage} disabled={isLoading || isImageProcessing} className="rounded-md px-2 py-1 text-xs text-slate-600 disabled:opacity-40 dark:text-slate-300">Cancel</button>
+                          <button type="button" onClick={() => void saveEditMessage(msg.id)} disabled={isLoading || isImageProcessing || (!editText.trim() && editImages.length === 0)} className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40">Save</button>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        {messageImages.length > 0 && (
+                          <div className="mb-2.5 flex flex-wrap gap-2">
+                            {messageImages.map((image, imageIndex) => (
+                              <div key={imageIndex} className="h-20 w-20 overflow-hidden rounded-xl border border-emerald-500/30 bg-black/5 shadow-xs dark:border-emerald-400/20 dark:bg-black/20">
+                                <img
+                                  src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
+                                  alt={`Attached diagram or notes ${imageIndex + 1}`}
+                                  className="h-full w-full rounded-xl object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                        <div className="mt-1 flex items-center justify-end gap-1 text-[10px] font-medium text-[#54656f] dark:text-emerald-200/80">
+                          {msg.edited && <span className="mr-auto text-slate-500 dark:text-slate-300">edited</span>}
+                          <span>{msg.timestamp}</span>
+                          <CheckCheck className="h-3.5 w-3.5 text-[#53bdeb]" />
+                          {!isLoading && (
+                            <button type="button" onClick={() => startEditMessage(msg, messageImages)} disabled={!!editingMessageId || isImageProcessing} className="ml-1 rounded p-1 text-slate-500 hover:bg-black/5 hover:text-slate-800 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-white/10" title="Edit message" aria-label="Edit message">
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </>
                     )}
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                    {/* User Message Timestamp with Double Blue Tick */}
-                    <div className="flex items-center justify-end gap-1 text-[10px] text-[#54656f] dark:text-emerald-200/80 font-medium mt-1">
-                      <span>{msg.timestamp}</span>
-                      <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
-                    </div>
                   </div>
                 )}
 
@@ -1762,6 +1839,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
+                disabled={!!editingMessageId || isLoading || isImageProcessing}
                 placeholder={
                   attachedImages.length > 0
                     ? "Ask a specific question about this image, or hit Send to transcribe & solve..."
@@ -1789,7 +1867,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
             <button
               onClick={handleSubmit}
               type="button"
-              disabled={(!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing}
+              disabled={(!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing || !!editingMessageId}
               className="w-11 h-11 rounded-full bg-[#00a884] hover:bg-[#029676] active:scale-95 text-white disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center shrink-0 shadow-sm cursor-pointer"
               title="Send Message (Enter)"
             >

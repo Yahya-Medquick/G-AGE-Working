@@ -81,6 +81,7 @@ export interface ChatMessage {
   personaId?: string;
   images?: string[];
   imageBase64?: string;
+  edited?: boolean;
   metadata?: ChatMessageMetadata;
 }
 

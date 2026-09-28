@@ -4702,7 +4702,7 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       : typeof latestUserMessage === "string" ? latestUserMessage.trim() : "";
 
     // Regeneration is rate-limited by counselRateLimiter but does not consume query quota.
-    if (body.isRegenerate !== true) {
+    if (body.isRegenerate !== true && body.isEdit !== true) {
       const usageCheck = await recordAndVerifyTabUsage(req, "chat");
       if (!usageCheck.allowed) {
         return res.status(usageCheck.status || 429).json(usageCheck.errorPayload);
