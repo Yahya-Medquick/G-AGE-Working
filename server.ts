@@ -4675,6 +4675,187 @@ app.post("/api/counsel", counselRateLimiter, async (req: Request, res: Response)
   }
 });
 
+app.post("/api/chat/message/stream", counselRateLimiter, async (req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  const send = (data: object) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    const {
+      messages = [],
+      personaId,
+      mode = "concept",
+      specs = {},
+      variant = "pk",
+      savePublic = true,
+      language = "english",
+      sessionId,
+    } = req.body || {};
+
+    const tabResult = await recordAndVerifyTabUsage(req, "chat");
+    if (!tabResult.allowed) {
+      send({
+        type: "error",
+        error: tabResult.errorPayload?.message || tabResult.errorPayload?.error || "Query limit reached",
+        isPaywall: true,
+      });
+      res.end();
+      return;
+    }
+
+    const hasImageAttachment = messages.some(
+      (m: any) => m.imageBase64 && typeof m.imageBase64 === "string" && m.imageBase64.length > 50
+    );
+    if (hasImageAttachment) {
+      const user = getCurrentUser(req);
+      const isPro = user && (user.tier === "paid" || user.tier === "pro" || user.tier === "unlimited");
+      if (!isPro) {
+        send({
+          type: "error",
+          error: "Image Reading (multimodal OCR) is an exclusive Pro feature. Please upgrade to G-AGE Pro to upload diagrams and handwritten notes.",
+          isPaywall: true,
+        });
+        res.end();
+        return;
+      }
+    }
+
+    let resolvedSystemPrompt = "";
+    let persona: any = null;
+
+    if (personaId) {
+      if (dbPool) {
+        try {
+          const result = await dbPool.query(
+            "SELECT * FROM expert_personas WHERE id::text = $1 OR slug = $1 LIMIT 1",
+            [personaId]
+          );
+          if (result.rows.length > 0) {
+            persona = result.rows[0];
+            resolvedSystemPrompt = persona.system_prompt;
+          }
+        } catch (e) {}
+      }
+      if (!persona) {
+        persona = inMemoryExpertPersonas.find(
+          (p: any) => p.id === personaId || p.slug === personaId
+        );
+        if (persona) resolvedSystemPrompt = persona.system_prompt;
+      }
+    }
+
+    if (!resolvedSystemPrompt) {
+      resolvedSystemPrompt = "You are a world-class domain expert specialist and mentor. Provide thorough, evidence-based, insightful and clear guidance.";
+    }
+
+    if (language === "roman-urdu") {
+      resolvedSystemPrompt += `\n\nLANGUAGE INSTRUCTION: You MUST respond in Roman Urdu (Urdu language written in English/Latin script). Keep all technical terms, scientific names, formulas, and proper nouns in English. Example style: "Yeh process photosynthesis kehlata hai, jis mein plants sunlight ko energy mein convert karte hain."`;
+    } else if (language === "urdu") {
+      resolvedSystemPrompt += `\n\nLANGUAGE INSTRUCTION: Respond in clear simple English. Keep technical terms in English with brackets. Response will be translated to Urdu automatically.`;
+    } else {
+      resolvedSystemPrompt += `\n\nLANGUAGE INSTRUCTION: Respond in English only.`;
+    }
+
+    const contents = messages.map((m: any) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: m.imageBase64
+        ? [{ text: m.content || "" }, { inlineData: { mimeType: "image/jpeg", data: m.imageBase64 } }]
+        : [{ text: m.content || "" }],
+    }));
+
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_1;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse&key=${geminiKey}`;
+
+    const geminiRes = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: { parts: [{ text: resolvedSystemPrompt }] },
+        generationConfig: { maxOutputTokens: 2048, temperature: 0.7 },
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!geminiRes.ok || !geminiRes.body) {
+      send({ type: "error", error: "Stream unavailable, please retry" });
+      res.end();
+      return;
+    }
+
+    let fullText = "";
+    const isUrdu = language === "urdu";
+    const reader = geminiRes.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const token = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (!token) continue;
+
+          if (isUrdu) {
+            fullText += token;
+          } else {
+            send({ type: "token", token });
+          }
+        } catch {}
+      }
+    }
+
+    if (isUrdu && fullText) {
+      send({ type: "translating" });
+      const translated = await translateToUrdu(fullText);
+      send({ type: "complete", text: translated });
+    } else {
+      send({ type: "done" });
+    }
+
+    const user = getCurrentUser(req);
+    const finalReply = isUrdu ? fullText : undefined;
+    if (user && dbPool && finalReply) {
+      try {
+        const updatedMessages = [...messages, { role: "assistant", content: finalReply }];
+        const resolvedPersonaId = persona?.id || personaId || "expert";
+        const sessionRes = await dbPool.query(
+          "SELECT id FROM counseling_sessions WHERE user_id = $1 AND persona_id = $2 LIMIT 1",
+          [user.id, resolvedPersonaId]
+        );
+        if (sessionRes.rows.length > 0) {
+          await dbPool.query(
+            "UPDATE counseling_sessions SET messages = $1 WHERE id = $2",
+            [JSON.stringify(updatedMessages), sessionRes.rows[0].id]
+          );
+        }
+      } catch {}
+    }
+
+    res.end();
+  } catch (err: any) {
+    console.error("[Stream] Error:", err);
+    send({ type: "error", error: "Stream failed" });
+    res.end();
+  }
+});
+
 // POST /api/chat/message - Chat-first persona endpoint with mode & specifications support
 app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Response) => {
   try {
