@@ -4701,10 +4701,12 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
       ? requestMessage.trim()
       : typeof latestUserMessage === "string" ? latestUserMessage.trim() : "";
 
-    // Verify rate limit & guest lifetime limit
-    const usageCheck = await recordAndVerifyTabUsage(req, "chat");
-    if (!usageCheck.allowed) {
-      return res.status(usageCheck.status || 429).json(usageCheck.errorPayload);
+    // Regeneration is rate-limited by counselRateLimiter but does not consume query quota.
+    if (body.isRegenerate !== true) {
+      const usageCheck = await recordAndVerifyTabUsage(req, "chat");
+      if (!usageCheck.allowed) {
+        return res.status(usageCheck.status || 429).json(usageCheck.errorPayload);
+      }
     }
 
     let persona: any = null;

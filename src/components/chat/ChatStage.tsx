@@ -385,6 +385,8 @@ interface ChatStageProps {
   language?: 'english' | 'roman-urdu' | 'urdu';
   onLanguageChange?: (lang: 'english' | 'roman-urdu' | 'urdu') => void;
   onSendMessage: (content: string, modeOverride?: ChatMode, imageBase64?: string, savePublic?: boolean) => Promise<void>;
+  onRegenerateMessage: (assistantId: string, userMessageIndex: number) => void;
+  pendingReplyMessageIds: Set<string>;
   isLoading: boolean;
   onToggleLeftPanel: () => void;
   isLeftPanelOpen: boolean;
@@ -411,6 +413,8 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   language = 'english',
   onLanguageChange,
   onSendMessage,
+  onRegenerateMessage,
+  pendingReplyMessageIds,
   isLoading,
   onToggleLeftPanel,
   isLeftPanelOpen,
@@ -990,6 +994,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
         {/* Render WhatsApp Message Bubbles */}
         {session?.messages.map((msg, idx) => {
           const isAssistant = msg.role === 'assistant';
+          const latestAssistantIndex = session.messages.reduce(
+            (latestIndex, message, index) => message.role === 'assistant' ? index : latestIndex,
+            -1
+          );
           const isLatestTurnStart = idx === Math.max(0, (session?.messages.length || 0) - (isLoading ? 1 : 2));
           const msgPersona = isAssistant
             ? (variant === 'pk' ? EXPERTS_PK : EXPERTS)[msg.personaId || activePersona.id] || activePersona
@@ -1041,6 +1049,16 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 {/* Bubble Content Body */}
                 {isAssistant ? (
                   <div className="space-y-3">
+                    {pendingReplyMessageIds.has(msg.id) && (
+                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-300" role="status">
+                        <span className="flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#00a884] animate-bounce" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#00a884] animate-bounce [animation-delay:0.15s]" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#00a884] animate-bounce [animation-delay:0.3s]" />
+                        </span>
+                        Regenerating response...
+                      </div>
+                    )}
                     {(() => {
                       const SUGGEST_REGEX = /\[\[SUGGEST_GROUP:([^\]]+)\]\]/;
                       const match = msg.content.match(SUGGEST_REGEX);
@@ -1520,8 +1538,9 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 {/* Minimalist Interactive Message Action Bar */}
                 {isAssistant && (
                   <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-[#2a3942]/70 flex items-center justify-between text-xs text-slate-400">
-                    <div className="flex items-center gap-1">
-                      <button
+                    {idx === latestAssistantIndex && (
+                      <div className="flex items-center gap-1">
+                        <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
                         className="px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#111b21] hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer"
                         title="Copy message to clipboard"
@@ -1555,13 +1574,24 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                             <span>Save Note</span>
                           </>
                         )}
-                      </button>
-                    </div>
+                        </button>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => onSendMessage(`Regenerate response with greater depth and detailed step-by-step mathematical rigor.`)}
-                        className="px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#111b21] hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer group"
+                        onClick={() => {
+                          let userMessageIndex = -1;
+                          for (let messageIndex = idx - 1; messageIndex >= 0; messageIndex -= 1) {
+                            if (session?.messages[messageIndex]?.role === 'user') {
+                              userMessageIndex = messageIndex;
+                              break;
+                            }
+                          }
+                          if (userMessageIndex >= 0) onRegenerateMessage(msg.id, userMessageIndex);
+                        }}
+                        disabled={isLoading || pendingReplyMessageIds.has(msg.id)}
+                        className="px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#111b21] hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer group disabled:opacity-40 disabled:pointer-events-none"
                         title="Regenerate response"
                       >
                         <RotateCcw className="w-3.5 h-3.5 group-hover:-rotate-45 transition-transform" />

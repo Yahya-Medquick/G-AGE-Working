@@ -16,7 +16,7 @@ import { AuthModal } from './components/AuthModal';
 import { NotesSidePanel } from './components/NotesSidePanel';
 import { ExpertPersona, matchExpert } from './data/experts';
 import { usePersonas } from './hooks/usePersonas';
-import { ChatMode, ChatMessage } from './types/chat';
+import { ChatMode, ChatMessage, ChatSession } from './types/chat';
 import { PublicQAPage } from './components/PublicQAPage';
 import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
 
@@ -105,7 +105,11 @@ export default function App() {
   }, []);
 
   // Loading state for Gemini stream
-  const [isLoadingMessage, setIsLoadingMessage] = useState<boolean>(false);
+  const [loadingSessionIds, setLoadingSessionIds] = useState<Set<string>>(new Set());
+  const inFlightSessionsRef = useRef(new Set<string>());
+  const [pendingReplyMessageIds, setPendingReplyMessageIds] = useState<Set<string>>(new Set());
+  const [chatErrorToast, setChatErrorToast] = useState('');
+  const lastRegenerateAtRef = useRef(0);
   const [revealingReply, setRevealingReply] = useState<{ sessionId: string; message: ChatMessage } | null>(null);
   const activeSessionIdRef = useRef(activeSessionId);
   activeSessionIdRef.current = activeSessionId;
@@ -381,55 +385,49 @@ export default function App() {
     [activeSessionId, pkExperts, globalExperts, updateSessionMeta]
   );
 
-  // Send message handler (invokes /api/chat/message with mode, specs, and persona prompt)
-  const handleSendMessage = async (content: string, modeOverride?: ChatMode, imageBase64?: string, savePublic = true) => {
-    if (!content.trim() && !imageBase64) return;
-
-    const finalizedReveal = skipReveal();
-
-    if (!canExecuteQuery()) {
-      triggerPaywall();
-      return;
+  const requestReplyAt = async (
+    sessionId: string,
+    historyUpToIndex: number,
+    options: {
+      session: ChatSession;
+      messages: ChatMessage[];
+      newTitle?: string;
+      savePublic?: boolean;
+      isRegenerate?: boolean;
+      animate?: boolean;
     }
+  ) => {
+    if (inFlightSessionsRef.current.has(sessionId)) return false;
+    const { session: requestSession, messages, newTitle = options.session.title } = options;
+    const userMessage = messages[historyUpToIndex];
+    if (!userMessage || userMessage.role !== 'user') return false;
 
-    const currentSession = activeSession || createSession('hamza', 'concept', (content || "Image Analysis").slice(0, 32));
-    const targetMode = modeOverride || currentSession.mode || 'concept';
-
-    const userMessage: ChatMessage = {
-      id: `msg_${Date.now()}_u`,
-      role: 'user',
-      content: content.trim() || (imageBase64 ? "Please analyze this attached image/diagram." : ""),
-      timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-      mode: targetMode,
-      personaId: currentSession.personaId,
-      imageBase64: imageBase64 || undefined,
-    };
-
-    const currentMessages = finalizedReveal?.sessionId === currentSession.id
-      ? finalizedReveal.messages
-      : currentSession.messages;
-    const newMessages = [...currentMessages, userMessage];
-
-    // If first user message, update session title
-    const isFirstUserMsg = currentSession.messages.filter((m) => m.role === 'user').length === 0;
-    const newTitle = isFirstUserMsg ? (content.trim() || "Image Analysis").slice(0, 36) : currentSession.title;
-
-    updateSessionMessages(currentSession.id, newMessages, newTitle);
-    setIsLoadingMessage(true);
+    const targetMode = userMessage.mode || requestSession.mode || 'concept';
+    const replyIndex = historyUpToIndex + 1;
+    const priorAssistant = messages[replyIndex]?.role === 'assistant' ? messages[replyIndex] : undefined;
+    const history = messages.slice(0, historyUpToIndex + 1);
+    inFlightSessionsRef.current.add(sessionId);
+    setLoadingSessionIds((current) => new Set(current).add(sessionId));
+    if (priorAssistant) setPendingReplyMessageIds((current) => new Set(current).add(priorAssistant.id));
 
     try {
       const response = await fetch('/api/chat/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
-          sessionId: currentSession.id,
-          personaId: currentSession.personaId,
+          sessionId,
+          personaId: requestSession.personaId,
           mode: targetMode,
-          specs: currentSession.specs || {},
-          variant: currentSession.variant || expertVariant,
-          savePublic,
+          specs: requestSession.specs || {},
+          variant: requestSession.variant || expertVariant,
+          savePublic: options.savePublic ?? true,
+          isRegenerate: options.isRegenerate ?? false,
           language,
-          messages: newMessages.map((m) => ({ role: m.role, content: m.content, imageBase64: m.imageBase64 })),
+          messages: history.map((message) => ({
+            role: message.role,
+            content: message.content,
+            imageBase64: message.imageBase64,
+          })),
         }),
       });
 
@@ -437,104 +435,174 @@ export default function App() {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 429 || response.status === 403 || errorData.isPaywall || errorData.paywallTrigger) {
           triggerPaywall();
-          // Remove the loading user message or show clear message
-          const limitMsg: ChatMessage = {
-            id: `msg_${Date.now()}_a`,
-            role: 'assistant',
-            content: `⚠️ **Query Limit Reached**\n\n${errorData.message || errorData.error || 'You have reached your daily query allowance. Please upgrade to Pro for unlimited AI queries and vision analysis.'}`,
-            timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-            mode: targetMode,
-            personaId: currentSession.personaId,
-          };
-          updateSessionMessages(currentSession.id, [...newMessages, limitMsg], newTitle);
-          return;
+          if (!options.isRegenerate) {
+            const limitMessage: ChatMessage = {
+              id: `msg_${Date.now()}_a`,
+              role: 'assistant',
+              content: `⚠️ **Query Limit Reached**\n\n${errorData.message || errorData.error || 'You have reached your daily query allowance. Please upgrade to Pro for unlimited AI queries and vision analysis.'}`,
+              timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+              mode: targetMode,
+              personaId: requestSession.personaId,
+            };
+            const updatedMessages = [...messages];
+            updatedMessages.splice(replyIndex, priorAssistant ? 1 : 0, limitMessage);
+            updateSessionMessages(sessionId, updatedMessages, newTitle);
+          }
+          return false;
         }
         throw new Error(errorData.error || `Server returned ${response.status}`);
       }
 
       const data = await response.json();
-
       const assistantMessage: ChatMessage = {
-        id: `msg_${Date.now()}_a`,
+        id: priorAssistant?.id || `msg_${Date.now()}_a`,
         role: 'assistant',
         content: data.reply || 'No response received.',
         timestamp: data.timestamp || new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
         mode: targetMode,
-        personaId: currentSession.personaId,
+        personaId: requestSession.personaId,
         metadata: targetMode === 'research' && data.sources ? { sources: data.sources } : undefined,
       };
+      const updatedMessages = [...messages];
+      updatedMessages.splice(replyIndex, priorAssistant ? 1 : 0, assistantMessage);
 
-      const fullReply = assistantMessage.content;
-      const completeMessages = [...newMessages, assistantMessage];
-      if (activeSessionIdRef.current !== currentSession.id) {
-        updateSessionMessages(currentSession.id, completeMessages, newTitle);
-        refreshUsage();
-        return;
+      if (options.animate && activeSessionIdRef.current === sessionId) {
+        const fullReply = assistantMessage.content;
+        setRevealingReply({ sessionId, message: { ...assistantMessage, content: '' } });
+        let completed = false;
+        const finishReveal = () => {
+          if (completed) return { sessionId, messages: updatedMessages };
+          completed = true;
+          if (revealIntervalRef.current) clearInterval(revealIntervalRef.current);
+          revealIntervalRef.current = null;
+          revealFinishRef.current = null;
+          setRevealingReply(null);
+          updateSessionMessages(sessionId, updatedMessages, newTitle);
+          refreshUsage();
+          return { sessionId, messages: updatedMessages };
+        };
+        revealFinishRef.current = finishReveal;
+        const tokens = fullReply.match(/\s+|\S+/g) || [];
+        const totalWords = tokens.filter((token: string) => /\S/.test(token)).length;
+        const wordsPerTick = Math.max(1, Math.ceil(totalWords / 60));
+        let tokenIndex = 0;
+        revealIntervalRef.current = setInterval(() => {
+          let wordsRevealed = 0;
+          while (tokenIndex < tokens.length && wordsRevealed < wordsPerTick) {
+            if (/\S/.test(tokens[tokenIndex])) wordsRevealed += 1;
+            tokenIndex += 1;
+          }
+          while (tokenIndex < tokens.length && /^\s+$/.test(tokens[tokenIndex])) tokenIndex += 1;
+          if (tokenIndex >= tokens.length) {
+            finishReveal();
+            return;
+          }
+          setRevealingReply({ sessionId, message: { ...assistantMessage, content: tokens.slice(0, tokenIndex).join('') } });
+        }, 40);
+      } else {
+        updateSessionMessages(sessionId, updatedMessages, newTitle);
+        if (!options.isRegenerate) refreshUsage();
       }
-
-      setRevealingReply({
-        sessionId: currentSession.id,
-        message: { ...assistantMessage, content: '' },
-      });
-
-      let completed = false;
-      const finishReveal = () => {
-        if (completed) return { sessionId: currentSession.id, messages: completeMessages };
-        completed = true;
-        if (revealIntervalRef.current) clearInterval(revealIntervalRef.current);
-        revealIntervalRef.current = null;
-        revealFinishRef.current = null;
-        setRevealingReply(null);
-        const finalMessage = { ...assistantMessage, content: fullReply };
-        const finalMessages = [...newMessages, finalMessage];
-        updateSessionMessages(currentSession.id, finalMessages, newTitle);
-        refreshUsage();
-        return { sessionId: currentSession.id, messages: finalMessages };
-      };
-
-      revealFinishRef.current = finishReveal;
-      const tokens = fullReply.match(/\s+|\S+/g) || [];
-      const totalWords = tokens.filter((token) => /\S/.test(token)).length;
-      const wordsPerTick = Math.max(1, Math.ceil(totalWords / 60));
-      let tokenIndex = 0;
-
-      revealIntervalRef.current = setInterval(() => {
-        let wordsRevealed = 0;
-        while (tokenIndex < tokens.length && wordsRevealed < wordsPerTick) {
-          if (/\S/.test(tokens[tokenIndex])) wordsRevealed += 1;
-          tokenIndex += 1;
-        }
-        while (tokenIndex < tokens.length && /^\s+$/.test(tokens[tokenIndex])) {
-          tokenIndex += 1;
-        }
-
-        if (tokenIndex >= tokens.length) {
-          finishReveal();
-          return;
-        }
-
-        setRevealingReply({
-          sessionId: currentSession.id,
-          message: { ...assistantMessage, content: tokens.slice(0, tokenIndex).join('') },
-        });
-      }, 40);
+      return true;
     } catch (err: any) {
       console.warn('Chat error:', err);
-      const errorMsg: ChatMessage = {
-        id: `msg_${Date.now()}_a`,
-        role: 'assistant',
-        content: `⚠️ **Connection Error**\n\nUnable to generate response: ${err.message || 'Please check your connection and try again.'}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-        mode: targetMode,
-        personaId: currentSession.personaId,
-      };
-
-      updateSessionMessages(currentSession.id, [...newMessages, errorMsg], newTitle);
+      const errorText = err.message || 'Please check your connection and try again.';
+      if (options.isRegenerate) {
+        setChatErrorToast(`Unable to regenerate response: ${errorText}`);
+      } else {
+        const errorMessage: ChatMessage = {
+          id: `msg_${Date.now()}_a`,
+          role: 'assistant',
+          content: `⚠️ **Connection Error**\n\nUnable to generate response: ${errorText}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+          mode: targetMode,
+          personaId: requestSession.personaId,
+        };
+        const failedMessages = [...messages];
+        failedMessages.splice(replyIndex, priorAssistant ? 1 : 0, errorMessage);
+        updateSessionMessages(sessionId, failedMessages, newTitle);
+      }
+      return false;
     } finally {
-      setIsLoadingMessage(false);
+      inFlightSessionsRef.current.delete(sessionId);
+      setLoadingSessionIds((current) => {
+        const next = new Set(current);
+        next.delete(sessionId);
+        return next;
+      });
+      if (priorAssistant) {
+        setPendingReplyMessageIds((current) => {
+          const next = new Set(current);
+          next.delete(priorAssistant.id);
+          return next;
+        });
+      }
     }
-
   };
+
+  // Normal sends append a user message, then share the indexed request flow.
+  const handleSendMessage = async (content: string, modeOverride?: ChatMode, imageBase64?: string, savePublic = true) => {
+    if (!content.trim() && !imageBase64) return;
+    const finalizedReveal = skipReveal();
+    if (!canExecuteQuery()) {
+      triggerPaywall();
+      return;
+    }
+    const currentSession = activeSession || createSession('hamza', 'concept', (content || 'Image Analysis').slice(0, 32));
+    if (inFlightSessionsRef.current.has(currentSession.id)) return;
+    const targetMode = modeOverride || currentSession.mode || 'concept';
+    const userMessage: ChatMessage = {
+      id: `msg_${Date.now()}_u`,
+      role: 'user',
+      content: content.trim() || (imageBase64 ? 'Please analyze this attached image/diagram.' : ''),
+      timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+      mode: targetMode,
+      personaId: currentSession.personaId,
+      imageBase64: imageBase64 || undefined,
+    };
+    const currentMessages = finalizedReveal?.sessionId === currentSession.id ? finalizedReveal.messages : currentSession.messages;
+    const messages = [...currentMessages, userMessage];
+    const isFirstUserMsg = currentSession.messages.filter((message) => message.role === 'user').length === 0;
+    const newTitle = isFirstUserMsg ? (content.trim() || 'Image Analysis').slice(0, 36) : currentSession.title;
+    updateSessionMessages(currentSession.id, messages, newTitle);
+    await requestReplyAt(currentSession.id, messages.length - 1, {
+      session: { ...currentSession, mode: targetMode },
+      messages,
+      newTitle,
+      savePublic,
+      animate: true,
+    });
+  };
+
+  const handleRegenerateMessage = async (assistantId: string, userMessageIndex: number) => {
+    const now = Date.now();
+    if (now - lastRegenerateAtRef.current < 3000) return;
+    const currentSession = sessions.find((session) => session.id === activeSessionId);
+    if (!currentSession || inFlightSessionsRef.current.has(currentSession.id)) return;
+    const lastAssistantIndex = currentSession.messages.reduce(
+      (latestIndex, message, index) => message.role === 'assistant' ? index : latestIndex,
+      -1
+    );
+    if (
+      currentSession.messages[userMessageIndex]?.role !== 'user' ||
+      userMessageIndex + 1 !== lastAssistantIndex ||
+      currentSession.messages[userMessageIndex + 1]?.id !== assistantId
+    ) return;
+    lastRegenerateAtRef.current = now;
+    setChatErrorToast('');
+    await requestReplyAt(currentSession.id, userMessageIndex, {
+      session: currentSession,
+      messages: currentSession.messages,
+      savePublic: true,
+      isRegenerate: true,
+    });
+  };
+
+  useEffect(() => {
+    if (!chatErrorToast) return;
+    const timer = setTimeout(() => setChatErrorToast(''), 5000);
+    return () => clearTimeout(timer);
+  }, [chatErrorToast]);
 
   // Auto-dismiss save note toast notification after 2 seconds
   useEffect(() => {
@@ -556,6 +624,14 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex overflow-hidden font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+      {chatErrorToast && (
+        <div role="alert" className="fixed top-4 right-4 z-[100] max-w-sm rounded-lg border border-rose-300 bg-white px-4 py-3 text-sm text-rose-700 shadow-lg dark:border-rose-900 dark:bg-slate-900 dark:text-rose-300">
+          <div className="flex items-start gap-3">
+            <span>{chatErrorToast}</span>
+            <button type="button" onClick={() => setChatErrorToast('')} className="shrink-0 font-semibold" aria-label="Dismiss error">×</button>
+          </div>
+        </div>
+      )}
       {/* 1. LEFT PANEL: CHAT HISTORY SIDEBAR */}
       <ChatSidebar
         isOpen={isLeftPanelOpen}
@@ -603,7 +679,9 @@ export default function App() {
           language={language}
           onLanguageChange={handleLanguageChange}
           onSendMessage={handleSendMessage}
-          isLoading={isLoadingMessage}
+          onRegenerateMessage={handleRegenerateMessage}
+          pendingReplyMessageIds={pendingReplyMessageIds}
+          isLoading={!!activeSessionId && loadingSessionIds.has(activeSessionId)}
           onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
           isLeftPanelOpen={isLeftPanelOpen}
           onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
