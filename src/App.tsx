@@ -391,7 +391,7 @@ export default function App() {
     setIsLoadingMessage(true);
 
     try {
-      const streamRes = await fetch('/api/chat/message/stream', {
+      const response = await fetch('/api/chat/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
@@ -402,87 +402,43 @@ export default function App() {
           variant: currentSession.variant || expertVariant,
           savePublic,
           language,
-          messages: newMessages.map((m) => ({
-            role: m.role,
-            content: m.content,
-            imageBase64: m.imageBase64,
-          })),
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content, imageBase64: m.imageBase64 })),
         }),
       });
 
-      if (!streamRes.ok || !streamRes.body) {
-        throw new Error(`Server returned ${streamRes.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429 || response.status === 403 || errorData.isPaywall || errorData.paywallTrigger) {
+          triggerPaywall();
+          // Remove the loading user message or show clear message
+          const limitMsg: ChatMessage = {
+            id: `msg_${Date.now()}_a`,
+            role: 'assistant',
+            content: `⚠️ **Query Limit Reached**\n\n${errorData.message || errorData.error || 'You have reached your daily query allowance. Please upgrade to Pro for unlimited AI queries and vision analysis.'}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+            mode: targetMode,
+            personaId: currentSession.personaId,
+          };
+          updateSessionMessages(currentSession.id, [...newMessages, limitMsg], newTitle);
+          return;
+        }
+        throw new Error(errorData.error || `Server returned ${response.status}`);
       }
 
-      const assistantMsgId = `msg_${Date.now()}_a`;
-      const placeholderMsg: ChatMessage = {
-        id: assistantMsgId,
+      const data = await response.json();
+      refreshUsage();
+
+      const assistantMessage: ChatMessage = {
+        id: `msg_${Date.now()}_a`,
         role: 'assistant',
-        content: '',
-        timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        content: data.reply || 'No response received.',
+        timestamp: data.timestamp || new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
         mode: targetMode,
         personaId: currentSession.personaId,
+        metadata: targetMode === 'research' && data.sources ? { sources: data.sources } : undefined,
       };
 
-      let streamingMessages = [...newMessages, placeholderMsg];
-      updateSessionMessages(currentSession.id, streamingMessages, newTitle);
-      setIsLoadingMessage(false);
-
-      const reader = streamRes.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let accumulatedText = '';
-
-      const updateMessage = (text: string) => {
-        streamingMessages = streamingMessages.map((m) =>
-          m.id === assistantMsgId ? { ...m, content: text } : m
-        );
-        updateSessionMessages(currentSession.id, streamingMessages, newTitle);
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const jsonStr = line.slice(6).trim();
-          let event;
-          try {
-            event = JSON.parse(jsonStr);
-          } catch {
-            continue;
-          }
-
-          if (event.type === 'token') {
-            accumulatedText += event.token;
-            updateMessage(accumulatedText);
-          } else if (event.type === 'complete') {
-            updateMessage(event.text);
-            accumulatedText = event.text;
-          } else if (event.type === 'translating') {
-            updateMessage(accumulatedText + '\n\n_ترجمہ ہو رہا ہے..._');
-          } else if (event.type === 'error') {
-            if (event.isPaywall) {
-              triggerPaywall();
-              updateSessionMessages(currentSession.id, newMessages, newTitle);
-              return;
-            }
-            throw new Error(event.error);
-          }
-        }
-      }
-
-      const finalMsg = streamingMessages.find((m) => m.id === assistantMsgId);
-      if (finalMsg?.content.includes('_ترجمہ ہو رہا ہے..._')) {
-        updateMessage(accumulatedText);
-      }
-
-      refreshUsage();
+      updateSessionMessages(currentSession.id, [...newMessages, assistantMessage], newTitle);
     } catch (err: any) {
       console.warn('Chat error:', err);
       const errorMsg: ChatMessage = {
