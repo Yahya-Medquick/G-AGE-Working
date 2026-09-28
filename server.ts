@@ -234,6 +234,44 @@ async function fetchResearchNews(query: string): Promise<ResearchNewsSource[]> {
   }
 }
 
+// MyMemory Translation — free, no key needed
+async function translateToUrdu(text: string): Promise<string> {
+  try {
+    // Split into chunks of 500 chars to stay within MyMemory limits
+    const chunks: string[] = [];
+    let remaining = text;
+    while (remaining.length > 0) {
+      const chunk = remaining.slice(0, 500);
+      const lastBreak = chunk.lastIndexOf('\n') > 400
+        ? chunk.lastIndexOf('\n')
+        : chunk.lastIndexOf('. ') > 400
+          ? chunk.lastIndexOf('. ') + 1
+          : 500;
+      chunks.push(remaining.slice(0, lastBreak).trim());
+      remaining = remaining.slice(lastBreak).trim();
+    }
+
+    const translated: string[] = [];
+    for (const chunk of chunks) {
+      if (!chunk) continue;
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|ur`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) { translated.push(chunk); continue; }
+      const data = await res.json();
+      const result = data?.responseData?.translatedText;
+      if (result && typeof result === 'string' && result !== chunk) {
+        translated.push(result);
+      } else {
+        translated.push(chunk);
+      }
+    }
+    return translated.join('\n');
+  } catch (err) {
+    console.error('[MyMemory] Translation failed:', err);
+    return text; // fallback to original English
+  }
+}
+
 async function fetchBraveSearch(query: string): Promise<any[]> {
   try {
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
@@ -4850,7 +4888,13 @@ Only output this marker when the question is clearly outside your domain. Never 
     const liveDataDirective = `CRITICAL INSTRUCTION: Today's date is ${new Date().toISOString().split("T")[0]}. You MUST answer using ONLY the real-time data provided below in the [LIVE DATA] sections. Do NOT use your training memory for facts, news, prices, or research papers. If live data is provided, it is always more accurate and current than your training. Always mention specific details from the live data in your answer.`;
     const liveDataOverrideInstruction = `OVERRIDE INSTRUCTION: Regardless of your persona role, when [LIVE DATA] sections are provided below, you MUST use them to answer questions about current events, news, or recent developments. Never say you lack access to real-time data when [LIVE DATA] sections are present in this prompt.`;
     const liveDataClosingInstruction = "If the user asks about current dates, events, or recent data, always refer to the [LIVE DATA] sections above. Never say a future date 'does not exist yet' — check the live data first.";
-    const fullSystemInstruction = `${liveDataDirective}\n\n${liveDataOverrideInstruction}\n\n${liveDataContext}\n\n${personaPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}`;
+    const responseLang = (req.body?.language || 'english') as string;
+    const languageInstruction = responseLang === 'roman-urdu'
+      ? 'LANGUAGE INSTRUCTION: You MUST respond in Roman Urdu (Urdu language written in English/Latin script, also called Hinglish). Keep all technical terms, scientific names, formulas, and proper nouns in English. Example style: "Yeh process photosynthesis kehlata hai, jis mein plants sunlight ko energy mein convert karte hain (chlorophyll ki madad se)."'
+      : responseLang === 'urdu'
+        ? 'LANGUAGE INSTRUCTION: Respond in clear, simple English. Your response will be automatically translated to Urdu. Keep technical terms in English with brackets where helpful. Do not mix languages.'
+        : 'LANGUAGE INSTRUCTION: Respond in English only.';
+    const fullSystemInstruction = `${liveDataDirective}\n\n${liveDataOverrideInstruction}\n\n${liveDataContext}\n\n${personaPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}\n\n${languageInstruction}`;
 
     // Check if any message has image attachment (Pro feature)
     const hasImageAttachment = messages.some((m: any) => m.imageBase64 && typeof m.imageBase64 === "string" && m.imageBase64.length > 50);
@@ -4893,7 +4937,14 @@ Only output this marker when the question is clearly outside your domain. Never 
       systemInstruction: fullSystemInstruction
     });
 
-    const reply = result.text.trim();
+    let reply = result.text.trim();
+
+    // Translate to Urdu if requested
+    if (responseLang === 'urdu' && reply) {
+      console.log('[Lang] Translating response to Urdu via MyMemory...');
+      reply = await translateToUrdu(reply);
+      console.log('[Lang] Translation complete');
+    }
 
     // Log Q&A for this persona's public sitemap page — no user identifiers stored
     if (dbPool && persona?.slug) {

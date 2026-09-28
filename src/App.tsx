@@ -95,6 +95,14 @@ export default function App() {
 
   // Active persona region variant ('global' | 'pk') - default to Pakistani first
   const [expertVariant, setExpertVariant] = useState<'global' | 'pk'>('pk');
+  const [language, setLanguage] = useState<'english' | 'roman-urdu' | 'urdu'>(() => {
+    return (localStorage.getItem('gage_language') as 'english' | 'roman-urdu' | 'urdu') || 'english';
+  });
+
+  const handleLanguageChange = useCallback((lang: 'english' | 'roman-urdu' | 'urdu') => {
+    setLanguage(lang);
+    localStorage.setItem('gage_language', lang);
+  }, []);
 
   // Loading state for Gemini stream
   const [isLoadingMessage, setIsLoadingMessage] = useState<boolean>(false);
@@ -393,6 +401,7 @@ export default function App() {
           specs: currentSession.specs || {},
           variant: currentSession.variant || expertVariant,
           savePublic,
+          language,
           messages: newMessages.map((m) => ({ role: m.role, content: m.content, imageBase64: m.imageBase64 })),
         }),
       });
@@ -503,6 +512,8 @@ export default function App() {
         session={activeSession}
         activePersona={activePersona}
         variant={expertVariant}
+        language={language}
+        onLanguageChange={handleLanguageChange}
         onSendMessage={handleSendMessage}
         isLoading={isLoadingMessage}
         onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}

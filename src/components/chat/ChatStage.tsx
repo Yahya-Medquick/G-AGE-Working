@@ -382,6 +382,8 @@ interface ChatStageProps {
   session: ChatSession | null;
   activePersona: ExpertPersona;
   variant: 'global' | 'pk';
+  language?: 'english' | 'roman-urdu' | 'urdu';
+  onLanguageChange?: (lang: 'english' | 'roman-urdu' | 'urdu') => void;
   onSendMessage: (content: string, modeOverride?: ChatMode, imageBase64?: string, savePublic?: boolean) => Promise<void>;
   isLoading: boolean;
   onToggleLeftPanel: () => void;
@@ -406,6 +408,8 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   session,
   activePersona,
   variant,
+  language = 'english',
+  onLanguageChange,
   onSendMessage,
   isLoading,
   onToggleLeftPanel,
@@ -431,6 +435,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [isSpecsOpen, setIsSpecsOpen] = useState(false);
   const [showMCQCard, setShowMCQCard] = useState<boolean>(false);
   const [showModeSwitcher, setShowModeSwitcher] = useState(false);
+  const [showLangSwitcher, setShowLangSwitcher] = useState(false);
   const [showDefinitionCard, setShowDefinitionCard] = useState<boolean>(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [savedNotesMsgId, setSavedNotesMsgId] = useState<string | null>(null);
@@ -489,6 +494,18 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [showModeSwitcher]);
+
+  useEffect(() => {
+    if (!showLangSwitcher) return;
+    const close = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-lang-switcher]')) {
+        setShowLangSwitcher(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [showLangSwitcher]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -832,6 +849,50 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                     <div className="text-[10px]">Coming soon</div>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Language Switcher */}
+          <div className="relative" data-lang-switcher>
+            <button
+              onClick={() => setShowLangSwitcher(!showLangSwitcher)}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer bg-white dark:bg-[#202c33] border border-slate-300 dark:border-[#2a3942] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3942] shadow-xs"
+              title="Switch Response Language"
+            >
+              <span className="text-[11px]">
+                {language === 'english' ? '🇬🇧 EN' : language === 'roman-urdu' ? '🇵🇰 UR' : '🇵🇰 اردو'}
+              </span>
+              <ChevronDown className="w-3 h-3 opacity-60" />
+            </button>
+
+            {showLangSwitcher && (
+              <div className="absolute top-full right-0 mt-1 z-50 bg-white dark:bg-[#202c33] border border-slate-200 dark:border-[#2a3942] rounded-xl shadow-lg overflow-hidden min-w-[160px]">
+                {[
+                  { lang: 'english' as const, flag: '🇬🇧', label: 'English', desc: 'Full English responses' },
+                  { lang: 'roman-urdu' as const, flag: '🇵🇰', label: 'Roman Urdu', desc: 'Urdu in English script' },
+                  { lang: 'urdu' as const, flag: '🇵🇰', label: 'اردو', desc: 'Proper Urdu script' },
+                ].map(({ lang, flag, label, desc }) => (
+                  <button
+                    key={lang}
+                    onClick={() => {
+                      onLanguageChange?.(lang);
+                      setShowLangSwitcher(false);
+                    }}
+                    className={`w-full px-3 py-2 flex items-center gap-2 text-left text-xs transition-colors cursor-pointer
+                      ${language === lang
+                        ? 'bg-[#00a884]/10 dark:bg-[#25d366]/10 text-[#00a884] dark:text-[#25d366]'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a3942]'
+                      }`}
+                  >
+                    <span>{flag}</span>
+                    <div>
+                      <div className="font-bold">{label}</div>
+                      <div className="text-[10px] opacity-60">{desc}</div>
+                    </div>
+                    {language === lang && <CheckCircle2 className="w-3 h-3 ml-auto" />}
+                  </button>
+                ))}
               </div>
             )}
           </div>
