@@ -53,7 +53,7 @@
 │             Express.js Security-Hardened Backend Server                │
 │                                                                        │
 │ ┌────────────────┐ ┌───────────────────┐ ┌───────────────────────────┐ │
-│ │  Memory Cache  │ │  Gemini 3.6 Flash │ │ Live OpenAlex / Wiki /    │ │
+│ │  Memory Cache  │ │  Gemini 2.5 Flash │ │ Live OpenAlex / Wiki /    │ │
 │ │  (1-Hour TTL)  │ │  Synthesis Engine │ │ GitHub / Books / Reddit   │ │
 │ └────────────────┘ └───────────────────┘ └───────────────────────────┘ │
 └───────────────────────────────────┬────────────────────────────────────┘

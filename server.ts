@@ -1099,106 +1099,123 @@ async function runPublicQAGenerationWorker(): Promise<void> {
     if (!lockResult.rows[0]?.locked) return;
     hasWorkerLock = true;
 
-    const claimResult = await client.query(`
-      WITH candidate AS (
-        SELECT id
-        FROM public_qa_pages
-        WHERE is_published = true
-          AND is_publishable = true
-          AND display_question IS NULL
-          AND display_question_attempts < 3
-          AND (
-            display_question_status = 'pending'
-            OR (display_question_status = 'processing' AND updated_at < NOW() - INTERVAL '5 minutes')
-          )
-        ORDER BY created_at ASC
-        LIMIT 1
-        FOR UPDATE SKIP LOCKED
-      )
-      UPDATE public_qa_pages AS page
-      SET display_question_status = 'processing',
-          display_question_attempts = page.display_question_attempts + 1,
-          updated_at = NOW()
-      FROM candidate
-      WHERE page.id = candidate.id
-      RETURNING page.id, page.slug, page.question_text, page.answer_text,
-                page.has_images, page.answer_language, page.display_question_attempts
-    `);
-    const page = claimResult.rows[0];
-    if (!page) return;
+    // Process a batch of pending items (up to 10 per run, with a 2-second rate-limiting delay between items)
+    const MAX_BATCH = 10;
+    let processedCount = 0;
 
-    if (!isPublishablePublicQA(page.question_text, page.answer_text, page.has_images)) {
-      await client.query(
-        `UPDATE public_qa_pages
-         SET is_publishable = false, display_question_status = 'rejected', updated_at = NOW()
-         WHERE id = $1`,
-        [page.id]
-      );
-      return;
-    }
+    while (processedCount < MAX_BATCH) {
+      const claimResult = await client.query(`
+        WITH candidate AS (
+          SELECT id
+          FROM public_qa_pages
+          WHERE is_published = true
+            AND is_publishable = true
+            AND display_question IS NULL
+            AND display_question_attempts < 3
+            AND (
+              display_question_status = 'pending'
+              OR (display_question_status = 'processing' AND updated_at < NOW() - INTERVAL '5 minutes')
+            )
+          ORDER BY created_at ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE public_qa_pages AS page
+        SET display_question_status = 'processing',
+            display_question_attempts = page.display_question_attempts + 1,
+            updated_at = NOW()
+        FROM candidate
+        WHERE page.id = candidate.id
+        RETURNING page.id, page.slug, page.question_text, page.answer_text,
+                  page.has_images, page.answer_language, page.display_question_attempts
+      `);
+      const page = claimResult.rows[0];
+      if (!page) break; // No more pending items
 
-    const language = inferPublicQALanguage(page.answer_text, page.answer_language);
-    const prompt = `Given the final answer below, write ONE clear, self-contained question that this answer responds to. Write in the SAME language as the answer: English for English, Urdu script for Urdu, or Roman Urdu for Roman Urdu. Keep technical terms in English. Make sense with no chat context. Include no personal names or personal details. End with a question mark. Return only the question text.\n\nFinal answer:\n${page.answer_text}`;
-    const generated = await callGeminiWithFallback({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      systemInstruction: 'Create one accurate public-facing question from the supplied answer. Follow the requested language and output format exactly.',
-    });
-    let displayQuestion = generated.text.trim().split(/\r?\n/).map((line) => line.trim()).find(Boolean) || '';
-    displayQuestion = displayQuestion
-      .replace(/^(?:question|سوال)\s*[:：]\s*/iu, '')
-      .replace(/^["'“”`]+|["'“”`]+$/gu, '')
-      .trim();
-    if (displayQuestion && !/[?؟]$/u.test(displayQuestion)) displayQuestion += '?';
-    const displayQuestionLength = [...displayQuestion].length;
-    if (displayQuestionLength < 15 || displayQuestionLength > 240) {
-      await client.query(
-        `UPDATE public_qa_pages
-         SET is_publishable = false, display_question_status = 'rejected', answer_language = $2, updated_at = NOW()
-         WHERE id = $1`,
-        [page.id, language]
-      );
-      return;
-    }
+      processedCount++;
 
-    const existingResult = await client.query(
-      `SELECT id, display_question, answer_text
-       FROM public_qa_pages
-       WHERE id <> $1 AND is_published = true AND is_publishable = true
-         AND display_question IS NOT NULL AND display_question_status = 'complete'`,
-      [page.id]
-    );
-    const duplicateRows = existingResult.rows.filter((row: any) => areNearDuplicateQuestions(displayQuestion, row.display_question));
-    const candidates = [
-      { id: page.id, answer_text: page.answer_text, isNew: true },
-      ...duplicateRows.map((row: any) => ({ id: row.id, answer_text: row.answer_text, isNew: false })),
-    ];
-    candidates.sort((first, second) => second.answer_text.length - first.answer_text.length);
-    const winner = candidates[0];
-    for (const duplicate of duplicateRows) {
-      if (duplicate.id !== winner.id) {
+      if (!isPublishablePublicQA(page.question_text, page.answer_text, page.has_images)) {
         await client.query(
-          'UPDATE public_qa_pages SET canonical_id = $2, updated_at = NOW() WHERE id = $1',
-          [duplicate.id, winner.id]
+          `UPDATE public_qa_pages
+           SET is_publishable = false, display_question_status = 'rejected', updated_at = NOW()
+           WHERE id = $1`,
+          [page.id]
         );
+        continue;
       }
+
+      const language = inferPublicQALanguage(page.answer_text, page.answer_language);
+      const prompt = `Given the final answer below, write ONE clear, self-contained question that this answer responds to. Write in the SAME language as the answer: English for English, Urdu script for Urdu, or Roman Urdu for Roman Urdu. Keep technical terms in English. Make sense with no chat context. Include no personal names or personal details. End with a question mark. Return only the question text.\n\nFinal answer:\n${page.answer_text}`;
+
+      try {
+        const generated = await callGeminiWithFallback({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          systemInstruction: 'Create one accurate public-facing question from the supplied answer. Follow the requested language and output format exactly.',
+          models: GEMINI_UTILITY_MODELS,
+          customKeys: getWorkerGeminiApiKeys(),
+        });
+        let displayQuestion = generated.text.trim().split(/\r?\n/).map((line) => line.trim()).find(Boolean) || '';
+        displayQuestion = displayQuestion
+          .replace(/^(?:question|سوال)\s*[:：]\s*/iu, '')
+          .replace(/^["'“”`]+|["'“”`]+$/gu, '')
+          .trim();
+        if (displayQuestion && !/[?؟]$/u.test(displayQuestion)) displayQuestion += '?';
+        const displayQuestionLength = [...displayQuestion].length;
+        if (displayQuestionLength < 15 || displayQuestionLength > 240) {
+          await client.query(
+            `UPDATE public_qa_pages
+             SET is_publishable = false, display_question_status = 'rejected', answer_language = $2, updated_at = NOW()
+             WHERE id = $1`,
+            [page.id, language]
+          );
+          continue;
+        }
+
+        const existingResult = await client.query(
+          `SELECT id, display_question, answer_text
+           FROM public_qa_pages
+           WHERE id <> $1 AND is_published = true AND is_publishable = true
+             AND display_question IS NOT NULL AND display_question_status = 'complete'`,
+          [page.id]
+        );
+        const duplicateRows = existingResult.rows.filter((row: any) => areNearDuplicateQuestions(displayQuestion, row.display_question));
+        const candidates = [
+          { id: page.id, answer_text: page.answer_text, isNew: true },
+          ...duplicateRows.map((row: any) => ({ id: row.id, answer_text: row.answer_text, isNew: false })),
+        ];
+        candidates.sort((first, second) => second.answer_text.length - first.answer_text.length);
+        const winner = candidates[0];
+        for (const duplicate of duplicateRows) {
+          if (duplicate.id !== winner.id) {
+            await client.query(
+              'UPDATE public_qa_pages SET canonical_id = $2, updated_at = NOW() WHERE id = $1',
+              [duplicate.id, winner.id]
+            );
+          }
+        }
+        await client.query(
+          `UPDATE public_qa_pages
+           SET display_question = $2, display_question_status = 'complete', answer_language = $3,
+               canonical_id = $4, updated_at = NOW()
+           WHERE id = $1`,
+          [page.id, displayQuestion, language, winner.id === page.id ? null : winner.id]
+        );
+      } catch (itemError: any) {
+        console.warn(`[QA Indexer] Question generation failed for page ${page.id}:`, itemError?.message || itemError);
+        await client.query(
+          `UPDATE public_qa_pages
+           SET display_question_status = CASE WHEN display_question_attempts >= 3 THEN 'failed' ELSE 'pending' END,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [page.id]
+        ).catch((updateErr: any) => console.warn('Public Q&A retry state update failed:', updateErr?.message || updateErr));
+      }
+
+      // Respectful rate-limiting pause between items in batch
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
-    await client.query(
-      `UPDATE public_qa_pages
-       SET display_question = $2, display_question_status = 'complete', answer_language = $3,
-           canonical_id = $4, updated_at = NOW()
-       WHERE id = $1`,
-      [page.id, displayQuestion, language, winner.id === page.id ? null : winner.id]
-    );
   } catch (error: any) {
-    console.warn('Public Q&A question generation failed:', error?.message || error);
-    if (client) {
-      await client.query(
-        `UPDATE public_qa_pages
-         SET display_question_status = CASE WHEN display_question_attempts >= 3 THEN 'failed' ELSE 'pending' END,
-             updated_at = NOW()
-         WHERE display_question_status = 'processing' AND display_question IS NULL`
-      ).catch((updateError: any) => console.warn('Public Q&A retry state update failed:', updateError?.message || updateError));
-    }
+    console.warn('Public Q&A question generation batch error:', error?.message || error);
   } finally {
     if (client && hasWorkerLock) {
       await client.query('SELECT pg_advisory_unlock($1)', [workerLockId]).catch(() => undefined);
@@ -1208,9 +1225,11 @@ async function runPublicQAGenerationWorker(): Promise<void> {
   }
 }
 
+// Run Public QA Indexer every 30 minutes (1,800,000 ms) instead of every 30 seconds
+const QA_INDEXER_INTERVAL_MS = 30 * 60 * 1000;
 setInterval(() => {
   void runPublicQAGenerationWorker();
-}, 30_000);
+}, QA_INDEXER_INTERVAL_MS);
 
 export async function findCanonicalPage(q: string): Promise<number | null> {
   if (!dbPool) return null;
@@ -2383,7 +2402,7 @@ setInterval(() => {
 // Start Background Refresh Loop
 startBackgroundJobRunner();
 
-// Helper: Gemini API Key Discovery & Rotation Engine
+// Helper: Gemini API Key Discovery & Rotation Engine (Live Chat & User Traffic)
 function getGeminiApiKeys(): string[] {
   const keys: string[] = [];
   if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
@@ -2408,6 +2427,41 @@ function getGeminiApiKeys(): string[] {
   }
 
   return keys;
+}
+
+// Dedicated Helper: Keys for Background Worker & QA Indexing
+// Protects live chat by isolating background/utility tasks onto dedicated or secondary keys
+function getWorkerGeminiApiKeys(): string[] {
+  const workerKeys: string[] = [];
+  // 1. Dedicated worker / QA environment variables
+  if (process.env.GEMINI_QA_API_KEY && process.env.GEMINI_QA_API_KEY.trim()) {
+    workerKeys.push(process.env.GEMINI_QA_API_KEY.trim());
+  }
+  Object.keys(process.env).forEach((key) => {
+    if (
+      (key.startsWith("GEMINI_QA_KEY") || key.startsWith("GEMINI_WORKER_KEY")) &&
+      process.env[key] &&
+      process.env[key]!.trim()
+    ) {
+      const val = process.env[key]!.trim();
+      if (!workerKeys.includes(val)) {
+        workerKeys.push(val);
+      }
+    }
+  });
+
+  if (workerKeys.length > 0) {
+    return workerKeys;
+  }
+
+  // 2. If no dedicated worker key but multiple keys exist, use secondary keys (leaving key[0] solely for live chat)
+  const allKeys = getGeminiApiKeys();
+  if (allKeys.length > 1) {
+    return allKeys.slice(1);
+  }
+
+  // 3. Fallback to all available keys
+  return allKeys;
 }
 
 // Helper: OpenRouter API Key Discovery (reads from environment variable only)
@@ -2441,23 +2495,30 @@ function getGemini(): GoogleGenAI | null {
 
 // ----------------------------------------------------------------------
 // CENTRALIZED MULTI-KEY & MULTI-PROVIDER FALLBACK CHAIN ENGINE
-// Primary Chain: Gemini 2.5 Flash -> Gemini 2.5 Pro
-// Ultra-Resilient Provider Fallback: OpenRouter Cost-Aware Dynamic Routing
 // ----------------------------------------------------------------------
-const GEMINI_MODEL_CHAIN = [
-  "gemini-3.6-flash",   // key 1 — primary, best quality
-  "gemini-3.6-flash",   // key 2
-  "gemini-3.6-flash",   // key 3
-  "gemini-2.5-flash",   // key 1 — 1500/day free quota
-  "gemini-2.5-flash",   // key 2
-  "gemini-2.5-flash",   // key 3
+
+// Primary Flagship Chain (Chat, Tutoring, Reasoning & Multimodal):
+export const GEMINI_CHAT_MODELS = [
+  "gemini-2.5-flash",   // Primary high-quality model
+  "gemini-2.0-flash",   // Fallback high-speed model
 ];
+
+// Lightweight Utility Chain (QA Indexing, Topic Extraction, Quick Summaries):
+// Uses a separate Google AI Studio quota bucket to never starve live chat!
+export const GEMINI_UTILITY_MODELS = [
+  "gemini-2.0-flash-lite", // Ultra-fast lightweight model with independent quota
+  "gemini-1.5-flash",      // Highly reliable fallback
+  "gemini-2.0-flash",
+];
+
+// Default fallback chain for generic AI requests
+const GEMINI_MODEL_CHAIN = GEMINI_CHAT_MODELS;
 
 // OpenRouter Tiers:
 // Detailed / Long / Vision Questions: Flagship models first
 const OPENROUTER_DETAILED_MODELS = [
   "deepseek/deepseek-chat",
-  "google/gemini-3.6-flash",
+  "google/gemini-2.5-flash",
   "openai/gpt-4o-mini",
   "meta-llama/llama-3.3-70b-instruct",
 ];
@@ -2467,7 +2528,7 @@ const OPENROUTER_BUDGET_MODELS = [
   "deepseek/deepseek-chat",
   "openai/gpt-4o-mini",
   "mistralai/mistral-small-24b-instruct-2501",
-  "google/gemini-3.6-flash",
+  "google/gemini-2.0-flash-001",
 ];
 
 export interface GeminiFallbackOptions {
@@ -2476,6 +2537,8 @@ export interface GeminiFallbackOptions {
   responseMimeType?: string;
   responseSchema?: any;
   tools?: any[];
+  models?: string[];       // Override model chain (e.g. GEMINI_UTILITY_MODELS)
+  customKeys?: string[];   // Override API keys (e.g. getWorkerGeminiApiKeys())
 }
 
 export interface GeminiFallbackResult {
@@ -2640,12 +2703,13 @@ async function callOpenRouterFallback(options: GeminiFallbackOptions): Promise<G
 }
 
 async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<GeminiFallbackResult> {
-  const keys = getGeminiApiKeys();
+  const keys = options.customKeys && options.customKeys.length > 0 ? options.customKeys : getGeminiApiKeys();
+  const modelsToTry = options.models && options.models.length > 0 ? options.models : GEMINI_CHAT_MODELS;
   let lastError: any = null;
   let totalKeysTried = 0;
 
   if (keys.length > 0) {
-    for (const modelName of GEMINI_MODEL_CHAIN) {
+    for (const modelName of modelsToTry) {
       for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
         const apiKey = keys[keyIdx];
         totalKeysTried++;
@@ -2682,7 +2746,7 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
           });
 
           if (response && response.text) {
-            const isBackupModel = modelName !== GEMINI_MODEL_CHAIN[0] || keyIdx > 0;
+            const isBackupModel = modelName !== modelsToTry[0] || keyIdx > 0;
             return {
               text: response.text,
               modelUsed: modelName,
@@ -7074,6 +7138,8 @@ Return valid JSON:
     const aiRes = await callGeminiWithFallback({
       contents: prompt,
       responseMimeType: "application/json",
+      models: GEMINI_UTILITY_MODELS,
+      customKeys: getWorkerGeminiApiKeys(),
     });
 
     if (aiRes && aiRes.text) {
