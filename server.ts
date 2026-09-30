@@ -2499,16 +2499,15 @@ function getGemini(): GoogleGenAI | null {
 
 // Primary Flagship Chain (Chat, Tutoring, Reasoning & Multimodal):
 export const GEMINI_CHAT_MODELS = [
-  "gemini-2.5-flash",   // Primary high-quality model
-  "gemini-2.0-flash",   // Fallback high-speed model
+  "gemini-3.8-flash",   // Primary high-intelligence model
+  "gemini-3.5-flash",   // Fallback fast & reliable model
 ];
 
 // Lightweight Utility Chain (QA Indexing, Topic Extraction, Quick Summaries):
 // Uses a separate Google AI Studio quota bucket to never starve live chat!
 export const GEMINI_UTILITY_MODELS = [
-  "gemini-2.0-flash-lite", // Ultra-fast lightweight model with independent quota
-  "gemini-1.5-flash",      // Highly reliable fallback
-  "gemini-2.0-flash",
+  "gemini-3.5-flash-lite", // Fast lightweight model with separate quota
+  "gemini-3.5-flash",      // Backup
 ];
 
 // Default fallback chain for generic AI requests
@@ -2609,7 +2608,7 @@ function isDetailedOrComplexQuery(options: GeminiFallbackOptions): boolean {
     const sysText = options.systemInstruction || "";
     const combined = (rawText + " " + sysText).toLowerCase();
 
-    // Multimodal image presence requires vision models (e.g. Gemini 2.5 Flash)
+    // Multimodal image presence requires vision models (e.g. Gemini 3.8 Flash)
     if (combined.includes("image_url") || combined.includes("inlinedata") || combined.includes("data:image")) {
       return true;
     }
