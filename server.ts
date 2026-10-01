@@ -1017,6 +1017,30 @@ function inferPublicQALanguage(answer: string, requestedLanguage?: string): 'eng
   return 'english';
 }
 
+function hasAcceptableUrduScriptShare(value: string): boolean {
+  const measurableText = value
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`[^`\n]*`/g, ' ')
+    .replace(/!?\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\}/g, ' ')
+    .replace(/\$\$[\s\S]*?\$\$|\$[^$\n]*\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)/g, ' ')
+    .replace(/\b\d+(?:\.\d+)?\s*(?:m\/s|km\/h|kg|mg|g|km|cm|mm|m|min|s|h|mol|cd|Pa|Hz|Wb|mL|°C|°F|A|K|N|J|W|C|V|F|T|L)\b/g, ' ')
+    .replace(/\b[\w.]+\s*(?:=|[<>]=?|[+\-*/^×÷])\s*[\w.]+(?:\s*(?:[+\-*/^×÷=]|[<>]=?)\s*[\w.]+)*/g, ' ')
+    .replace(/\((?=[^()]*[A-Za-z])[^()]*\)|\[(?=[^\[\]]*[A-Za-z])[^\[\]]*\]/g, ' ');
+
+  let arabicLetters = 0;
+  let latinLetters = 0;
+  for (const character of measurableText) {
+    if (!/\p{Letter}/u.test(character)) continue;
+    if (/\p{Script=Arabic}/u.test(character)) arabicLetters++;
+    else if (/\p{Script=Latin}/u.test(character)) latinLetters++;
+  }
+
+  const totalLetters = arabicLetters + latinLetters;
+  return totalLetters > 0 && arabicLetters / totalLetters >= 0.85;
+}
+
 function isPublishablePublicQA(question: string, answer: string, hasImages: boolean): boolean {
   const normalizedQuestion = question.trim().toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ');
   const wordCount = normalizedQuestion.split(' ').filter(Boolean).length;
@@ -2529,6 +2553,7 @@ export interface GeminiFallbackOptions {
   customKeys?: string[];   // Override API keys (e.g. getWorkerGeminiApiKeys())
   openRouterModels?: string[];
   temperature?: number;
+  disableOpenRouterFallback?: boolean;
 }
 
 export interface GeminiFallbackResult {
@@ -2758,11 +2783,13 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
     }
   }
 
-  // If all Gemini keys / models fail or no Gemini keys are present, invoke OpenRouter fallback
-  console.log("[Fallback Pipeline] Attempting ultra-resilient OpenRouter fallback...");
-  const openRouterResult = await callOpenRouterFallback(options);
-  if (openRouterResult) {
-    return openRouterResult;
+  if (!options.disableOpenRouterFallback) {
+    // If all Gemini keys / models fail or no Gemini keys are present, invoke OpenRouter fallback
+    console.log("[Fallback Pipeline] Attempting ultra-resilient OpenRouter fallback...");
+    const openRouterResult = await callOpenRouterFallback(options);
+    if (openRouterResult) {
+      return openRouterResult;
+    }
   }
 
   throw lastError || new Error("All AI providers (Gemini & OpenRouter fallback) failed to generate a response.");
@@ -5201,6 +5228,30 @@ Only output this marker when the question is clearly outside your domain. Never 
     });
 
     let reply = result.text.trim();
+    let urduQualityPass = true;
+    if (responseLang === 'urdu' && !hasAcceptableUrduScriptShare(reply)) {
+      console.warn('[Urdu Quality] Script share below 85%; retrying once with gemini-2.5-flash-lite.');
+      try {
+        const rewriteResult = await callGeminiWithFallback({
+          contents: [
+            ...contents,
+            { role: 'model', parts: [{ text: reply }] },
+            { role: 'user', parts: [{ text: 'Rewrite the answer above fully in Urdu Arabic script. Preserve its meaning and Markdown structure. Keep only technical English terms in parentheses on first use, and preserve formulas, units, code, symbols, and proper nouns. Return only the rewritten answer.' }] },
+          ],
+          systemInstruction: `${fullSystemInstruction}\n\nSTRICT REWRITE: Rewrite the supplied answer entirely in formal Urdu Arabic script. Do not include Roman Urdu, Hindi/Devanagari, or English sentences.`,
+          models: [URDU_MODEL_CHAIN.gemini[0]],
+          temperature: 0.3,
+          disableOpenRouterFallback: true,
+        });
+        reply = rewriteResult.text.trim() || reply;
+      } catch {
+        console.warn('[Urdu Quality] Light-model rewrite failed.');
+      }
+      urduQualityPass = hasAcceptableUrduScriptShare(reply);
+      if (!urduQualityPass) {
+        console.warn('[Urdu Quality] Script share remains below 85%; skipping public Q&A save.');
+      }
+    }
 
     // Log Q&A for this persona's public sitemap page — no user identifiers stored
     if (dbPool && persona?.slug) {
@@ -5223,7 +5274,7 @@ Only output this marker when the question is clearly outside your domain. Never 
     const requestLanguage = typeof req.body?.language === "string" ? req.body.language : "english";
     const answerLanguage = inferPublicQALanguage(reply, requestLanguage);
     const isPublicReplacement = req.body?.isRegenerate === true || req.body?.isEdit === true;
-    if (req.body?.savePublic !== false && userMessage) {
+    if (req.body?.savePublic !== false && userMessage && urduQualityPass) {
       void (async () => {
         try {
           const pool = dbPool;
