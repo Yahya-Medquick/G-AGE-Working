@@ -1026,7 +1026,8 @@ function hasAcceptableUrduScriptShare(value: string): boolean {
     .replace(/\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\}/g, ' ')
     .replace(/\$\$[\s\S]*?\$\$|\$[^$\n]*\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)/g, ' ')
     .replace(/\b\d+(?:\.\d+)?\s*(?:m\/s|km\/h|kg|mg|g|km|cm|mm|m|min|s|h|mol|cd|Pa|Hz|Wb|mL|°C|°F|A|K|N|J|W|C|V|F|T|L)\b/g, ' ')
-    .replace(/\b[\w.]+\s*(?:=|[<>]=?|[+\-*/^×÷])\s*[\w.]+(?:\s*(?:[+\-*/^×÷=]|[<>]=?)\s*[\w.]+)*/g, ' ')
+    .replace(/\b(?:[A-Z][a-z]?(?:[0-9₀-₉]+)?){2,}\b/g, ' ')
+    .replace(/\b[\w.]+\s*(?:=|->|→|⇌|↔|[<>]=?|[+\-*/^×÷])\s*[\w.]+(?:\s*(?:[+\-*/^×÷=]|->|→|⇌|↔|[<>]=?)\s*[\w.]+)*/g, ' ')
     .replace(/\((?=[^()]*[A-Za-z])[^()]*\)|\[(?=[^\[\]]*[A-Za-z])[^\[\]]*\]/g, ' ');
 
   let arabicLetters = 0;
