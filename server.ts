@@ -2492,6 +2492,33 @@ const OPENROUTER_BUDGET_MODELS = [
   "google/gemini-2.0-flash-001",
 ];
 
+const URDU_MODEL_CHAIN = {
+  gemini: ["gemini-2.5-flash-lite", "gemini-2.5-flash"],
+  openRouter: ["openai/gpt-4o-mini"],
+};
+
+const URDU_SYSTEM_INSTRUCTION = `
+[URDU RESPONSE REQUIREMENTS]
+- Write only in Urdu using Arabic script. Do not use Roman Urdu, Hindi/Devanagari, or English sentences.
+- Use formal, clear, textbook-style Urdu suitable for Pakistani FSc students.
+- On first use, write a technical term in Urdu followed by its English name in parentheses; use the Urdu term alone afterward.
+- Preserve formulas, units, code, symbols, and proper nouns in their original form.
+- Preserve Markdown headings, lists, tables, and other structure.
+
+[STANDARD ACADEMIC GLOSSARY]
+- Physics: force = قوت; energy = توانائی; motion = حرکت; acceleration = تعجیل; magnetic field = مقناطیسی میدان.
+- Chemistry: atom = ایٹم; molecule = سالمہ; reaction = تعامل; solution = محلول; element = عنصر.
+- Biology: cell = خلیہ; tissue = بافت; photosynthesis = ضیائی تالیف; respiration = تنفس; organism = جاندار.
+- Mathematics: equation = مساوات; fraction = کسر; derivative = مشتق; probability = احتمال; function = تفاعل.
+- Computer science: algorithm = خوارزم; data structure = ساختِ معلومات; variable = متغیر; programming = پروگرامنگ; database = اطلاعاتی ذخیرہ.
+
+[IDEAL OUTPUT EXAMPLES]
+Question: Define velocity.
+Answer: رفتار (Velocity) کسی جسم کی فی اکائی وقت میں سمتی نقل مکانی کو کہتے ہیں۔ اس کا فارمولا $v = \\frac{\\Delta x}{\\Delta t}$ ہے۔
+
+Question: What is an atom?
+Answer: ایٹم (Atom) مادّے کا بنیادی ذرّہ ہے۔ اس کے مرکزے میں پروٹون اور نیوٹران ہوتے ہیں، جبکہ الیکٹران مرکزے کے گرد موجود ہوتے ہیں۔`;
+
 export interface GeminiFallbackOptions {
   contents: any;
   systemInstruction?: string;
@@ -2500,6 +2527,8 @@ export interface GeminiFallbackOptions {
   tools?: any[];
   models?: string[];       // Override model chain (e.g. GEMINI_UTILITY_MODELS)
   customKeys?: string[];   // Override API keys (e.g. getWorkerGeminiApiKeys())
+  openRouterModels?: string[];
+  temperature?: number;
 }
 
 export interface GeminiFallbackResult {
@@ -2612,7 +2641,9 @@ async function callOpenRouterFallback(options: GeminiFallbackOptions): Promise<G
 
   const messages = convertGeminiContentsToOpenRouterMessages(options.contents, options.systemInstruction);
   const requiresDetailed = isDetailedOrComplexQuery(options);
-  const candidateModels = requiresDetailed ? OPENROUTER_DETAILED_MODELS : OPENROUTER_BUDGET_MODELS;
+  const candidateModels = options.openRouterModels?.length
+    ? options.openRouterModels
+    : requiresDetailed ? OPENROUTER_DETAILED_MODELS : OPENROUTER_BUDGET_MODELS;
 
   console.log(`[OpenRouter Router] Query complexity: ${requiresDetailed ? "DETAILED/COMPLEX" : "BUDGET/SHORT"} -> Candidate models: ${candidateModels.join(", ")}`);
 
@@ -2633,7 +2664,7 @@ async function callOpenRouterFallback(options: GeminiFallbackOptions): Promise<G
         body: JSON.stringify({
           model,
           messages,
-          temperature: 0.7,
+          temperature: options.temperature ?? 0.7,
         }),
       });
       clearTimeout(timeout);
@@ -2698,6 +2729,9 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
           }
           if (options.tools) {
             reqConfig.tools = options.tools;
+          }
+          if (options.temperature !== undefined) {
+            reqConfig.temperature = options.temperature;
           }
 
           const response = await client.models.generateContent({
@@ -5111,7 +5145,7 @@ Only output this marker when the question is clearly outside your domain. Never 
     const languageInstruction = responseLang === 'roman-urdu'
       ? 'LANGUAGE INSTRUCTION: You MUST respond in Roman Urdu (Urdu language written in English/Latin script, also called Hinglish). Keep all technical terms, scientific names, formulas, and proper nouns in English. Example style: "Yeh process photosynthesis kehlata hai, jis mein plants sunlight ko energy mein convert karte hain (chlorophyll ki madad se)."'
       : responseLang === 'urdu'
-        ? 'LANGUAGE INSTRUCTION: Respond in clear, simple English. Your response will be automatically translated to Urdu. Keep technical terms in English with brackets where helpful. Do not mix languages.'
+        ? URDU_SYSTEM_INSTRUCTION
         : 'LANGUAGE INSTRUCTION: Respond in English only.';
     const fullSystemInstruction = `${liveDataDirective}\n\n${liveDataOverrideInstruction}\n\n${liveDataContext}\n\n${personaPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}\n\n${languageInstruction}`;
 
@@ -5160,7 +5194,10 @@ Only output this marker when the question is clearly outside your domain. Never 
 
     const result = await callGeminiWithFallback({
       contents,
-      systemInstruction: fullSystemInstruction
+      systemInstruction: fullSystemInstruction,
+      models: responseLang === 'urdu' ? URDU_MODEL_CHAIN.gemini : undefined,
+      openRouterModels: responseLang === 'urdu' ? URDU_MODEL_CHAIN.openRouter : undefined,
+      temperature: responseLang === 'urdu' ? 0.3 : undefined,
     });
 
     let reply = result.text.trim();
