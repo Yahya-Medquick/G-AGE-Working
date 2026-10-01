@@ -235,44 +235,6 @@ async function fetchResearchNews(query: string): Promise<ResearchNewsSource[]> {
   }
 }
 
-// MyMemory Translation — free, no key needed
-async function translateToUrdu(text: string): Promise<string> {
-  try {
-    // Split into chunks of 500 chars to stay within MyMemory limits
-    const chunks: string[] = [];
-    let remaining = text;
-    while (remaining.length > 0) {
-      const chunk = remaining.slice(0, 500);
-      const lastBreak = chunk.lastIndexOf('\n') > 400
-        ? chunk.lastIndexOf('\n')
-        : chunk.lastIndexOf('. ') > 400
-          ? chunk.lastIndexOf('. ') + 1
-          : 500;
-      chunks.push(remaining.slice(0, lastBreak).trim());
-      remaining = remaining.slice(lastBreak).trim();
-    }
-
-    const translated: string[] = [];
-    for (const chunk of chunks) {
-      if (!chunk) continue;
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|ur`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) { translated.push(chunk); continue; }
-      const data = await res.json();
-      const result = data?.responseData?.translatedText;
-      if (result && typeof result === 'string' && result !== chunk) {
-        translated.push(result);
-      } else {
-        translated.push(chunk);
-      }
-    }
-    return translated.join('\n');
-  } catch (err) {
-    console.error('[MyMemory] Translation failed:', err);
-    return text; // fallback to original English
-  }
-}
-
 async function fetchBraveSearch(query: string): Promise<any[]> {
   try {
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
@@ -5202,13 +5164,6 @@ Only output this marker when the question is clearly outside your domain. Never 
     });
 
     let reply = result.text.trim();
-
-    // Translate to Urdu if requested
-    if (responseLang === 'urdu' && reply) {
-      console.log('[Lang] Translating response to Urdu via MyMemory...');
-      reply = await translateToUrdu(reply);
-      console.log('[Lang] Translation complete');
-    }
 
     // Log Q&A for this persona's public sitemap page — no user identifiers stored
     if (dbPool && persona?.slug) {
