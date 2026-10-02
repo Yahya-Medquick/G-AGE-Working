@@ -1017,7 +1017,18 @@ function inferPublicQALanguage(answer: string, requestedLanguage?: string): 'eng
   return 'english';
 }
 
+function containsDevanagariOutsideCodeBlocks(value: string): boolean {
+  const text = value.replace(/```[\s\S]*?(?:```|$)/g, ' ');
+  return /[\u0900-\u097f]/u.test(text);
+}
+
+function stripDevanagariOutsideCodeBlocks(value: string): string {
+  return value.replace(/(```[\s\S]*?(?:```|$))|[\u0900-\u097f]+/g, (match, codeBlock) => codeBlock || '');
+}
+
 function hasAcceptableUrduScriptShare(value: string): boolean {
+  if (containsDevanagariOutsideCodeBlocks(value)) return false;
+
   const measurableText = value
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/`[^`\n]*`/g, ' ')
@@ -2518,13 +2529,14 @@ const OPENROUTER_BUDGET_MODELS = [
 ];
 
 const URDU_MODEL_CHAIN = {
-  gemini: ["gemini-2.5-flash-lite", "gemini-2.5-flash"],
+  gemini: ["gemini-3.5-flash-lite", "gemini-2.5-flash"],
   openRouter: ["openai/gpt-4o-mini"],
 };
 
 const URDU_SYSTEM_INSTRUCTION = `
 [URDU RESPONSE REQUIREMENTS]
 - Write only in Urdu using Arabic script. Do not use Roman Urdu, Hindi/Devanagari, or English sentences.
+- Never use Hindi or Devanagari words. For words like inspiration use Urdu words such as تحریک or حوصلہ, not Hindi equivalents.
 - Use formal, clear, textbook-style Urdu suitable for Pakistani FSc students.
 - On first use, write a technical term in Urdu followed by its English name in parentheses; use the Urdu term alone afterward.
 - Preserve formulas, units, code, symbols, and proper nouns in their original form.
@@ -2555,6 +2567,7 @@ export interface GeminiFallbackOptions {
   openRouterModels?: string[];
   temperature?: number;
   disableOpenRouterFallback?: boolean;
+  language?: string;
 }
 
 export interface GeminiFallbackResult {
@@ -2699,6 +2712,7 @@ async function callOpenRouterFallback(options: GeminiFallbackOptions): Promise<G
         const data = await res.json();
         const text = data.choices?.[0]?.message?.content;
         if (text && typeof text === "string" && text.trim()) {
+          console.log(`[AI Success] language=${options.language || "english"} model=${model} keyIndex=1`);
           console.log(`[OpenRouter Fallback Success] Generated response via model '${model}' (Tier: ${requiresDetailed ? "Detailed" : "Budget"}).`);
           return {
             text: text.trim(),
@@ -2768,6 +2782,7 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
 
           if (response && response.text) {
             const isBackupModel = modelName !== modelsToTry[0] || keyIdx > 0;
+            console.log(`[AI Success] language=${options.language || "english"} model=${modelName} keyIndex=${keyIdx + 1}`);
             return {
               text: response.text,
               modelUsed: modelName,
@@ -5226,12 +5241,13 @@ Only output this marker when the question is clearly outside your domain. Never 
       models: responseLang === 'urdu' ? URDU_MODEL_CHAIN.gemini : undefined,
       openRouterModels: responseLang === 'urdu' ? URDU_MODEL_CHAIN.openRouter : undefined,
       temperature: responseLang === 'urdu' ? 0.3 : undefined,
+      language: responseLang,
     });
 
     let reply = result.text.trim();
     let urduQualityPass = true;
     if (responseLang === 'urdu' && !hasAcceptableUrduScriptShare(reply)) {
-      console.warn('[Urdu Quality] Script share below 85%; retrying once with gemini-2.5-flash-lite.');
+      console.warn('[Urdu Quality] Script share below 85% or Devanagari detected; retrying once with gemini-3.5-flash-lite.');
       try {
         const rewriteResult = await callGeminiWithFallback({
           contents: [
@@ -5243,12 +5259,20 @@ Only output this marker when the question is clearly outside your domain. Never 
           models: [URDU_MODEL_CHAIN.gemini[0]],
           temperature: 0.3,
           disableOpenRouterFallback: true,
+          language: responseLang,
         });
         reply = rewriteResult.text.trim() || reply;
       } catch {
         console.warn('[Urdu Quality] Light-model rewrite failed.');
       }
-      urduQualityPass = hasAcceptableUrduScriptShare(reply);
+      const devanagariRemains = containsDevanagariOutsideCodeBlocks(reply);
+      if (devanagariRemains) {
+        reply = stripDevanagariOutsideCodeBlocks(reply);
+        urduQualityPass = false;
+        console.warn('[Urdu Quality] Devanagari remained after rewrite; stripped it from the reply and skipped public Q&A save.');
+      } else {
+        urduQualityPass = hasAcceptableUrduScriptShare(reply);
+      }
       if (!urduQualityPass) {
         console.warn('[Urdu Quality] Script share remains below 85%; skipping public Q&A save.');
       }
