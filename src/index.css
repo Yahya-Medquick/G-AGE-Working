@@ -3,6 +3,13 @@
 
 @variant dark (.dark &);
 
+/* TODO: Add the licensed Jameel Noori Nastaleeq font at this path. */
+@font-face {
+  font-family: "Jameel Noori Nastaleeq";
+  src: url("/fonts/JameelNooriNastaleeq.woff2") format("woff2");
+  font-display: swap;
+}
+
 /* ─────────────────────────────────────────────────────────────
    GLOBAL CONTRAST & SEMANTIC COLOR TOKENS (TASK 1)
    ───────────────────────────────────────────────────────────── */

@@ -235,44 +235,6 @@ async function fetchResearchNews(query: string): Promise<ResearchNewsSource[]> {
   }
 }
 
-// MyMemory Translation — free, no key needed
-async function translateToUrdu(text: string): Promise<string> {
-  try {
-    // Split into chunks of 500 chars to stay within MyMemory limits
-    const chunks: string[] = [];
-    let remaining = text;
-    while (remaining.length > 0) {
-      const chunk = remaining.slice(0, 500);
-      const lastBreak = chunk.lastIndexOf('\n') > 400
-        ? chunk.lastIndexOf('\n')
-        : chunk.lastIndexOf('. ') > 400
-          ? chunk.lastIndexOf('. ') + 1
-          : 500;
-      chunks.push(remaining.slice(0, lastBreak).trim());
-      remaining = remaining.slice(lastBreak).trim();
-    }
-
-    const translated: string[] = [];
-    for (const chunk of chunks) {
-      if (!chunk) continue;
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|ur`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) { translated.push(chunk); continue; }
-      const data = await res.json();
-      const result = data?.responseData?.translatedText;
-      if (result && typeof result === 'string' && result !== chunk) {
-        translated.push(result);
-      } else {
-        translated.push(chunk);
-      }
-    }
-    return translated.join('\n');
-  } catch (err) {
-    console.error('[MyMemory] Translation failed:', err);
-    return text; // fallback to original English
-  }
-}
-
 async function fetchBraveSearch(query: string): Promise<any[]> {
   try {
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
@@ -1053,6 +1015,31 @@ function inferPublicQALanguage(answer: string, requestedLanguage?: string): 'eng
   if (requestedLanguage === 'roman-urdu' || isRomanUrduText(answer)) return 'roman-urdu';
   if (requestedLanguage === 'urdu') return 'urdu';
   return 'english';
+}
+
+function hasAcceptableUrduScriptShare(value: string): boolean {
+  const measurableText = value
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`[^`\n]*`/g, ' ')
+    .replace(/!?\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\}/g, ' ')
+    .replace(/\$\$[\s\S]*?\$\$|\$[^$\n]*\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)/g, ' ')
+    .replace(/\b\d+(?:\.\d+)?\s*(?:m\/s|km\/h|kg|mg|g|km|cm|mm|m|min|s|h|mol|cd|Pa|Hz|Wb|mL|°C|°F|A|K|N|J|W|C|V|F|T|L)\b/g, ' ')
+    .replace(/\b(?:[A-Z][a-z]?(?:[0-9₀-₉]+)?){2,}\b/g, ' ')
+    .replace(/\b[\w.]+\s*(?:=|->|→|⇌|↔|[<>]=?|[+\-*/^×÷])\s*[\w.]+(?:\s*(?:[+\-*/^×÷=]|->|→|⇌|↔|[<>]=?)\s*[\w.]+)*/g, ' ')
+    .replace(/\((?=[^()]*[A-Za-z])[^()]*\)|\[(?=[^\[\]]*[A-Za-z])[^\[\]]*\]/g, ' ');
+
+  let arabicLetters = 0;
+  let latinLetters = 0;
+  for (const character of measurableText) {
+    if (!/\p{Letter}/u.test(character)) continue;
+    if (/\p{Script=Arabic}/u.test(character)) arabicLetters++;
+    else if (/\p{Script=Latin}/u.test(character)) latinLetters++;
+  }
+
+  const totalLetters = arabicLetters + latinLetters;
+  return totalLetters > 0 && arabicLetters / totalLetters >= 0.85;
 }
 
 function isPublishablePublicQA(question: string, answer: string, hasImages: boolean): boolean {
@@ -2530,6 +2517,33 @@ const OPENROUTER_BUDGET_MODELS = [
   "google/gemini-2.0-flash-001",
 ];
 
+const URDU_MODEL_CHAIN = {
+  gemini: ["gemini-2.5-flash-lite", "gemini-2.5-flash"],
+  openRouter: ["openai/gpt-4o-mini"],
+};
+
+const URDU_SYSTEM_INSTRUCTION = `
+[URDU RESPONSE REQUIREMENTS]
+- Write only in Urdu using Arabic script. Do not use Roman Urdu, Hindi/Devanagari, or English sentences.
+- Use formal, clear, textbook-style Urdu suitable for Pakistani FSc students.
+- On first use, write a technical term in Urdu followed by its English name in parentheses; use the Urdu term alone afterward.
+- Preserve formulas, units, code, symbols, and proper nouns in their original form.
+- Preserve Markdown headings, lists, tables, and other structure.
+
+[STANDARD ACADEMIC GLOSSARY]
+- Physics: force = قوت; energy = توانائی; motion = حرکت; acceleration = تعجیل; magnetic field = مقناطیسی میدان.
+- Chemistry: atom = ایٹم; molecule = سالمہ; reaction = تعامل; solution = محلول; element = عنصر.
+- Biology: cell = خلیہ; tissue = بافت; photosynthesis = ضیائی تالیف; respiration = تنفس; organism = جاندار.
+- Mathematics: equation = مساوات; fraction = کسر; derivative = مشتق; probability = احتمال; function = تفاعل.
+- Computer science: algorithm = خوارزم; data structure = ساختِ معلومات; variable = متغیر; programming = پروگرامنگ; database = اطلاعاتی ذخیرہ.
+
+[IDEAL OUTPUT EXAMPLES]
+Question: Define velocity.
+Answer: رفتار (Velocity) کسی جسم کی فی اکائی وقت میں سمتی نقل مکانی کو کہتے ہیں۔ اس کا فارمولا $v = \\frac{\\Delta x}{\\Delta t}$ ہے۔
+
+Question: What is an atom?
+Answer: ایٹم (Atom) مادّے کا بنیادی ذرّہ ہے۔ اس کے مرکزے میں پروٹون اور نیوٹران ہوتے ہیں، جبکہ الیکٹران مرکزے کے گرد موجود ہوتے ہیں۔`;
+
 export interface GeminiFallbackOptions {
   contents: any;
   systemInstruction?: string;
@@ -2538,6 +2552,9 @@ export interface GeminiFallbackOptions {
   tools?: any[];
   models?: string[];       // Override model chain (e.g. GEMINI_UTILITY_MODELS)
   customKeys?: string[];   // Override API keys (e.g. getWorkerGeminiApiKeys())
+  openRouterModels?: string[];
+  temperature?: number;
+  disableOpenRouterFallback?: boolean;
 }
 
 export interface GeminiFallbackResult {
@@ -2650,7 +2667,9 @@ async function callOpenRouterFallback(options: GeminiFallbackOptions): Promise<G
 
   const messages = convertGeminiContentsToOpenRouterMessages(options.contents, options.systemInstruction);
   const requiresDetailed = isDetailedOrComplexQuery(options);
-  const candidateModels = requiresDetailed ? OPENROUTER_DETAILED_MODELS : OPENROUTER_BUDGET_MODELS;
+  const candidateModels = options.openRouterModels?.length
+    ? options.openRouterModels
+    : requiresDetailed ? OPENROUTER_DETAILED_MODELS : OPENROUTER_BUDGET_MODELS;
 
   console.log(`[OpenRouter Router] Query complexity: ${requiresDetailed ? "DETAILED/COMPLEX" : "BUDGET/SHORT"} -> Candidate models: ${candidateModels.join(", ")}`);
 
@@ -2671,7 +2690,7 @@ async function callOpenRouterFallback(options: GeminiFallbackOptions): Promise<G
         body: JSON.stringify({
           model,
           messages,
-          temperature: 0.7,
+          temperature: options.temperature ?? 0.7,
         }),
       });
       clearTimeout(timeout);
@@ -2737,6 +2756,9 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
           if (options.tools) {
             reqConfig.tools = options.tools;
           }
+          if (options.temperature !== undefined) {
+            reqConfig.temperature = options.temperature;
+          }
 
           const response = await client.models.generateContent({
             model: modelName,
@@ -2762,11 +2784,13 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
     }
   }
 
-  // If all Gemini keys / models fail or no Gemini keys are present, invoke OpenRouter fallback
-  console.log("[Fallback Pipeline] Attempting ultra-resilient OpenRouter fallback...");
-  const openRouterResult = await callOpenRouterFallback(options);
-  if (openRouterResult) {
-    return openRouterResult;
+  if (!options.disableOpenRouterFallback) {
+    // If all Gemini keys / models fail or no Gemini keys are present, invoke OpenRouter fallback
+    console.log("[Fallback Pipeline] Attempting ultra-resilient OpenRouter fallback...");
+    const openRouterResult = await callOpenRouterFallback(options);
+    if (openRouterResult) {
+      return openRouterResult;
+    }
   }
 
   throw lastError || new Error("All AI providers (Gemini & OpenRouter fallback) failed to generate a response.");
@@ -5149,7 +5173,7 @@ Only output this marker when the question is clearly outside your domain. Never 
     const languageInstruction = responseLang === 'roman-urdu'
       ? 'LANGUAGE INSTRUCTION: You MUST respond in Roman Urdu (Urdu language written in English/Latin script, also called Hinglish). Keep all technical terms, scientific names, formulas, and proper nouns in English. Example style: "Yeh process photosynthesis kehlata hai, jis mein plants sunlight ko energy mein convert karte hain (chlorophyll ki madad se)."'
       : responseLang === 'urdu'
-        ? 'LANGUAGE INSTRUCTION: Respond in clear, simple English. Your response will be automatically translated to Urdu. Keep technical terms in English with brackets where helpful. Do not mix languages.'
+        ? URDU_SYSTEM_INSTRUCTION
         : 'LANGUAGE INSTRUCTION: Respond in English only.';
     const fullSystemInstruction = `${liveDataDirective}\n\n${liveDataOverrideInstruction}\n\n${liveDataContext}\n\n${personaPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}\n\n${languageInstruction}`;
 
@@ -5198,16 +5222,36 @@ Only output this marker when the question is clearly outside your domain. Never 
 
     const result = await callGeminiWithFallback({
       contents,
-      systemInstruction: fullSystemInstruction
+      systemInstruction: fullSystemInstruction,
+      models: responseLang === 'urdu' ? URDU_MODEL_CHAIN.gemini : undefined,
+      openRouterModels: responseLang === 'urdu' ? URDU_MODEL_CHAIN.openRouter : undefined,
+      temperature: responseLang === 'urdu' ? 0.3 : undefined,
     });
 
     let reply = result.text.trim();
-
-    // Translate to Urdu if requested
-    if (responseLang === 'urdu' && reply) {
-      console.log('[Lang] Translating response to Urdu via MyMemory...');
-      reply = await translateToUrdu(reply);
-      console.log('[Lang] Translation complete');
+    let urduQualityPass = true;
+    if (responseLang === 'urdu' && !hasAcceptableUrduScriptShare(reply)) {
+      console.warn('[Urdu Quality] Script share below 85%; retrying once with gemini-2.5-flash-lite.');
+      try {
+        const rewriteResult = await callGeminiWithFallback({
+          contents: [
+            ...contents,
+            { role: 'model', parts: [{ text: reply }] },
+            { role: 'user', parts: [{ text: 'Rewrite the answer above fully in Urdu Arabic script. Preserve its meaning and Markdown structure. Keep only technical English terms in parentheses on first use, and preserve formulas, units, code, symbols, and proper nouns. Return only the rewritten answer.' }] },
+          ],
+          systemInstruction: `${fullSystemInstruction}\n\nSTRICT REWRITE: Rewrite the supplied answer entirely in formal Urdu Arabic script. Do not include Roman Urdu, Hindi/Devanagari, or English sentences.`,
+          models: [URDU_MODEL_CHAIN.gemini[0]],
+          temperature: 0.3,
+          disableOpenRouterFallback: true,
+        });
+        reply = rewriteResult.text.trim() || reply;
+      } catch {
+        console.warn('[Urdu Quality] Light-model rewrite failed.');
+      }
+      urduQualityPass = hasAcceptableUrduScriptShare(reply);
+      if (!urduQualityPass) {
+        console.warn('[Urdu Quality] Script share remains below 85%; skipping public Q&A save.');
+      }
     }
 
     // Log Q&A for this persona's public sitemap page — no user identifiers stored
@@ -5231,7 +5275,7 @@ Only output this marker when the question is clearly outside your domain. Never 
     const requestLanguage = typeof req.body?.language === "string" ? req.body.language : "english";
     const answerLanguage = inferPublicQALanguage(reply, requestLanguage);
     const isPublicReplacement = req.body?.isRegenerate === true || req.body?.isEdit === true;
-    if (req.body?.savePublic !== false && userMessage) {
+    if (req.body?.savePublic !== false && userMessage && urduQualityPass) {
       void (async () => {
         try {
           const pool = dbPool;

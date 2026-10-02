@@ -15,20 +15,19 @@ function hasUrdu(text: string): boolean {
   return urduRange.test(text);
 }
 
-// Wrap mixed Urdu+English text with proper directional spans
+// Keep first-use English technical terms in parentheses left-to-right.
 function processUrduText(text: string): React.ReactNode {
   if (!hasUrdu(text)) return text;
-  // Split on English words/phrases in parentheses or standalone
-  const parts = text.split(/(\([A-Za-z0-9\s\-\.,]+\)|[A-Za-z]{3,}[A-Za-z0-9\s\-]*)/g);
+  const parts = text.split(/(\([A-Za-z][A-Za-z0-9\s.,/+×÷=^_-]*\))/g);
   return parts.map((part, i) => {
     if (!part) return null;
-    if (/^[A-Za-z\(]/.test(part) && !hasUrdu(part)) {
+    if (/^\([A-Za-z]/.test(part)) {
       return (
         <span
           key={i}
           dir="ltr"
           style={{ display: 'inline-block', unicodeBidi: 'embed' }}
-          className="font-sans text-[0.85em] opacity-90"
+          className="font-sans text-[0.9em] opacity-90"
         >
           {part}
         </span>
@@ -82,7 +81,7 @@ export const MarkdownRendererContent = ({ content, className = '' }: Props) => {
                 }`}
                 dir={isUrdu ? 'rtl' : 'ltr'}
                 style={isUrdu ? {
-                  fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', 'Scheherazade New', serif",
+                  fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif",
                   lineHeight: '2.2',
                   textAlign: 'right',
                 } : {}}
