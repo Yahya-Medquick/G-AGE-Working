@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
@@ -7,6 +8,7 @@ import 'katex/dist/katex.min.css';
 interface Props {
   content: string;
   className?: string;
+  isStreaming?: boolean;
 }
 
 // Detect if text contains significant Urdu/Arabic script
@@ -37,7 +39,33 @@ function processUrduText(text: string): React.ReactNode {
   });
 }
 
-export const MarkdownRendererContent = ({ content, className = '' }: Props) => {
+function splitIncompleteTable(content: string, isStreaming: boolean) {
+  if (!isStreaming || content.endsWith('\n')) return { markdown: content, pendingTable: '' };
+
+  const lines = content.split('\n');
+  const isPipeRow = (line: string) => line.includes('|');
+  const isSeparatorRow = (line: string) => /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+
+  for (let start = lines.length - 2; start >= 0; start -= 1) {
+    if (!isPipeRow(lines[start]) || !isSeparatorRow(lines[start + 1])) continue;
+    const trailingLines = lines.slice(start);
+    if (!trailingLines.every((line) => !line.trim() || isPipeRow(line))) continue;
+
+    const prefix = lines.slice(0, start).join('\n');
+    const startIndex = prefix.length + (start > 0 ? 1 : 0);
+    return {
+      markdown: content.slice(0, startIndex),
+      pendingTable: content.slice(startIndex),
+    };
+  }
+
+  return { markdown: content, pendingTable: '' };
+}
+
+export const MarkdownRendererContent = ({ content, className = '', isStreaming = false }: Props) => {
+  const containsUrdu = hasUrdu(content);
+  const { markdown, pendingTable } = splitIncompleteTable(content, isStreaming);
+
   // Load Urdu font on first render
   React.useEffect(() => {
     if (!document.getElementById('urdu-font-link')) {
@@ -62,7 +90,7 @@ export const MarkdownRendererContent = ({ content, className = '' }: Props) => {
       prose-hr:border-slate-200 dark:prose-hr:border-slate-800
       ${className}`}>
       <ReactMarkdown
-        remarkPlugins={[remarkMath]}
+        remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
           h1: ({ ...props }) => <h1 className="text-base sm:text-lg font-bold mt-4 mb-2 text-slate-900 dark:text-white" {...props} />,
@@ -95,11 +123,48 @@ export const MarkdownRendererContent = ({ content, className = '' }: Props) => {
           ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-2.5 space-y-1 text-slate-700 dark:text-slate-300" {...props} />,
           li: ({ ...props }) => <li className="mb-1 text-slate-700 dark:text-slate-300" {...props} />,
           strong: ({ ...props }) => <strong className="font-bold text-slate-900 dark:text-white" {...props} />,
-          code: ({ ...props }) => <code className="bg-slate-100 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-mono text-[11px] border border-slate-200/60 dark:border-slate-700/60" {...props} />
+          code: ({ ...props }) => <code className="bg-slate-100 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-mono text-[11px] border border-slate-200/60 dark:border-slate-700/60" {...props} />,
+          table: ({ children, node: _node, ...props }) => (
+            <div className="my-3 max-w-full overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+              <table
+                dir={containsUrdu ? 'rtl' : 'ltr'}
+                className={`w-max min-w-full border-collapse text-xs ${containsUrdu ? 'text-right' : 'text-left'}`}
+                {...props}
+              >
+                {children}
+              </table>
+            </div>
+          ),
+          thead: ({ node: _node, ...props }) => <thead className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100" {...props} />,
+          tbody: ({ node: _node, ...props }) => <tbody className="[&_tr:nth-child(even)]:bg-slate-50 dark:[&_tr:nth-child(even)]:bg-slate-800/40" {...props} />,
+          tr: ({ node: _node, ...props }) => <tr className="border-b border-slate-200 last:border-b-0 dark:border-slate-700" {...props} />,
+          th: ({ node: _node, ...props }) => (
+            <th
+              className={`max-w-[18rem] border-r border-slate-200 px-3 py-2 font-semibold last:border-r-0 dark:border-slate-700 ${containsUrdu ? 'text-right' : 'text-left'}`}
+              style={containsUrdu ? { fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif", lineHeight: '2' } : undefined}
+              {...props}
+            />
+          ),
+          td: ({ node: _node, ...props }) => (
+            <td
+              className={`max-w-[18rem] break-words border-r border-slate-200 px-3 py-2 align-top last:border-r-0 dark:border-slate-700 ${containsUrdu ? 'text-right' : 'text-left'}`}
+              style={containsUrdu ? { fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif", lineHeight: '2' } : undefined}
+              {...props}
+            />
+          ),
         }}
       >
-        {content}
+        {markdown}
       </ReactMarkdown>
+      {pendingTable && (
+        <div
+          className={`whitespace-pre-wrap ${containsUrdu ? 'urdu-block text-right' : ''}`}
+          dir={containsUrdu ? 'rtl' : 'ltr'}
+          aria-live="polite"
+        >
+          {pendingTable}
+        </div>
+      )}
     </div>
   );
 };

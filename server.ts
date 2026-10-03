@@ -5190,7 +5190,8 @@ Only output this marker when the question is clearly outside your domain. Never 
       : responseLang === 'urdu'
         ? URDU_SYSTEM_INSTRUCTION
         : 'LANGUAGE INSTRUCTION: Respond in English only.';
-    const fullSystemInstruction = `${liveDataDirective}\n\n${liveDataOverrideInstruction}\n\n${liveDataContext}\n\n${personaPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}\n\n${languageInstruction}`;
+    const markdownTableInstruction = 'When using tables, use valid GitHub-flavored Markdown: include a header row, a |---|---| separator row, the same number of columns in every row, blank lines before and after the table, and no multiline cell content.';
+    const fullSystemInstruction = `${liveDataDirective}\n\n${liveDataOverrideInstruction}\n\n${liveDataContext}\n\n${personaPrompt}\n\n${concisenessMandate}\n\n${modeInstruction}\n\n${domainRedirectInstruction}\n\nMaintain your distinct persona voice and professional identity throughout the dialogue.\n\n${liveDataClosingInstruction}\n\n${languageInstruction}\n\n${markdownTableInstruction}`;
 
     const getMessageImages = (item: any): string[] => {
       const images = Array.isArray(item.images) && item.images.length > 0

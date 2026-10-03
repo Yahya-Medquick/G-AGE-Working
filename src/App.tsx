@@ -714,6 +714,7 @@ export default function App() {
           activePersona={activePersona}
           variant={expertVariant}
           language={language}
+          isStreamingReply={revealingReply?.sessionId === activeSessionId}
           onLanguageChange={handleLanguageChange}
           onSendMessage={handleSendMessage}
           onRegenerateMessage={handleRegenerateMessage}

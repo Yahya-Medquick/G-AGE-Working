@@ -385,6 +385,7 @@ interface ChatStageProps {
   activePersona: ExpertPersona;
   variant: 'global' | 'pk';
   language?: 'english' | 'roman-urdu' | 'urdu';
+  isStreamingReply?: boolean;
   onLanguageChange?: (lang: 'english' | 'roman-urdu' | 'urdu') => void;
   onSendMessage: (content: string, modeOverride?: ChatMode, images?: string[], savePublic?: boolean) => Promise<void>;
   onRegenerateMessage: (assistantId: string, userMessageIndex: number) => void;
@@ -414,6 +415,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   activePersona,
   variant,
   language = 'english',
+  isStreamingReply = false,
   onLanguageChange,
   onSendMessage,
   onRegenerateMessage,
@@ -1146,7 +1148,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                       const suggestedGroup = match ? match[1].trim() : null;
                       return (
                         <>
-                          <MarkdownRenderer content={cleanContent} />
+                          <MarkdownRenderer content={cleanContent} isStreaming={isStreamingReply && idx === session?.messages.length - 1} />
                           {suggestedGroup && onOpenPersonaGroup && (
                             <div className="mt-3 flex items-center gap-2 p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40">
                               <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center shrink-0">
@@ -1756,7 +1758,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
       </div>
 
       {/* 4. WHATSAPP CHAT COMPOSER STAGE */}
-      <div className="p-2 sm:p-3 border-t border-[#e9edef] dark:border-[#2a3942] bg-[#f0f2f5] dark:bg-[#202c33] shadow-md shrink-0 z-10">
+      <div className="px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:px-3 sm:pt-3 sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-[#e9edef] dark:border-[#2a3942] bg-[#f0f2f5] dark:bg-[#202c33] shadow-md shrink-0 z-10">
         <div className="max-w-3xl mx-auto space-y-2">
           {/* Hidden File Input for Image Upload */}
           <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" multiple className="hidden" />
@@ -1789,17 +1791,17 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           {imageNotice && <p role="status" className="text-xs text-rose-600 dark:text-rose-400">{imageNotice}</p>}
 
           {/* Main Rounded Input Box & Actions */}
-          <div className="flex items-end gap-2">
+          <div className="flex min-w-0 items-end gap-1.5">
             <form
               onSubmit={handleSubmit}
-              className="flex-1 flex items-end gap-2 px-3 py-1.5 rounded-3xl bg-white dark:bg-[#2a3942] border border-slate-300/70 dark:border-transparent shadow-xs focus-within:ring-2 focus-within:ring-[#00a884]/30 transition-all"
+              className="min-w-0 flex-1 flex items-end gap-1.5 px-2 py-1 rounded-3xl bg-white dark:bg-[#2a3942] border border-slate-300/70 dark:border-transparent shadow-xs focus-within:ring-2 focus-within:ring-[#00a884]/30 transition-all"
             >
               {/* Pro Image / Vision Attachment Button */}
-              <div className="relative flex items-center shrink-0 self-center pb-0.5">
+              <div className="relative flex shrink-0 self-end">
                 <button
                   type="button"
                   onClick={() => handleImageButtonClick('files')}
-                  className={`p-1.5 rounded-full transition-all flex items-center justify-center cursor-pointer ${
+                  className={`h-10 w-10 shrink-0 rounded-full transition-all flex items-center justify-center cursor-pointer ${
                     attachedImages.length > 0
                       ? 'bg-emerald-500 text-white shadow-xs'
                       : isPaid
@@ -1824,7 +1826,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               <button
                 type="button"
                 onClick={() => handleImageButtonClick('camera')}
-                className="p-1.5 rounded-full text-slate-500 hover:text-[#00a884] hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#32424b]"
+                className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-slate-500 hover:text-[#00a884] hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#32424b]"
                 title={isPaid ? 'Take a photo (Pro Vision)' : 'Take a photo (Pro Feature)'}
                 aria-label="Take a photo"
               >
@@ -1845,14 +1847,15 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                     ? "Ask a specific question about this image, or hit Send to transcribe & solve..."
                     : `Message ${activePersona.name} (English or Roman Urdu / Hinglish)...`
                 }
-                className="flex-1 max-h-36 py-1.5 px-1 bg-transparent text-sm text-[#111b21] dark:text-[#e9edef] placeholder:text-slate-400 dark:placeholder:text-slate-400 resize-none focus:outline-none leading-relaxed"
+                className="min-w-0 flex-1 max-h-36 py-1.5 px-1 bg-transparent text-sm text-[#111b21] dark:text-[#e9edef] placeholder:text-slate-400 dark:placeholder:text-slate-400 resize-none focus:outline-none leading-relaxed"
+                dir={language === 'urdu' ? 'rtl' : 'ltr'}
               />
             </form>
 
             <button
               onClick={() => setIsPrivate((value) => !value)}
               type="button"
-              className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+              className={`mb-1 h-10 w-10 shrink-0 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
                 isPrivate
                   ? 'bg-rose-100 border-rose-300 text-rose-600 dark:bg-rose-950/50 dark:border-rose-800 dark:text-rose-300'
                   : 'bg-white/80 border-slate-300 text-slate-500 dark:bg-[#202c33] dark:border-[#2a3942] dark:text-slate-300'
@@ -1860,7 +1863,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               title={isPrivate ? 'Private question' : 'Public question'}
               aria-label={isPrivate ? 'Private question' : 'Public question'}
             >
-              {isPrivate ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />}
+              {isPrivate ? <Lock className="w-5 h-5" /> : <LockOpen className="w-5 h-5" />}
             </button>
 
             {/* WhatsApp Signature Circular Green Send Button */}
@@ -1868,7 +1871,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               onClick={handleSubmit}
               type="button"
               disabled={(!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing || !!editingMessageId}
-              className="w-11 h-11 rounded-full bg-[#00a884] hover:bg-[#029676] active:scale-95 text-white disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center shrink-0 shadow-sm cursor-pointer"
+              className="mb-1 h-10 w-10 shrink-0 rounded-full bg-[#00a884] hover:bg-[#029676] active:scale-95 text-white disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center shadow-sm cursor-pointer"
               title="Send Message (Enter)"
             >
               <Send className="w-5 h-5 ml-0.5" />
