@@ -124,6 +124,7 @@ export function useChatSessions() {
         timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
         mode,
         personaId: persona.id,
+        personaVariant: variant,
       };
 
       const newSession: ChatSession = {
@@ -197,6 +198,11 @@ export function useChatSessions() {
         const updatedSession: ChatSession = {
           ...current,
           ...updates,
+          messages: updates.variant && updates.variant !== current.variant
+            ? current.messages.map((message) => message.role === 'assistant' && !message.personaVariant
+              ? { ...message, personaVariant: current.variant }
+              : message)
+            : current.messages,
           specs: {
             ...current.specs,
             ...(updates.specs || {}),

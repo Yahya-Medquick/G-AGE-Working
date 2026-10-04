@@ -16,7 +16,7 @@ import { sanitizeInput, evaluateContentQuality } from "./src/utils/security";
 import {
   buildPersonaRegistry,
   createFallbackPersonaRegistry,
-  scorePersonaSuggestions,
+  scorePersonaSuggestionsWithDiagnostics,
   type PersonaRegistry,
   type PersonaVariant,
 } from "./src/data/personaRegistry";
@@ -623,6 +623,26 @@ async function refreshPersonaRegistry(): Promise<{ success: boolean; error?: str
 
 function getRegistryPersonas(variant: PersonaVariant): PersonaRegistry["personas"] {
   return personaRegistry.personas.filter((persona) => persona.variant === variant);
+}
+
+function scoreAndLogPersonaSuggestions(
+  query: string,
+  context: { variant: PersonaVariant; mode?: string; language?: string },
+) {
+  const result = scorePersonaSuggestionsWithDiagnostics(query, personaRegistry, context);
+  console.info("[Persona Suggestions]", JSON.stringify({
+    threshold: result.threshold,
+    requestedVariant: context.variant,
+    variantUsed: result.variantUsed,
+    matched: result.matched,
+    usedFallback: result.usedFallback,
+    attempts: result.attempts.map((attempt) => ({
+      variant: attempt.variant,
+      matched: attempt.matched,
+      candidates: attempt.candidates.map(({ slug, score }) => ({ slug, score })),
+    })),
+  }));
+  return result;
 }
 
 // Database Schema Auto-Migration Function
@@ -4537,15 +4557,12 @@ app.get("/api/v1/personas", async (req: Request, res: Response) => {
 app.get("/api/v1/personas/match", async (req: Request, res: Response) => {
   const topic = typeof req.query.topic === "string" ? req.query.topic : "";
   const variant: PersonaVariant = req.query.variant === "pk" ? "pk" : "global";
-  const suggestions = scorePersonaSuggestions(topic, personaRegistry, {
+  const { suggestions, variantUsed } = scoreAndLogPersonaSuggestions(topic, {
     variant,
     mode: typeof req.query.mode === "string" ? req.query.mode : "",
     language: typeof req.query.language === "string" ? req.query.language : "english",
   });
-  console.info(
-    `[Persona Suggestions] variant=${variant} slugs=${suggestions.map(({ slug, score }) => `${slug}:${score}`).join(",")}`
-  );
-  const persona = getRegistryPersonas(variant).find((entry) => entry.slug === suggestions[0]?.slug) || null;
+  const persona = getRegistryPersonas(variantUsed).find((entry) => entry.slug === suggestions[0]?.slug) || null;
   return res.json({ success: true, persona, suggestions });
 });
 
@@ -5167,14 +5184,11 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
     }
 
     const currentRegistryPersonas = getRegistryPersonas(currentVariant);
-    const personaSuggestions = scorePersonaSuggestions(message, personaRegistry, {
+    const { suggestions: personaSuggestions } = scoreAndLogPersonaSuggestions(message, {
       variant: currentVariant,
       mode: typeof mode === "string" ? mode : "",
       language: responseLang,
     });
-    console.info(
-      `[Persona Suggestions] variant=${currentVariant} slugs=${personaSuggestions.map(({ slug, score }) => `${slug}:${score}`).join(",")}`
-    );
 
     let persona: any = null;
     const registeredPersona = currentRegistryPersonas.find(
@@ -5611,7 +5625,8 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`;
     const responsePayload: Record<string, any> = {
       reply,
       mode,
-      personaId: persona?.slug || personaSuggestions[0]?.slug || "",
+      personaId: persona?.slug || personaId || "",
+      personaVariant: persona?.variant || currentVariant,
       personaSuggestions,
       timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     };

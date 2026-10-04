@@ -27,12 +27,14 @@ import {
 } from 'lucide-react';
 import { ChatSession } from '../../types/chat';
 import { useUser } from '../../context/UserContext';
-import { EXPERTS, EXPERTS_PK } from '../../data/experts';
+import { ExpertPersona } from '../../data/experts';
 
 interface ChatSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   sessions: ChatSession[];
+  globalPersonas: Record<string, ExpertPersona>;
+  pkPersonas: Record<string, ExpertPersona>;
   activeSessionId: string | null;
   onSelectSession: (id: string) => void;
   onNewChat: () => void;
@@ -62,6 +64,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isOpen,
   onToggle,
   sessions,
+  globalPersonas,
+  pkPersonas,
   activeSessionId,
   onSelectSession,
   onNewChat,
@@ -145,12 +149,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
 
   const getPersonaColor = (personaId: string, variant: 'global' | 'pk' = 'global') => {
-    const expertSet = variant === 'pk' ? EXPERTS_PK : EXPERTS;
+    const expertSet = variant === 'pk' ? pkPersonas : globalPersonas;
     return expertSet[personaId]?.avatar_color || '#6366f1';
   };
 
   const getPersonaInitials = (personaId: string, variant: 'global' | 'pk' = 'global') => {
-    const expertSet = variant === 'pk' ? EXPERTS_PK : EXPERTS;
+    const expertSet = variant === 'pk' ? pkPersonas : globalPersonas;
     return expertSet[personaId]?.initials || 'AI';
   };
 

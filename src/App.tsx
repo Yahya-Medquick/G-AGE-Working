@@ -162,7 +162,18 @@ export default function App() {
     }
   }, []);
 
-  const handleOpenPersonaGroup = (groupName: string) => {
+  const handleOpenPersonaGroup = (
+    groupName: string,
+    variant?: 'global' | 'pk',
+    personaSlug?: string,
+  ) => {
+    if (variant && variant !== activeSession?.variant) {
+      setExpertVariant(variant);
+      if (activeSession) updateSessionMeta(activeSession.id, {
+        variant,
+        ...(personaSlug ? { personaId: personaSlug } : {}),
+      });
+    }
     setInitialPersonaGroup(groupName);
     setIsRightPanelOpen(true);
   };
@@ -250,7 +261,8 @@ export default function App() {
 
   // Selected persona resolution
   const { globalExperts, pkExperts } = usePersonas();
-  const activeExpertSet = expertVariant === 'pk' ? pkExperts : globalExperts;
+  const activeVariant = activeSession?.variant || expertVariant;
+  const activeExpertSet = activeVariant === 'pk' ? pkExperts : globalExperts;
   const currentPersonaId = activeSession?.personaId || 'hamza';
   const activePersona: ExpertPersona =
     activeExpertSet[currentPersonaId] || activeExpertSet['hamza'] || Object.values(activeExpertSet)[0];
@@ -264,8 +276,10 @@ export default function App() {
       .reverse()
       .find((message) => message.role === 'assistant' && message.metadata?.personaSuggestions?.length)
       ?.metadata?.personaSuggestions?.[0];
-    return suggestion ? activeExpertSet[suggestion.slug]?.id : undefined;
-  }, [activeSession?.messages, activeExpertSet]);
+    const suggestionVariant = suggestion?.variant || activeVariant;
+    const suggestionExpertSet = suggestionVariant === 'pk' ? pkExperts : globalExperts;
+    return suggestion ? suggestionExpertSet[suggestion.slug]?.id : undefined;
+  }, [activeSession?.messages, activeVariant, globalExperts, pkExperts]);
 
   const hasInitializedRef = useRef(false);
 
@@ -350,11 +364,11 @@ export default function App() {
   // Create new chat
   const handleNewChat = useCallback(() => {
     skipReveal();
-    createSession('hamza', 'concept', 'General Discussion', 'New Chat', expertVariant);
+    createSession('hamza', 'concept', 'General Discussion', 'New Chat', activeVariant);
     if (window.innerWidth < 1024) {
       setIsLeftPanelOpen(false);
     }
-  }, [createSession, expertVariant, skipReveal]);
+  }, [createSession, activeVariant, skipReveal]);
 
   // Keyboard shortcut: Ctrl+K or Cmd+K for New Chat
   useEffect(() => {
@@ -451,6 +465,7 @@ export default function App() {
               timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
               mode: targetMode,
               personaId: requestSession.personaId,
+              personaVariant: requestSession.variant || expertVariant,
             };
             const updatedMessages = [...messages];
             updatedMessages.splice(replyIndex, priorAssistant ? 1 : 0, limitMessage);
@@ -471,7 +486,12 @@ export default function App() {
         content: data.reply || 'No response received.',
         timestamp: data.timestamp || new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
         mode: targetMode,
-        personaId: requestSession.personaId,
+        personaId: typeof data.personaId === 'string' && data.personaId
+          ? data.personaId
+          : requestSession.personaId,
+        personaVariant: data.personaVariant === 'pk' || data.personaVariant === 'global'
+          ? data.personaVariant
+          : requestSession.variant || expertVariant,
         metadata: {
           ...(Array.isArray(data.personaSuggestions) ? { personaSuggestions: data.personaSuggestions } : {}),
           ...(targetMode === 'research' && data.sources ? { sources: data.sources } : {}),
@@ -532,6 +552,7 @@ export default function App() {
           timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
           mode: targetMode,
           personaId: requestSession.personaId,
+          personaVariant: requestSession.variant || expertVariant,
         };
         const failedMessages = [...messages];
         failedMessages.splice(replyIndex, priorAssistant ? 1 : 0, errorMessage);
@@ -679,6 +700,8 @@ export default function App() {
         isOpen={isLeftPanelOpen}
         onToggle={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
         sessions={sessions}
+        globalPersonas={globalExperts}
+        pkPersonas={pkExperts}
         activeSessionId={activeSessionId}
         onSelectSession={(id) => {
           skipReveal();
@@ -717,7 +740,9 @@ export default function App() {
         <ChatStage
           session={displayedSession}
           activePersona={activePersona}
-          variant={expertVariant}
+          variant={activeVariant}
+          globalPersonas={globalExperts}
+          pkPersonas={pkExperts}
           language={language}
           isStreamingReply={revealingReply?.sessionId === activeSessionId}
           onLanguageChange={handleLanguageChange}
@@ -747,7 +772,7 @@ export default function App() {
         onToggle={() => setIsRightPanelOpen(!isRightPanelOpen)}
         selectedPersonaId={currentPersonaId}
         onSelectPersona={handleSelectPersona}
-        variant={expertVariant}
+        variant={activeVariant}
         onToggleVariant={(v) => {
           setExpertVariant(v);
           if (activeSession) {
@@ -757,7 +782,7 @@ export default function App() {
         onOpenPwaShortcut={(persona) => setPwaPersona(persona)}
         suggestedPersonaId={suggestedPersona}
         onSelectPrompt={(prompt) => handleSendMessage(prompt)}
-        onSelectTopic={(topic) => createSession(currentPersonaId, 'concept', topic, topic, expertVariant)}
+        onSelectTopic={(topic) => createSession(currentPersonaId, 'concept', topic, topic, activeVariant)}
         onOpenPaywall={triggerPaywall}
       />
 

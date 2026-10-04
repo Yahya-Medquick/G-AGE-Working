@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPersonaRegistry,
+  getPersonaSuggestionCard,
   isRegisteredPersonaSlug,
   scorePersonaSuggestions,
+  scorePersonaSuggestionsWithDiagnostics,
 } from "../src/data/personaRegistry";
 
 const registry = buildPersonaRegistry([
@@ -72,8 +74,104 @@ describe("persona registry scorer", () => {
   it("returns the default persona for gibberish", () => {
     const suggestions = scorePersonaSuggestions("blorpt zingle flarm", registry);
     expect(suggestions).toEqual([
-      { slug: "hamza", name: "Hamza Tariq", group_name: "General & Bilingual", score: 0 },
+      { slug: "hamza", name: "Hamza Tariq", group_name: "General & Bilingual", score: 0, variant: "global" },
     ]);
+  });
+
+  it("suggests a Biology & Life Sciences persona for photosynthesis", () => {
+    const biologyRegistry = buildPersonaRegistry([
+      {
+        slug: "prof-zeeshan-english",
+        name: "Prof. Zeeshan",
+        role: "English Board Exam Prep",
+        group_name: "English Board Exam Prep",
+        specialties: ["English grammar", "Board exam preparation"],
+        domains: ["english", "board exams"],
+        description: "Prepares students for English board examinations.",
+        variant: "global",
+        is_default: false,
+        is_active: true,
+      },
+      {
+        slug: "mei-ling",
+        name: "Dr. Mei-Ling Zhou",
+        role: "Molecular Biologist",
+        group_name: "Biology & Life Sciences",
+        specialties: ["Molecular biology"],
+        domains: ["biology"],
+        description: "Explains life sciences.",
+        variant: "global",
+        is_default: false,
+        is_active: true,
+      },
+    ]);
+
+    const result = scorePersonaSuggestionsWithDiagnostics("define photosynthesis", biologyRegistry, {
+      variant: "global",
+      mode: "concept",
+      language: "english",
+    });
+
+    expect(result.suggestions[0]).toMatchObject({
+      slug: "mei-ling",
+      group_name: "Biology & Life Sciences",
+      variant: "global",
+    });
+    expect(result.suggestions[0].score).toBeGreaterThanOrEqual(result.threshold);
+    expect(result.usedFallback).toBe(false);
+  });
+
+  it("does not show the active persona as a suggestion card", () => {
+    expect(getPersonaSuggestionCard([
+      { slug: "prof-zeeshan-english", name: "Prof. Zeeshan", group_name: "English", score: 3 },
+      { slug: "mei-ling", name: "Dr. Mei-Ling Zhou", group_name: "Biology & Life Sciences", score: 3 },
+    ], "prof-zeeshan-english")).toBeNull();
+  });
+
+  it("tries the other variant when the active variant has no threshold match", () => {
+    const pkBiologyRegistry = buildPersonaRegistry([
+      {
+        slug: "prof-zeeshan-english",
+        name: "Prof. Zeeshan",
+        role: "English Board Exam Prep",
+        group_name: "English Board Exam Prep",
+        specialties: ["English grammar"],
+        domains: ["english"],
+        description: "English board examination preparation.",
+        variant: "global",
+        is_default: true,
+        is_active: true,
+      },
+      {
+        slug: "kiran-razaq",
+        name: "Dr. Kiran Razzaq",
+        role: "Biotechnologist",
+        group_name: "Biology & Life Sciences",
+        specialties: ["Molecular biology"],
+        domains: ["biology"],
+        description: "Explains life sciences.",
+        variant: "pk",
+        is_default: false,
+        is_active: true,
+      },
+    ]);
+
+    const result = scorePersonaSuggestionsWithDiagnostics("define photosynthesis", pkBiologyRegistry, {
+      variant: "global",
+      language: "english",
+    });
+
+    expect(result.variantUsed).toBe("pk");
+    expect(result.suggestions[0]?.slug).toBe("kiran-razaq");
+    expect(result.attempts.map(({ variant, matched }) => ({ variant, matched }))).toEqual([
+      { variant: "global", matched: false },
+      { variant: "pk", matched: true },
+    ]);
+  });
+
+  it("does not show a fallback result as a suggestion card", () => {
+    const fallback = scorePersonaSuggestions("blorpt zingle flarm", registry);
+    expect(getPersonaSuggestionCard(fallback, "prof-zeeshan-english")).toBeNull();
   });
 
   it("rejects a slug outside the registry", () => {

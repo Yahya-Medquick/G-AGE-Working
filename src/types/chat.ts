@@ -28,6 +28,7 @@ export interface ChatMessageMetadata {
     name: string;
     group_name: string;
     score: number;
+    variant?: 'global' | 'pk';
   }>;
   multiLevel?: {
     eli5?: string;
@@ -85,6 +86,7 @@ export interface ChatMessage {
   timestamp: string;
   mode?: ChatMode;
   personaId?: string;
+  personaVariant?: 'global' | 'pk';
   images?: string[];
   imageBase64?: string;
   edited?: boolean;

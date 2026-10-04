@@ -35,6 +35,7 @@ export interface PersonaSuggestion {
   name: string;
   group_name: string;
   score: number;
+  variant?: PersonaVariant;
 }
 
 export interface PersonaSuggestionContext {
@@ -42,6 +43,23 @@ export interface PersonaSuggestionContext {
   mode?: string;
   language?: string;
 }
+
+export interface PersonaSuggestionAttempt {
+  variant: PersonaVariant;
+  candidates: PersonaSuggestion[];
+  matched: boolean;
+}
+
+export interface PersonaSuggestionResult {
+  suggestions: PersonaSuggestion[];
+  threshold: number;
+  variantUsed: PersonaVariant;
+  matched: boolean;
+  usedFallback: boolean;
+  attempts: PersonaSuggestionAttempt[];
+}
+
+export const PERSONA_SUGGESTION_THRESHOLD = 2;
 
 const STOPWORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "can", "could", "do", "does",
@@ -67,6 +85,7 @@ const ROMAN_URDU_ALIASES: Record<string, string[]> = {
   zarraat: ["particles", "physics"],
   zarra: ["particle", "physics"],
   zarray: ["particles", "physics"],
+  photosynthesis: ["biology"],
 };
 
 const TOKEN_PATTERN = /[\p{L}\p{N}]+/gu;
@@ -181,29 +200,81 @@ export function scorePersonaSuggestions(
   registry: PersonaRegistry,
   context: PersonaSuggestionContext = {},
 ): PersonaSuggestion[] {
+  return scorePersonaSuggestionsWithDiagnostics(query, registry, context).suggestions;
+}
+
+export function scorePersonaSuggestionsWithDiagnostics(
+  query: string,
+  registry: PersonaRegistry,
+  context: PersonaSuggestionContext = {},
+): PersonaSuggestionResult {
   const variant = context.variant === "pk" ? "pk" : "global";
-  const candidates = registry.personas.filter((persona) => persona.variant === variant);
-  const defaultPersona = candidates.find((persona) => persona.is_default)
-    || candidates.find((persona) => persona.slug === "hamza")
-    || candidates[0];
-  if (!defaultPersona) return [];
-
   const queryTokens = getQueryTokens(query, context.language);
-  const ranked = candidates
-    .map((persona, index) => ({ persona, score: scorePersona(queryTokens, persona, context.mode || ""), index }))
-    .filter(({ score }) => score >= 2)
-    .sort((left, right) => right.score - left.score || left.index - right.index)
-    .slice(0, 3);
+  const attempts: PersonaSuggestionAttempt[] = [];
+  const variants: PersonaVariant[] = [variant, variant === "pk" ? "global" : "pk"];
 
-  if (ranked.length > 0) {
-    return ranked.map(({ persona, score }) => ({
+  for (const candidateVariant of variants) {
+    const ranked = registry.personas
+      .filter((persona) => persona.variant === candidateVariant)
+      .map((persona, index) => ({
+        persona,
+        score: scorePersona(queryTokens, persona, context.mode || ""),
+        index,
+      }))
+      .sort((left, right) => right.score - left.score || left.index - right.index);
+    const candidates = ranked.map(({ persona, score }) => ({
       slug: persona.slug,
       name: persona.name,
       group_name: persona.group_name,
       score: Number(score.toFixed(2)),
+      variant: candidateVariant,
     }));
+    const matches = candidates.filter(({ score }) => score >= PERSONA_SUGGESTION_THRESHOLD);
+    attempts.push({ variant: candidateVariant, candidates, matched: matches.length > 0 });
+    if (matches.length > 0) {
+      return {
+        suggestions: matches.slice(0, 3),
+        threshold: PERSONA_SUGGESTION_THRESHOLD,
+        variantUsed: candidateVariant,
+        matched: true,
+        usedFallback: false,
+        attempts,
+      };
+    }
   }
-  return [{ slug: defaultPersona.slug, name: defaultPersona.name, group_name: defaultPersona.group_name, score: 0 }];
+
+  const primaryCandidates = registry.personas.filter((persona) => persona.variant === variant);
+  const defaultPersona = primaryCandidates.find((persona) => persona.is_default)
+    || primaryCandidates.find((persona) => persona.slug === "hamza")
+    || primaryCandidates[0];
+  return {
+    suggestions: defaultPersona
+      ? [{
+          slug: defaultPersona.slug,
+          name: defaultPersona.name,
+          group_name: defaultPersona.group_name,
+          score: 0,
+          variant,
+        }]
+      : [],
+    threshold: PERSONA_SUGGESTION_THRESHOLD,
+    variantUsed: variant,
+    matched: false,
+    usedFallback: !!defaultPersona,
+    attempts,
+  };
+}
+
+export function getPersonaSuggestionCard(
+  suggestions: readonly PersonaSuggestion[],
+  activePersonaSlug: string,
+): PersonaSuggestion | null {
+  const best = suggestions[0];
+  return best
+    && best.score >= PERSONA_SUGGESTION_THRESHOLD
+    && best.slug !== activePersonaSlug
+    ? best
+    : null;
 }
 
 export function isRegisteredPersonaSlug(
