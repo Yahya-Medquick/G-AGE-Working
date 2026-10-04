@@ -48,7 +48,6 @@ import { ChatSession, ChatMessage, ChatMode, ConceptSpecs, ExamSpecs, ResearchSp
 import { type PixelCrop } from 'react-image-crop';
 import { ImageCropModal } from './ImageCropModal';
 import { ExpertPersona } from '../../data/experts';
-import { getPersonaSuggestionCard, PERSONA_SUGGESTION_THRESHOLD } from '../../data/personaRegistry';
 import { useUser } from '../../context/UserContext';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ProExpiryBadge } from '../ProExpiryBadge';
@@ -402,7 +401,7 @@ interface ChatStageProps {
   onUpdateSessionMeta: (sessionId: string, updates: Partial<Pick<ChatSession, 'mode' | 'personaId' | 'variant' | 'specs' | 'title'>>) => void;
   onSaveToNotes: (content: string, title?: string) => void;
   onOpenPaywall: () => void;
-  onOpenPersonaGroup?: (groupName: string, variant?: 'global' | 'pk', personaSlug?: string) => void;
+  onOpenPersonaGroup?: (groupName: string) => void;
   onOpenKnowledgeGraph?: () => void;
   queryUsage: {
     count: number;
@@ -1088,9 +1087,13 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           const isLatestTurnStart = idx === Math.max(0, (session?.messages.length || 0) - (isLoading ? 1 : 2));
           const personaVariant = msg.personaVariant || session?.variant || variant;
           const personaSet = personaVariant === 'pk' ? pkPersonas : globalPersonas;
-          const msgPersona = isAssistant
-            ? personaSet[msg.personaId || activePersona.id] || activePersona
-            : null;
+          const savedPersona = personaSet[msg.personaId || ''];
+          const msgPersona = isAssistant ? {
+            name: msg.personaName || savedPersona?.name || 'Unknown persona',
+            initials: msg.personaInitials || savedPersona?.initials || '?',
+            avatar_color: savedPersona?.avatar_color || '#64748b',
+            group_name: savedPersona?.group_name || '',
+          } : null;
 
           return (
             <div
@@ -1150,27 +1153,21 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                     )}
                     {(() => {
                       const cleanContent = msg.content.replace(/\[\[SUGGEST_GROUP:[^\]]*\]\]/g, '').trim();
-                      const suggestion = getPersonaSuggestionCard(
-                        msg.metadata?.personaSuggestions || [],
-                        activePersona.slug || activePersona.id,
-                      );
-                      const cardSuggestion = suggestion?.slug !== msgPersona?.slug ? suggestion : null;
+                      const suggestedGroup = msg.metadata?.suggestedGroup;
+                      const isActiveGroup = suggestedGroup?.trim().toLocaleLowerCase()
+                        === msgPersona?.group_name.trim().toLocaleLowerCase();
                       return (
                         <>
                           <MarkdownRenderer content={cleanContent} isStreaming={isStreamingReply && idx === session?.messages.length - 1} />
-                          {cardSuggestion && cardSuggestion.score >= PERSONA_SUGGESTION_THRESHOLD && onOpenPersonaGroup && (
+                          {suggestedGroup && !isActiveGroup && onOpenPersonaGroup && (
                             <div className="mt-3 flex flex-wrap items-center gap-2 p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40">
                               <span className="text-sm" aria-hidden="true">🎯</span>
                               <button
-                                key={cardSuggestion.slug}
-                                onClick={() => onOpenPersonaGroup(
-                                  cardSuggestion.group_name,
-                                  cardSuggestion.variant,
-                                  cardSuggestion.slug,
-                                )}
+                                key={suggestedGroup}
+                                onClick={() => onOpenPersonaGroup(suggestedGroup)}
                                 className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold underline underline-offset-2 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer transition-colors"
                               >
-                                Try {cardSuggestion.name} ({cardSuggestion.group_name}) →
+                                Try the {suggestedGroup} specialists -&gt;
                               </button>
                             </div>
                           )}

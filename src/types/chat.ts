@@ -23,13 +23,7 @@ export interface ResearchSpecs {
 }
 
 export interface ChatMessageMetadata {
-  personaSuggestions?: Array<{
-    slug: string;
-    name: string;
-    group_name: string;
-    score: number;
-    variant?: 'global' | 'pk';
-  }>;
+  suggestedGroup?: string;
   multiLevel?: {
     eli5?: string;
     highSchool?: string;
@@ -87,6 +81,8 @@ export interface ChatMessage {
   mode?: ChatMode;
   personaId?: string;
   personaVariant?: 'global' | 'pk';
+  personaName?: string;
+  personaInitials?: string;
   images?: string[];
   imageBase64?: string;
   edited?: boolean;

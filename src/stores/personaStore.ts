@@ -95,29 +95,6 @@ export function organizePersonasByVariant(personas: ExpertPersona[]): {
 }
 
 /**
- * Get the best expert for a given topic.
- * Falls back to the default persona if no domain match.
- */
-export async function matchPersonaToTopic(topic: string): Promise<ExpertPersona | null> {
-  try {
-    const res = await fetch(`${BASE_URL}/match?topic=${encodeURIComponent(topic || '')}`);
-    const data = await res.json();
-    if (!data.success) {
-      throw new Error(data.error || "Matching failed");
-    }
-    return data.persona || null;
-  } catch (err: any) {
-    console.warn("matchPersonaToTopic error:", err);
-    // Fallback: match from local cache or return first active
-    const personas = await fetchPersonas().catch(() => []);
-    if (personas.length === 0) return null;
-    const lower = (topic || "").toLowerCase();
-    const matched = personas.find(p => p.domains?.some(d => lower.includes(d.toLowerCase())));
-    return matched || personas.find(p => p.is_default) || personas[0];
-  }
-}
-
-/**
  * Build the opening message for a persona + topic.
  */
 export function buildOpener(persona: ExpertPersona | null, topic: string): string {

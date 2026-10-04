@@ -16,10 +16,10 @@ import { sanitizeInput, evaluateContentQuality } from "./src/utils/security";
 import {
   buildPersonaRegistry,
   createFallbackPersonaRegistry,
-  scorePersonaSuggestionsWithDiagnostics,
   type PersonaRegistry,
   type PersonaVariant,
 } from "./src/data/personaRegistry";
+import { extractSuggestedGroup, fetchActivePersonaGroups } from "./src/data/personaGroups";
 
 const { Pool } = pg;
 
@@ -554,6 +554,10 @@ let dbPool: pg.Pool | null = null;
 let dbStatusString = "not_configured";
 let dbErrorMsg: string | null = null;
 let personaRegistry: PersonaRegistry = createFallbackPersonaRegistry();
+let personaGroupsByVariant: Record<PersonaVariant, string[]> = {
+  global: [...new Set(personaRegistry.personas.filter((persona) => persona.variant === "global").map((persona) => persona.group_name))],
+  pk: [...new Set(personaRegistry.personas.filter((persona) => persona.variant === "pk").map((persona) => persona.group_name))],
+};
 const PERSONA_REGISTRY_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 if (process.env.DATABASE_URL || process.env.POSTGRES_URL) {
@@ -584,6 +588,10 @@ async function refreshPersonaRegistry(): Promise<{ success: boolean; error?: str
       (persona) => !memoryKeys.has(`${persona.variant}:${persona.slug}`)
     );
     personaRegistry = buildPersonaRegistry([...untouchedFallback, ...inMemoryExpertPersonas]);
+    personaGroupsByVariant = {
+      global: [...new Set(personaRegistry.personas.filter((persona) => persona.variant === "global").map((persona) => persona.group_name))],
+      pk: [...new Set(personaRegistry.personas.filter((persona) => persona.variant === "pk").map((persona) => persona.group_name))],
+    };
     return { success: true };
   }
 
@@ -599,7 +607,6 @@ async function refreshPersonaRegistry(): Promise<{ success: boolean; error?: str
     const loaded = buildPersonaRegistry(result.rows);
     if (loaded.personas.length === 0) {
       personaRegistry = createFallbackPersonaRegistry();
-      return { success: true };
     }
 
     const fallback = createFallbackPersonaRegistry();
@@ -608,15 +615,37 @@ async function refreshPersonaRegistry(): Promise<{ success: boolean; error?: str
         loaded.personas.push(...fallback.personas.filter((persona) => persona.variant === variant));
       }
     }
+    const nextGroups: Record<PersonaVariant, string[]> = { global: [], pk: [] };
+    for (const variant of ["global", "pk"] as const) {
+      try {
+        nextGroups[variant] = await fetchActivePersonaGroups(
+          variant,
+          (sql, values) => dbPool!.query(sql, values),
+        );
+      } catch (error) {
+        console.warn(`[Persona Groups] Failed to refresh ${variant} groups; using bundled groups:`, error instanceof Error ? error.message : String(error));
+        nextGroups[variant] = [...new Set(
+          fallback.personas
+            .filter((persona) => persona.variant === variant)
+            .map((persona) => persona.group_name),
+        )];
+      }
+    }
     loaded.groups = {};
     for (const persona of loaded.personas) {
       (loaded.groups[persona.group_name] ||= []).push(persona);
     }
     personaRegistry = loaded;
+    personaGroupsByVariant = nextGroups;
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn("[Persona Registry] Refresh failed; retaining the previous registry:", message);
+    const fallback = createFallbackPersonaRegistry();
+    personaGroupsByVariant = {
+      global: [...new Set(fallback.personas.filter((persona) => persona.variant === "global").map((persona) => persona.group_name))],
+      pk: [...new Set(fallback.personas.filter((persona) => persona.variant === "pk").map((persona) => persona.group_name))],
+    };
     return { success: false, error: message };
   }
 }
@@ -625,24 +654,8 @@ function getRegistryPersonas(variant: PersonaVariant): PersonaRegistry["personas
   return personaRegistry.personas.filter((persona) => persona.variant === variant);
 }
 
-function scoreAndLogPersonaSuggestions(
-  query: string,
-  context: { variant: PersonaVariant; mode?: string; language?: string },
-) {
-  const result = scorePersonaSuggestionsWithDiagnostics(query, personaRegistry, context);
-  console.info("[Persona Suggestions]", JSON.stringify({
-    threshold: result.threshold,
-    requestedVariant: context.variant,
-    variantUsed: result.variantUsed,
-    matched: result.matched,
-    usedFallback: result.usedFallback,
-    attempts: result.attempts.map((attempt) => ({
-      variant: attempt.variant,
-      matched: attempt.matched,
-      candidates: attempt.candidates.map(({ slug, score }) => ({ slug, score })),
-    })),
-  }));
-  return result;
+function getPersonaGroups(variant: PersonaVariant): string[] {
+  return personaGroupsByVariant[variant];
 }
 
 // Database Schema Auto-Migration Function
@@ -1939,6 +1952,7 @@ app.get('/sitemap-qa.xml', async (req: Request, res: Response) => {
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
+    commitSha: process.env.RAILWAY_GIT_COMMIT_SHA || null,
     timestamp: new Date().toISOString(),
     integrations: {
       gemini: !!process.env.GEMINI_API_KEY,
@@ -4553,19 +4567,6 @@ app.get("/api/v1/personas", async (req: Request, res: Response) => {
   return res.json({ success: true, personas: personaRegistry.personas });
 });
 
-// GET /api/v1/personas/match?topic=xyz - Returns best-matched persona for a given topic string
-app.get("/api/v1/personas/match", async (req: Request, res: Response) => {
-  const topic = typeof req.query.topic === "string" ? req.query.topic : "";
-  const variant: PersonaVariant = req.query.variant === "pk" ? "pk" : "global";
-  const { suggestions, variantUsed } = scoreAndLogPersonaSuggestions(topic, {
-    variant,
-    mode: typeof req.query.mode === "string" ? req.query.mode : "",
-    language: typeof req.query.language === "string" ? req.query.language : "english",
-  });
-  const persona = getRegistryPersonas(variantUsed).find((entry) => entry.slug === suggestions[0]?.slug) || null;
-  return res.json({ success: true, persona, suggestions });
-});
-
 // GET /api/v1/personas/:slug - Returns a single persona by slug or id
 app.get("/api/v1/personas/:slug", async (req: Request, res: Response) => {
   const { slug } = req.params;
@@ -4977,7 +4978,7 @@ app.post("/api/admin/personas/refresh", async (req: Request, res: Response) => {
   }
   const refresh = await refreshPersonaRegistry();
   const counts = {
-    groupCount: Object.keys(personaRegistry.groups).length,
+    groupCount: personaGroupsByVariant.global.length + personaGroupsByVariant.pk.length,
     personaCount: personaRegistry.personas.length,
   };
   if (!refresh.success) {
@@ -5184,11 +5185,6 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
     }
 
     const currentRegistryPersonas = getRegistryPersonas(currentVariant);
-    const { suggestions: personaSuggestions } = scoreAndLogPersonaSuggestions(message, {
-      variant: currentVariant,
-      mode: typeof mode === "string" ? mode : "",
-      language: responseLang,
-    });
 
     let persona: any = null;
     const registeredPersona = currentRegistryPersonas.find(
@@ -5224,6 +5220,8 @@ app.post("/api/chat/message", counselRateLimiter, async (req: Request, res: Resp
     // Build domain redirect instruction from persona's group
     const personaGroupName = persona?.group_name || null;
     const personaDomains = Array.isArray(persona?.domains) ? persona.domains.join(", ") : "";
+    const variantGroups = getPersonaGroups(currentVariant);
+    const groupListStr = JSON.stringify(variantGroups);
 
     // Mode-specific instructions
     let modeInstruction = "";
@@ -5352,25 +5350,14 @@ You are in research mode. Base your response on the verified sources in the [LIV
 - Instructions: Synthesize state-of-the-art literature concisely, citing seminal papers with authors and publication years. Compare key frameworks and open problems directly without filler.`;
     }
 
-    const allowedPersonaEntries = currentRegistryPersonas.map(({ slug, name, group_name }) => ({
-      slug,
-      name,
-      group_name,
-    }));
-    const allowedPersonaList = JSON.stringify(allowedPersonaEntries);
-
-    const domainRedirectInstruction = personaGroupName ? `
+    const domainRedirectInstruction = `
 
 [DOMAIN BOUNDARY DIRECTIVE]
-Your expertise is strictly within: ${personaGroupName} (domains: ${personaDomains}).
-If the user asks something clearly outside your domain (e.g. a Law expert asked about Physics):
-1. Give a brief, honest 1-2 sentence acknowledgement that this is outside your domain.
-2. Still provide a short helpful answer if you can.
-3. At the very end of your response, on its own line, output EXACTLY this marker (nothing else on that line):
-[[SUGGEST_GROUP:THE_BEST_MATCHING_GROUP]]
-Available personas and groups (the server validates the marker and determines the final suggestions): ${allowedPersonaList}
-Replace THE_BEST_MATCHING_GROUP with a group_name from this list only. Never invent a persona slug or group name.
-Only output this marker when the question is clearly outside your domain. Never output it for questions within your domain.` : "";
+Your expertise is ${personaGroupName ? `strictly within ${personaGroupName} (domains: ${personaDomains})` : "defined by your system instructions"}.
+Available groups for this variant: ${groupListStr}
+If the user's question is outside your expertise and fits one of the listed groups, append a final line in exactly this format: [[SUGGEST_GROUP: Exact Group Name]].
+If you can answer the question within your expertise, or no listed group fits, append nothing.
+Use an exact group name from the list; never invent a group or suggest your own active group.`;
 
     const retrievedContext = liveDataContext || (liveInfoRequested
       ? "[LIVE DATA RETRIEVAL: no verifiable sources returned by prefetch. Use the enabled Google Search tool before answering; if it also returns no sources, state that you could not verify the requested fact and do not guess.]"
@@ -5481,16 +5468,13 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`;
       }
     }
 
-    const groupMarkerPattern = /\[\[SUGGEST_GROUP:([^\]]*)\]\]/g;
-    const groupMarkers = [...reply.matchAll(groupMarkerPattern)];
-    const registeredGroups = new Set(currentRegistryPersonas.map((persona) => persona.group_name));
-    const rejectedGroupMarkerCount = groupMarkers.filter(
-      (match) => !registeredGroups.has(match[1].trim())
-    ).length;
-    if (rejectedGroupMarkerCount > 0) {
-      console.info(`[Persona Suggestions] dropped_unregistered_group_markers=${rejectedGroupMarkerCount}`);
-    }
-    reply = reply.replace(groupMarkerPattern, "").trim();
+    const groupSuggestion = extractSuggestedGroup(reply, variantGroups, personaGroupName || "");
+    reply = groupSuggestion.reply;
+    console.info("[Persona Suggestions]", JSON.stringify({
+      rawMarker: groupSuggestion.rawMarker || null,
+      validatedResult: groupSuggestion.suggestedGroup || null,
+      variant: currentVariant,
+    }));
 
     // Log Q&A for this persona's public sitemap page — no user identifiers stored
     if (dbPool && persona?.slug) {
@@ -5627,9 +5611,13 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`;
       mode,
       personaId: persona?.slug || personaId || "",
       personaVariant: persona?.variant || currentVariant,
-      personaSuggestions,
+      persona_name: persona?.name || "",
+      initials: persona?.initials || "",
       timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     };
+    if (groupSuggestion.suggestedGroup) {
+      responsePayload.suggestedGroup = groupSuggestion.suggestedGroup;
+    }
     responsePayload.sources = {
       papers: [...researchSources.papers, ...(parallelSources.arxiv?.papers || [])],
       medical: parallelSources.pubmed?.articles || [],

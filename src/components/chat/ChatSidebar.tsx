@@ -148,21 +148,20 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     setEditingSessionId(null);
   };
 
-  const getPersonaColor = (personaId: string, variant: 'global' | 'pk' = 'global') => {
-    const expertSet = variant === 'pk' ? pkPersonas : globalPersonas;
-    return expertSet[personaId]?.avatar_color || '#6366f1';
-  };
-
-  const getPersonaInitials = (personaId: string, variant: 'global' | 'pk' = 'global') => {
-    const expertSet = variant === 'pk' ? pkPersonas : globalPersonas;
-    return expertSet[personaId]?.initials || 'AI';
-  };
-
   const renderSessionItem = (session: ChatSession) => {
     const isActive = session.id === activeSessionId;
     const isEditing = editingSessionId === session.id;
-    const color = getPersonaColor(session.personaId, session.variant);
-    const initials = getPersonaInitials(session.personaId, session.variant);
+    const latestAssistant = [...session.messages].reverse().find((message) => message.role === 'assistant');
+    const personaId = latestAssistant?.personaId || session.personaId;
+    const variant = latestAssistant?.personaVariant || session.variant;
+    const personaSet = variant === 'pk' ? pkPersonas : globalPersonas;
+    const persona = personaSet[personaId];
+    const personaName = latestAssistant?.personaName || persona?.name || personaId;
+    const initials = latestAssistant?.personaInitials || persona?.initials
+      || personaName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+      || personaId.slice(0, 2).toUpperCase()
+      || '?';
+    const color = persona?.avatar_color || '#6366f1';
 
     return (
       <div

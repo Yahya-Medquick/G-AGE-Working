@@ -32,7 +32,6 @@ interface PersonaPanelProps {
   variant: 'global' | 'pk';
   onToggleVariant: (variant: 'global' | 'pk') => void;
   onOpenPwaShortcut?: (persona: ExpertPersona) => void;
-  suggestedPersonaId?: string;
   onSelectPrompt?: (prompt: string) => void;
   onSelectTopic?: (topic: string) => void;
   onOpenPaywall?: () => void;
@@ -67,7 +66,6 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   variant,
   onToggleVariant,
   onOpenPwaShortcut,
-  suggestedPersonaId,
   onSelectPrompt,
   onSelectTopic,
   onOpenPaywall,
@@ -330,7 +328,6 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
                   key={persona.id}
                   persona={persona}
                   isSelected={persona.id === selectedPersonaId}
-                  isSuggested={suggestedPersonaId === persona.id}
                   isAnimating={isAnimating && selectedSlug === ((persona as any).slug || persona.id)}
                   isLastUsed={recentSlugs[0] === ((persona as any).slug || persona.id)}
                   onClick={() => handleSelectPersona(persona)}
@@ -467,7 +464,6 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
                   key={persona.id}
                   persona={persona}
                   isSelected={persona.id === selectedPersonaId}
-                  isSuggested={suggestedPersonaId === persona.id}
                   isAnimating={isAnimating && selectedSlug === ((persona as any).slug || persona.id)}
                   isLastUsed={recentSlugs[0] === ((persona as any).slug || persona.id)}
                   onClick={() => handleSelectPersona(persona)}
@@ -553,14 +549,13 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
 interface PersonaCardProps {
   persona: ExpertPersona;
   isSelected: boolean;
-  isSuggested: boolean;
   isAnimating: boolean;
   isLastUsed: boolean;
   onClick: () => void;
 }
 
 const PersonaCard: React.FC<PersonaCardProps> = ({
-  persona, isSelected, isSuggested, isAnimating, isLastUsed, onClick
+  persona, isSelected, isAnimating, isLastUsed, onClick
 }) => (
   <div
     onClick={onClick}
@@ -577,11 +572,6 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
       {isLastUsed && !isSelected && (
         <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-[9px] font-bold text-emerald-700 dark:text-emerald-300">
           <Clock className="w-2.5 h-2.5" /><span>LAST USED</span>
-        </div>
-      )}
-      {isSuggested && !isSelected && (
-        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-[9px] font-bold text-indigo-700 dark:text-indigo-300">
-          <Sparkles className="w-2.5 h-2.5" /><span>Best Match</span>
         </div>
       )}
     </div>

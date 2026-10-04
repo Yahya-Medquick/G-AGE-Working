@@ -162,18 +162,7 @@ export default function App() {
     }
   }, []);
 
-  const handleOpenPersonaGroup = (
-    groupName: string,
-    variant?: 'global' | 'pk',
-    personaSlug?: string,
-  ) => {
-    if (variant && variant !== activeSession?.variant) {
-      setExpertVariant(variant);
-      if (activeSession) updateSessionMeta(activeSession.id, {
-        variant,
-        ...(personaSlug ? { personaId: personaSlug } : {}),
-      });
-    }
+  const handleOpenPersonaGroup = (groupName: string) => {
     setInitialPersonaGroup(groupName);
     setIsRightPanelOpen(true);
   };
@@ -265,21 +254,10 @@ export default function App() {
   const activeExpertSet = activeVariant === 'pk' ? pkExperts : globalExperts;
   const currentPersonaId = activeSession?.personaId || 'hamza';
   const activePersona: ExpertPersona =
-    activeExpertSet[currentPersonaId] || activeExpertSet['hamza'] || Object.values(activeExpertSet)[0];
+    activeExpertSet[currentPersonaId] || Object.values(activeExpertSet)[0];
   const displayedSession = activeSession && revealingReply?.sessionId === activeSession.id
     ? { ...activeSession, messages: [...activeSession.messages, revealingReply.message] }
     : activeSession;
-
-  // Suggestions come from the server's active persona registry.
-  const suggestedPersona = useMemo(() => {
-    const suggestion = [...(activeSession?.messages || [])]
-      .reverse()
-      .find((message) => message.role === 'assistant' && message.metadata?.personaSuggestions?.length)
-      ?.metadata?.personaSuggestions?.[0];
-    const suggestionVariant = suggestion?.variant || activeVariant;
-    const suggestionExpertSet = suggestionVariant === 'pk' ? pkExperts : globalExperts;
-    return suggestion ? suggestionExpertSet[suggestion.slug]?.id : undefined;
-  }, [activeSession?.messages, activeVariant, globalExperts, pkExperts]);
 
   const hasInitializedRef = useRef(false);
 
@@ -492,8 +470,12 @@ export default function App() {
         personaVariant: data.personaVariant === 'pk' || data.personaVariant === 'global'
           ? data.personaVariant
           : requestSession.variant || expertVariant,
+        personaName: typeof data.persona_name === 'string' ? data.persona_name : '',
+        personaInitials: typeof data.initials === 'string' ? data.initials : '',
         metadata: {
-          ...(Array.isArray(data.personaSuggestions) ? { personaSuggestions: data.personaSuggestions } : {}),
+          ...(typeof data.suggestedGroup === 'string' && data.suggestedGroup
+            ? { suggestedGroup: data.suggestedGroup }
+            : {}),
           ...(targetMode === 'research' && data.sources ? { sources: data.sources } : {}),
         },
       };
@@ -780,7 +762,6 @@ export default function App() {
           }
         }}
         onOpenPwaShortcut={(persona) => setPwaPersona(persona)}
-        suggestedPersonaId={suggestedPersona}
         onSelectPrompt={(prompt) => handleSendMessage(prompt)}
         onSelectTopic={(topic) => createSession(currentPersonaId, 'concept', topic, topic, activeVariant)}
         onOpenPaywall={triggerPaywall}
