@@ -1142,29 +1142,23 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                       </div>
                     )}
                     {(() => {
-                      const SUGGEST_REGEX = /\[\[SUGGEST_GROUP:([^\]]+)\]\]/;
-                      const match = msg.content.match(SUGGEST_REGEX);
-                      const cleanContent = msg.content.replace(SUGGEST_REGEX, '').trim();
-                      const suggestedGroup = match ? match[1].trim() : null;
+                      const cleanContent = msg.content.replace(/\[\[SUGGEST_GROUP:[^\]]*\]\]/g, '').trim();
+                      const suggestions = (msg.metadata?.personaSuggestions || []).slice(0, 3);
                       return (
                         <>
                           <MarkdownRenderer content={cleanContent} isStreaming={isStreamingReply && idx === session?.messages.length - 1} />
-                          {suggestedGroup && onOpenPersonaGroup && (
-                            <div className="mt-3 flex items-center gap-2 p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40">
-                              <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center shrink-0">
-                                <span className="text-sm">🎯</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
-                                  This seems outside my domain.{' '}
-                                  <button
-                                    onClick={() => onOpenPersonaGroup(suggestedGroup)}
-                                    className="text-indigo-600 dark:text-indigo-400 font-semibold underline underline-offset-2 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer transition-colors"
-                                  >
-                                    Try a {suggestedGroup} specialist →
-                                  </button>
-                                </p>
-                              </div>
+                          {suggestions.length > 0 && onOpenPersonaGroup && (
+                            <div className="mt-3 flex flex-wrap items-center gap-2 p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40">
+                              <span className="text-sm" aria-hidden="true">🎯</span>
+                              {suggestions.map((suggestion) => (
+                                <button
+                                  key={suggestion.slug}
+                                  onClick={() => onOpenPersonaGroup(suggestion.group_name)}
+                                  className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold underline underline-offset-2 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer transition-colors"
+                                >
+                                  Try {suggestion.name} ({suggestion.group_name}) →
+                                </button>
+                              ))}
                             </div>
                           )}
                         </>
@@ -1890,4 +1884,3 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     </div>
   );
 };
-

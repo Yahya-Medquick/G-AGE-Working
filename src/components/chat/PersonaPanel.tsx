@@ -110,7 +110,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   // Load recent personas
   useEffect(() => {
     if (user) {
-      fetch('/api/v1/personas/recent', { credentials: 'include' })
+      fetch(`/api/v1/personas/recent?variant=${variant}`, { credentials: 'include' })
         .then(r => r.json())
         .then(data => {
           if (data.success && data.personas) {
@@ -121,7 +121,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
     } else {
       setRecentSlugs(getGuestRecent());
     }
-  }, [user, isOpen]);
+  }, [user, isOpen, variant]);
 
   // Derive groups from personas
   const groups = useMemo(() => {

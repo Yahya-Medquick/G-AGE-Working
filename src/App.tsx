@@ -14,7 +14,7 @@ import { PaywallModal } from './components/chat/PaywallModal';
 import { PwaShortcutModal } from './components/chat/PwaShortcutModal';
 import { AuthModal } from './components/AuthModal';
 import { NotesSidePanel } from './components/NotesSidePanel';
-import { ExpertPersona, matchExpert } from './data/experts';
+import { ExpertPersona } from './data/experts';
 import { usePersonas } from './hooks/usePersonas';
 import { ChatMode, ChatMessage, ChatSession } from './types/chat';
 import { PublicQAPage } from './components/PublicQAPage';
@@ -258,12 +258,14 @@ export default function App() {
     ? { ...activeSession, messages: [...activeSession.messages, revealingReply.message] }
     : activeSession;
 
-  // Best domain match persona suggestion
+  // Suggestions come from the server's active persona registry.
   const suggestedPersona = useMemo(() => {
-    if (!activeSession?.title) return undefined;
-    const match = matchExpert(activeSession.title, activeExpertSet);
-    return match?.id;
-  }, [activeSession?.title, activeExpertSet]);
+    const suggestion = [...(activeSession?.messages || [])]
+      .reverse()
+      .find((message) => message.role === 'assistant' && message.metadata?.personaSuggestions?.length)
+      ?.metadata?.personaSuggestions?.[0];
+    return suggestion ? activeExpertSet[suggestion.slug]?.id : undefined;
+  }, [activeSession?.messages, activeExpertSet]);
 
   const hasInitializedRef = useRef(false);
 
@@ -470,7 +472,10 @@ export default function App() {
         timestamp: data.timestamp || new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
         mode: targetMode,
         personaId: requestSession.personaId,
-        metadata: targetMode === 'research' && data.sources ? { sources: data.sources } : undefined,
+        metadata: {
+          ...(Array.isArray(data.personaSuggestions) ? { personaSuggestions: data.personaSuggestions } : {}),
+          ...(targetMode === 'research' && data.sources ? { sources: data.sources } : {}),
+        },
       };
       const updatedMessages = [...messages];
       updatedMessages.splice(replyIndex, priorAssistant ? 1 : 0, assistantMessage);

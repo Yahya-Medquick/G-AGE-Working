@@ -23,6 +23,12 @@ export interface ResearchSpecs {
 }
 
 export interface ChatMessageMetadata {
+  personaSuggestions?: Array<{
+    slug: string;
+    name: string;
+    group_name: string;
+    score: number;
+  }>;
   multiLevel?: {
     eli5?: string;
     highSchool?: string;
