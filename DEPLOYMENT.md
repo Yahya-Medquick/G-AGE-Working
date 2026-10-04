@@ -80,6 +80,7 @@ In the **Variables** tab of your Railway service, add the following parameters:
 - `GEMINI_API_KEY`: *(Your Google Gemini API Key)*
 - `GEMINI_API_KEY_1`: *(Additional Gemini API key)*
 - `GEMINI_API_KEY_3`: *(Additional Gemini API key)*
+- `TAVILY_API_KEY`: *(Optional; enables full web search when native Gemini grounding is unavailable)*
 - `ADMIN_TOKEN`: *(A custom secure password string for your Admin panel)*
 - `JWT_SECRET`: *(A long, random secret used to sign user session tokens)*
 
