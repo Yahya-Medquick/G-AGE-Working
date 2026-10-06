@@ -393,6 +393,7 @@ interface ChatStageProps {
   pkPersonas: Record<string, ExpertPersona>;
   language?: 'english' | 'roman-urdu' | 'urdu';
   isStreamingReply?: boolean;
+  openExploreRequest?: number;
   onLanguageChange?: (lang: 'english' | 'roman-urdu' | 'urdu') => void;
   onSendMessage: (content: string, modeOverride?: ChatMode, images?: string[], savePublic?: boolean) => Promise<void>;
   onRegenerateMessage: (assistantId: string, userMessageIndex: number) => void;
@@ -406,6 +407,7 @@ interface ChatStageProps {
   onUpdateSessionMeta: (sessionId: string, updates: Partial<Pick<ChatSession, 'mode' | 'personaId' | 'variant' | 'specs' | 'title'>>) => void;
   onSaveToNotes: (content: string, title?: string) => void;
   onOpenPaywall: () => void;
+  onNewChatWithTeacher: () => void;
   onOpenPersonaGroup?: (groupName: string) => void;
   onOpenKnowledgeGraph?: () => void;
   queryUsage: {
@@ -425,6 +427,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   pkPersonas,
   language = 'english',
   isStreamingReply = false,
+  openExploreRequest = 0,
   onLanguageChange,
   onSendMessage,
   onRegenerateMessage,
@@ -438,6 +441,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   onUpdateSessionMeta,
   onSaveToNotes,
   onOpenPaywall,
+  onNewChatWithTeacher,
   onOpenPersonaGroup,
   onOpenKnowledgeGraph,
   queryUsage,
@@ -449,6 +453,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [inputText, setInputText] = useState('');
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showImageProNotice, setShowImageProNotice] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
@@ -849,6 +854,19 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     }));
   };
 
+  useEffect(() => {
+    if (openExploreRequest <= 0) return;
+    const messages = session?.messages || [];
+    const assistantIndex = messages.reduce(
+      (latestIndex, message, index) => message.role === 'assistant' ? index : latestIndex,
+      -1
+    );
+    if (assistantIndex < 0) return;
+    const message = messages[assistantIndex];
+    setExpandedExploreMsgIds((previous) => ({ ...previous, [message.id]: true }));
+    void extractTopicForMessage(message.id, message.content, assistantIndex);
+  }, [openExploreRequest]);
+
   const toggleExploreSection = (msgId: string, msgContent: string, msgIndex: number) => {
     setExpandedExploreMsgIds((prev) => {
       const willBeExpanded = !prev[msgId];
@@ -1008,6 +1026,34 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               <PanelRight className="w-5 h-5" />
             </button>
           )}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowHeaderMenu((open) => !open)}
+              aria-label={uiCopy(language, 'chatHeaderMenu')}
+              aria-haspopup="menu"
+              aria-expanded={showHeaderMenu}
+              className="flex h-11 w-11 items-center justify-center rounded-pill text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            {showHeaderMenu && (
+              <div role="menu" aria-label={uiCopy(language, 'chatHeaderMenu')} className="absolute right-0 top-full z-popover mt-1 min-w-52 rounded-tile border border-border bg-surface p-1 shadow-popover">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    onNewChatWithTeacher();
+                  }}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-control px-3 text-start text-sm text-text hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  <Plus className="h-4 w-4" />
+                  {uiCopy(language, 'newChatWithTeacher')}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 

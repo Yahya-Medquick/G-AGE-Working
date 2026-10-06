@@ -1,29 +1,33 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Plus,
   Search,
   Pin,
-  Edit2,
-  Trash2,
+  MoreHorizontal,
   Check,
   X,
   MessageSquare,
   FileText,
-  Code2,
-  Cpu,
   Sun,
   Moon,
   LogIn,
   LogOut,
-  Zap,
   PanelLeftClose,
   Shield,
   Sparkles,
-  CheckCircle2,
   Compass,
   HelpCircle,
   Smartphone,
-  Download,
+  BookOpen,
+  ChevronDown,
+  UserRound,
+  Crown,
+  Settings,
+  LayoutDashboard,
+  BarChart3,
+  GitCompare,
+  LineChart,
+  Code2,
 } from 'lucide-react';
 import { ChatSession } from '../../types/chat';
 import { useUser } from '../../context/UserContext';
@@ -31,6 +35,7 @@ import { ExpertPersona } from '../../data/experts';
 import { appEnvironment } from '../../config/env';
 import { VariantBadge } from '../ui/Badge';
 import { uiCopy, type UiLanguage } from '../../i18n/ui';
+import { getWhatsAppSupportUrl } from '../../utils/support';
 
 interface ChatSidebarProps {
   isOpen: boolean;
@@ -48,7 +53,11 @@ interface ChatSidebarProps {
   notesCount: number;
   onOpenAdmin: () => void;
   onOpenApiDocs: () => void;
-  onOpenProfile: () => void;
+  onOpenProfile: (tab?: 'profile' | 'preferences') => void;
+  onOpenExplore: () => void;
+  onOpenKnowledgeGraph: () => void;
+  onOpenCompare: () => void;
+  onOpenTimeline: () => void;
   onOpenLogin: () => void;
   onOpenPaywall: () => void;
   onOpenDownload?: () => void;
@@ -81,6 +90,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onOpenAdmin,
   onOpenApiDocs,
   onOpenProfile,
+  onOpenExplore,
+  onOpenKnowledgeGraph,
+  onOpenCompare,
+  onOpenTimeline,
   onOpenLogin,
   onOpenPaywall,
   onOpenDownload,
@@ -93,6 +106,30 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [openSessionMenuId, setOpenSessionMenuId] = useState<string | null>(null);
+  const [isToolsExpanded, setIsToolsExpanded] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const supportUrl = getWhatsAppSupportUrl(uiCopy(language, 'sidebarSupportMessage'));
+  const isPaid = queryUsage.tier === 'paid' || user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && !profileMenuRef.current?.contains(event.target)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsProfileMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isProfileMenuOpen]);
 
   // Filter sessions by search query
   const filteredSessions = useMemo(() => {
@@ -141,6 +178,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
   const handleStartRename = (session: ChatSession, e: React.MouseEvent) => {
     e.stopPropagation();
+    setOpenSessionMenuId(null);
     setEditingSessionId(session.id);
     setEditTitle(session.title);
   };
@@ -232,38 +270,34 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           )}
         </div>
 
-        {/* Hover Actions (Pin, Rename, Delete) */}
         {!isEditing && (
-          <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+          <div className="relative shrink-0">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onPinSession(session.id);
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpenSessionMenuId((current) => current === session.id ? null : session.id);
               }}
-              className={`p-1 rounded hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors ${
-                session.isPinned ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-              }`}
-              title={session.isPinned ? 'Unpin Chat' : 'Pin Chat'}
+              aria-label={uiCopy(language, 'sidebarProfileMenu')}
+              aria-haspopup="menu"
+              aria-expanded={openSessionMenuId === session.id}
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-300 dark:text-slate-400 dark:hover:bg-slate-700"
             >
-              <Pin className="w-3 h-3" />
+              <MoreHorizontal className="h-4 w-4" />
             </button>
-            <button
-              onClick={(e) => handleStartRename(session, e)}
-              className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
-              title="Rename Chat"
-            >
-              <Edit2 className="w-3 h-3" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteSession(session.id);
-              }}
-              className="p-1 rounded text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
-              title="Delete Chat"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+            {openSessionMenuId === session.id && (
+              <div role="menu" className="absolute right-0 top-full z-popover mt-1 min-w-40 rounded-xl border border-border bg-surface p-1 shadow-popover">
+                <button type="button" role="menuitem" onClick={(event) => { event.stopPropagation(); setOpenSessionMenuId(null); onPinSession(session.id); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-xs text-text hover:bg-surface-2">
+                  <Pin className="h-3.5 w-3.5" />{uiCopy(language, session.isPinned ? 'sidebarUnpin' : 'sidebarPin')}
+                </button>
+                <button type="button" role="menuitem" onClick={(event) => handleStartRename(session, event)} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-xs text-text hover:bg-surface-2">
+                  <Settings className="h-3.5 w-3.5" />{uiCopy(language, 'sidebarRename')}
+                </button>
+                <button type="button" role="menuitem" onClick={(event) => { event.stopPropagation(); setOpenSessionMenuId(null); onDeleteSession(session.id); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-xs text-danger hover:bg-surface-2">
+                  <X className="h-3.5 w-3.5" />{uiCopy(language, 'sidebarDelete')}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -305,7 +339,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <button
             onClick={onToggle}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="Collapse Sidebar"
+            title={uiCopy(language, 'sidebarCollapse')}
+            aria-label={uiCopy(language, 'sidebarCollapse')}
           >
             <PanelLeftClose className="w-4 h-4" />
           </button>
@@ -320,7 +355,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           >
             <div className="flex items-center gap-2">
               <Plus className="w-4 h-4 transition-transform group-hover:rotate-90 duration-200" />
-              <span>New Chat</span>
+              <span>{uiCopy(language, 'sidebarNewChat')}</span>
             </div>
             <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-indigo-700/80 text-[10px] text-indigo-200 font-mono">
               Ctrl+K
@@ -334,11 +369,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search chat history..."
+              placeholder={uiCopy(language, 'sidebarSearchChats')}
+              aria-label={uiCopy(language, 'sidebarSearchChats')}
               className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             {searchQuery && (
               <button
+                aria-label={uiCopy(language, 'sidebarSearchChats')}
                 onClick={() => setSearchQuery('')}
                 className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
@@ -348,227 +385,149 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </div>
         </div>
 
-        {/* Sessions List (Scrollable Area) */}
-        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 text-xs">
-          {sessions.length === 0 ? (
-            <div className="p-4 text-center text-slate-400 space-y-2">
-              <MessageSquare className="w-6 h-6 mx-auto opacity-40" />
-              <p className="text-xs">No previous chats yet.</p>
-              <p className="text-[11px] text-slate-500">Click &quot;New Chat&quot; to begin exploration.</p>
-            </div>
-          ) : (
-            <>
-              {/* Pinned Group */}
-              {grouped.pinned.length > 0 && (
-                <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Pin className="w-2.5 h-2.5 text-amber-500" />
-                    <span>Pinned</span>
-                  </div>
-                  {grouped.pinned.map(renderSessionItem)}
-                </div>
-              )}
-
-              {/* Today Group */}
-              {grouped.today.length > 0 && (
-                <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Today
-                  </div>
-                  {grouped.today.map(renderSessionItem)}
-                </div>
-              )}
-
-              {/* Yesterday Group */}
-              {grouped.yesterday.length > 0 && (
-                <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Yesterday
-                  </div>
-                  {grouped.yesterday.map(renderSessionItem)}
-                </div>
-              )}
-
-              {/* Previous 7 Days */}
-              {grouped.previous7Days.length > 0 && (
-                <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Previous 7 Days
-                  </div>
-                  {grouped.previous7Days.map(renderSessionItem)}
-                </div>
-              )}
-
-              {/* Older */}
-              {grouped.older.length > 0 && (
-                <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Older
-                  </div>
-                  {grouped.older.map(renderSessionItem)}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Query Limits & Upgrade Banner */}
-        {queryUsage.limit > 0 && (
-        <div id="tour-quota-badge" className="p-3 border-t border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-950/70 shrink-0 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>Queries</span>
-            </div>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
-              {queryUsage.tier === 'paid' ? 'Unlimited' : `${queryUsage.remaining}/${queryUsage.limit}`}
-            </span>
-          </div>
-
-          {/* Usage Progress Bar */}
-          {queryUsage.tier !== 'paid' && (
-            <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 ${
-                  queryUsage.remaining <= 1
-                    ? 'bg-rose-500'
-                    : queryUsage.remaining <= 3
-                    ? 'bg-amber-500'
-                    : 'bg-indigo-600'
-                }`}
-                style={{
-                  width: `${Math.max(0, Math.min(100, (queryUsage.remaining / queryUsage.limit) * 100))}%`,
-                }}
-              />
-            </div>
-          )}
-
-          {queryUsage.tier !== 'paid' && (
-            <button
-              onClick={onOpenPaywall}
-              className="w-full py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-semibold text-[11px] shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
-            >
-              <Sparkles className="w-3 h-3" />
-              <span>Upgrade to Pro</span>
-            </button>
-          )}
-        </div>
-        )}
-
-        {/* Bottom Quick Tools & User Profile */}
-        <div className="p-2.5 border-t border-slate-200/80 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-950/60 shrink-0 space-y-1.5">
-          {/* Action Row: Notes, Product Tour, Admin, Theme */}
-          <div className="grid grid-cols-4 gap-1">
-            <button
-              id="tour-notes-btn"
-              onClick={onOpenNotes}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-indigo-500 transition-colors flex items-center justify-center relative cursor-pointer"
-              title="Compiled Notes"
-            >
-              <FileText className="w-4 h-4" />
-              {notesCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-indigo-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                  {notesCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={replayTour}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-emerald-500 transition-colors flex items-center justify-center cursor-pointer"
-              title="Guided Product Tour (Replay)"
-            >
-              <Compass className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={onOpenAdmin}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-purple-500 transition-colors flex items-center justify-center cursor-pointer"
-              title="Admin Dashboard"
-            >
-              <Cpu className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={toggleTheme}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-cyan-500 transition-colors flex items-center justify-center cursor-pointer"
-              title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {/* Android APK Download Quick Button */}
-          {onOpenDownload && (
-            <button
-              onClick={onOpenDownload}
-              className="w-full py-1.5 px-2.5 rounded-xl bg-slate-200/70 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-300/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer group"
-              title="Download Android App (.APK)"
-            >
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-3.5 h-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
-                <span className="text-[11px]">Android App (.APK)</span>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3 space-y-3 text-xs">
+            <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">{uiCopy(language, 'sidebarRecentChats')}</div>
+            {filteredSessions.length === 0 ? (
+              <div className="p-4 text-center text-slate-400 space-y-2">
+                <MessageSquare className="w-6 h-6 mx-auto opacity-40" />
+                <p className="text-xs">{uiCopy(language, 'sidebarNoChats')}</p>
+                <p className="text-[11px] text-slate-500">{uiCopy(language, 'sidebarBeginChat')}</p>
               </div>
-              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                v1.2
-              </span>
-            </button>
-          )}
+            ) : (
+              <>
+                {grouped.pinned.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                      <Pin className="w-2.5 h-2.5 text-amber-500" /><span>{uiCopy(language, 'sidebarPinned')}</span>
+                    </div>
+                    {grouped.pinned.map(renderSessionItem)}
+                  </div>
+                )}
+                {grouped.today.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{uiCopy(language, 'sidebarToday')}</div>
+                    {grouped.today.map(renderSessionItem)}
+                  </div>
+                )}
+                {grouped.yesterday.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{uiCopy(language, 'sidebarYesterday')}</div>
+                    {grouped.yesterday.map(renderSessionItem)}
+                  </div>
+                )}
+                {grouped.previous7Days.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{uiCopy(language, 'sidebarPrevious7Days')}</div>
+                    {grouped.previous7Days.map(renderSessionItem)}
+                  </div>
+                )}
+                {grouped.older.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{uiCopy(language, 'sidebarOlder')}</div>
+                    {grouped.older.map(renderSessionItem)}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
-          {/* User Account / Sign In Footer */}
-          {appEnvironment !== 'production' && (
-            <div
-              className="flex justify-start px-1 py-0.5"
-              aria-label={import.meta.env.VITE_PR_NUMBER ? `Staging preview pull request ${import.meta.env.VITE_PR_NUMBER}` : 'Staging preview'}
+          <nav aria-label={uiCopy(language, 'primaryNavigation')} className="shrink-0 space-y-1 border-t border-slate-200/80 bg-slate-100/60 p-2 dark:border-slate-800 dark:bg-slate-950/60">
+            <button type="button" onClick={onNewChat} className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800">
+              <BookOpen className="h-4 w-4" />{uiCopy(language, 'navSubjects')}
+            </button>
+            <button id="tour-notes-btn" type="button" onClick={onOpenNotes} className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800">
+              <FileText className="h-4 w-4" />{uiCopy(language, 'navNotes')}
+              {notesCount > 0 && <span className="ml-auto rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-on-accent">{notesCount}</span>}
+            </button>
+            <button type="button" disabled title={uiCopy(language, 'sidebarNotReady')} className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-slate-400">
+              <Check className="h-4 w-4" />{uiCopy(language, 'sidebarPractice')}<span className="ml-auto text-[10px]">{uiCopy(language, 'sidebarNotReady')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsToolsExpanded((expanded) => !expanded)}
+              aria-expanded={isToolsExpanded}
+              className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-800"
             >
+              <LayoutDashboard className="h-4 w-4" />{uiCopy(language, 'sidebarTools')}
+              <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${isToolsExpanded ? 'rotate-180' : ''}`} />
+            </button>
+            {isToolsExpanded && (
+              <div className="space-y-1 pl-4">
+                <button type="button" onClick={onOpenExplore} className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800"><Compass className="h-4 w-4" />{uiCopy(language, 'sidebarExplore')}</button>
+                <button type="button" onClick={onOpenKnowledgeGraph} className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800"><BarChart3 className="h-4 w-4" />{uiCopy(language, 'sidebarGraph')}</button>
+                <button type="button" onClick={onOpenCompare} className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800"><GitCompare className="h-4 w-4" />{uiCopy(language, 'sidebarCompare')}</button>
+                <button type="button" onClick={onOpenTimeline} className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800"><LineChart className="h-4 w-4" />{uiCopy(language, 'sidebarTimeline')}</button>
+              </div>
+            )}
+          </nav>
+        </div>
+
+        <div className="shrink-0 border-t border-slate-200/80 bg-slate-100/60 p-2 dark:border-slate-800 dark:bg-slate-950/60">
+          {appEnvironment !== 'production' && (
+            <div className="mb-1 flex justify-start px-1 py-0.5" aria-label={import.meta.env.VITE_PR_NUMBER ? `Staging preview pull request ${import.meta.env.VITE_PR_NUMBER}` : 'Staging preview'}>
               <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
                 {import.meta.env.VITE_PR_NUMBER ? `PR #${import.meta.env.VITE_PR_NUMBER}` : 'Staging'}
               </span>
             </div>
           )}
-          {isLoggedIn && user ? (
-            <div className="flex items-center justify-between p-1.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
-              <div
-                onClick={onOpenProfile}
-                className="flex items-center gap-2 cursor-pointer min-w-0 flex-1"
-              >
-                <img
-                  src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`}
-                  alt={user.name}
-                  className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
-                />
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {user.name}
-                    </span>
-                    {(user.tier === 'paid' || user.tier === 'pro' || user.tier === 'unlimited') && (
-                      <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80 shrink-0 shadow-2xs">
-                        PRO
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-slate-400 truncate">{user.email || user.username || user.phone}</span>
-                </div>
-              </div>
-
+          <div ref={profileMenuRef} className="relative">
+            {isLoggedIn && user ? (
               <button
-                onClick={logout}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0"
-                title="Sign Out"
+                type="button"
+                onClick={() => setIsProfileMenuOpen((open) => !open)}
+                aria-label={uiCopy(language, 'sidebarProfileMenu')}
+                aria-haspopup="menu"
+                aria-expanded={isProfileMenuOpen}
+                className="flex min-h-12 w-full items-center gap-2 rounded-xl border border-slate-200/70 bg-white px-2 text-start hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80 dark:hover:bg-slate-800"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-text"><UserRound className="h-4 w-4" /></span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">{user.name}</span>
+                  <span className="block truncate text-[10px] text-slate-500">{user.email || user.username || user.phone}</span>
+                </span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${isPaid ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200'}`}>
+                  {isPaid && <Crown className="h-3 w-3" />}{uiCopy(language, isPaid ? 'sidebarTierPro' : 'sidebarTierFree')}
+                </span>
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={onOpenLogin}
-              className="w-full py-2 px-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-750 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
-            >
-              <LogIn className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Sign In / Register</span>
-            </button>
-          )}
+            ) : (
+              <button type="button" onClick={onOpenLogin} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700">
+                <LogIn className="h-4 w-4" />{uiCopy(language, 'sidebarSignIn')}
+              </button>
+            )}
+
+            {isProfileMenuOpen && isLoggedIn && user && (
+              <div role="menu" aria-label={uiCopy(language, 'sidebarProfileMenu')} className="absolute bottom-full left-0 z-popover mb-2 max-h-[70dvh] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-surface p-2 shadow-popover">
+                <div className="border-b border-border px-3 py-2">
+                  <p className="truncate text-sm font-semibold text-text">{user.name}</p>
+                  <p className="text-xs text-muted">{uiCopy(language, isPaid ? 'sidebarTierPro' : 'sidebarTierFree')}</p>
+                </div>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenProfile('profile'); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><UserRound className="h-4 w-4" />{uiCopy(language, 'sidebarProfile')}</button>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenProfile('profile'); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><BookOpen className="h-4 w-4" />{uiCopy(language, 'sidebarClass')}</button>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenPaywall(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Crown className="h-4 w-4" />{uiCopy(language, 'sidebarPlanUsage')}</button>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenProfile('preferences'); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Settings className="h-4 w-4" />{uiCopy(language, 'sidebarSettings')}</button>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); toggleTheme(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2">{theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}{uiCopy(language, 'sidebarNightMode')}</button>
+                <button type="button" role="menuitem" disabled title={uiCopy(language, 'sidebarNotReady')} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-muted"><BarChart3 className="h-4 w-4" />{uiCopy(language, 'sidebarProgress')}<span className="ml-auto text-[10px]">{uiCopy(language, 'sidebarNotReady')}</span></button>
+                {onOpenDownload && <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenDownload(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Smartphone className="h-4 w-4" />{uiCopy(language, 'sidebarInstallApp')}</button>}
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); replayTour(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Compass className="h-4 w-4" />{uiCopy(language, 'sidebarTour')}</button>
+                {supportUrl ? (
+                  <a role="menuitem" href={supportUrl} target="_blank" rel="noreferrer" onClick={() => setIsProfileMenuOpen(false)} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-text hover:bg-surface-2"><HelpCircle className="h-4 w-4" />{uiCopy(language, 'sidebarSupport')}</a>
+                ) : (
+                  <div className="px-3 py-2 text-xs text-muted">{uiCopy(language, 'sidebarSupportMissing')}</div>
+                )}
+                <button type="button" role="menuitem" disabled title={uiCopy(language, 'sidebarNotReady')} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-muted"><Shield className="h-4 w-4" />{uiCopy(language, 'sidebarPrivacy')}<span className="ml-auto text-[10px]">{uiCopy(language, 'sidebarNotReady')}</span></button>
+                <button type="button" role="menuitem" disabled title={uiCopy(language, 'sidebarNotReady')} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-muted"><FileText className="h-4 w-4" />{uiCopy(language, 'sidebarTerms')}<span className="ml-auto text-[10px]">{uiCopy(language, 'sidebarNotReady')}</span></button>
+                <div className="my-1 border-t border-border" />
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenApiDocs(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Code2 className="h-4 w-4" />{uiCopy(language, 'sidebarDeveloperApi')}</button>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenAdmin(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Shield className="h-4 w-4" />{uiCopy(language, 'sidebarAdmin')}</button>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); void logout(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-danger hover:bg-surface-2"><LogOut className="h-4 w-4" />{uiCopy(language, 'sidebarSignOut')}</button>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
     </>

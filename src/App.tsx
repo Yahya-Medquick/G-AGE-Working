@@ -183,6 +183,7 @@ export default function App() {
   const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+  const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'history' | 'preferences'>('profile');
   const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState<boolean>(false);
   const [isApiDocsOpen, setIsApiDocsOpen] = useState<boolean>(false);
@@ -198,6 +199,7 @@ export default function App() {
   const [savedNotesCount, setSavedNotesCount] = useState<number>(0);
   const [saveNoteToast, setSaveNoteToast] = useState<boolean>(false);
   const [isKnowledgeGraphOpen, setIsKnowledgeGraphOpen] = useState<boolean>(false);
+  const [openExploreRequest, setOpenExploreRequest] = useState(0);
   const [compiledNotesModalState, setCompiledNotesModalState] = useState<{
     isOpen: boolean;
     compiledText: string;
@@ -211,6 +213,11 @@ export default function App() {
       window.history.pushState({}, '', '/download');
     }
   }, []);
+
+  const handleOpenProfile = (tab: 'profile' | 'preferences' = 'profile') => {
+    setProfileInitialTab(tab);
+    setIsProfileOpen(true);
+  };
 
   const handleOpenPersonaGroup = (groupName: string) => {
     setInitialPersonaGroup(groupName);
@@ -752,7 +759,18 @@ export default function App() {
         notesCount={savedNotesCount}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenApiDocs={() => setIsApiDocsOpen(true)}
-        onOpenProfile={() => setIsProfileOpen(true)}
+        onOpenProfile={handleOpenProfile}
+        onOpenExplore={() => {
+          if (!activeSessionId) {
+            handleNewChat();
+            return;
+          }
+          setIsSubjectsHomeOpen(false);
+          setOpenExploreRequest((request) => request + 1);
+        }}
+        onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
+        onOpenCompare={() => setIsCompareOpen(true)}
+        onOpenTimeline={() => setIsTimelineOpen(true)}
         onOpenLogin={() => setIsLoginOpen(true)}
         onOpenPaywall={triggerPaywall}
         onOpenDownload={handleOpenDownload}
@@ -780,6 +798,7 @@ export default function App() {
             pkPersonas={pkExperts}
             language={language}
             isStreamingReply={revealingReply?.sessionId === activeSessionId}
+            openExploreRequest={openExploreRequest}
             onLanguageChange={handleLanguageChange}
             onSendMessage={handleSendMessage}
             onRegenerateMessage={handleRegenerateMessage}
@@ -793,6 +812,11 @@ export default function App() {
             onUpdateSessionMeta={updateSessionMeta}
             onSaveToNotes={handleSaveToNotes}
             onOpenPaywall={triggerPaywall}
+            onNewChatWithTeacher={() => {
+              skipReveal();
+              setIsSubjectsHomeOpen(false);
+              createSession(currentPersonaId, 'concept', 'General Discussion', undefined, activeVariant, activePersona);
+            }}
             onOpenPersonaGroup={handleOpenPersonaGroup}
             onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
             queryUsage={usage}
@@ -870,7 +894,7 @@ export default function App() {
           </button>
           <button
             type="button"
-            onClick={() => isLoggedIn ? setIsProfileOpen(true) : setIsLoginOpen(true)}
+            onClick={() => isLoggedIn ? handleOpenProfile() : setIsLoginOpen(true)}
             className="flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent"
           >
             <UserRound aria-hidden="true" className="h-5 w-5" />
@@ -974,6 +998,7 @@ export default function App() {
         <UserProfileModal
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
+          initialTab={profileInitialTab}
           language={language}
           recentSearches={sessions.map((s) => s.title).slice(0, 10)}
           onSelectSearch={(topic) => {

@@ -14,6 +14,7 @@ interface UserProfileModalProps {
   onClearHistory: () => void;
   onOpenDownload?: () => void;
   language?: UiLanguage;
+  initialTab?: "profile" | "history" | "preferences";
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -24,10 +25,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClearHistory,
   onOpenDownload,
   language = 'english',
+  initialTab = "profile",
 }) => {
   const { user, profile, updatePreferences, updateClassLevel, replayTour } = useUser();
-  const [activeTab, setActiveTab] = useState<"profile" | "history" | "preferences">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "history" | "preferences">(initialTab);
   const [classSaveError, setClassSaveError] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) setActiveTab(initialTab);
+  }, [initialTab, isOpen]);
 
   if (!isOpen) return null;
 
