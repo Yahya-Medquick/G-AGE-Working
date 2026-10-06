@@ -1,0 +1,16 @@
+{
+  "_example": true,
+  "items": [
+    {
+      "key": "example-only-replace-with-owner-data",
+      "classLevel": "10",
+      "subjectKey": "Example subject",
+      "title": "EXAMPLE ONLY - replace with owner-verified catalog data",
+      "board": null,
+      "publisher": null,
+      "personaGroup": null,
+      "status": "coming_soon",
+      "starterTopics": []
+    }
+  ]
+}

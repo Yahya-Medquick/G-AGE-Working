@@ -26,6 +26,8 @@ import {
   shouldEnableBackgroundJobs,
 } from "./server/env";
 import { isClassLevelId } from "./src/data/classLevels";
+import { isCatalogBookAvailable, parseCatalogWriteInput } from "./src/utils/catalog";
+import { createAdminAuthMiddleware, createAdminSessionVerifier } from "./src/utils/adminSession";
 
 const { Pool } = pg;
 const APP_ENV = resolveAppEnvironment(process.env.APP_ENV);
@@ -744,11 +746,15 @@ async function initDatabaseSchema() {
         status VARCHAR(24) NOT NULL DEFAULT 'coming_soon',
         persona_group VARCHAR(100),
         starter_topics JSONB NOT NULL DEFAULT '[]'::jsonb,
+        display_order INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+      ALTER TABLE catalog_books ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0;
       CREATE INDEX IF NOT EXISTS idx_catalog_books_class_subject
         ON catalog_books(class_level, subject_key);
+      CREATE INDEX IF NOT EXISTS idx_catalog_books_class_order_subject
+        ON catalog_books(class_level, display_order, subject_key);
       CREATE TABLE IF NOT EXISTS catalog_votes (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         book_id UUID NOT NULL REFERENCES catalog_books(id) ON DELETE CASCADE,
@@ -1473,20 +1479,12 @@ export async function findCanonicalPage(q: string): Promise<number | null> {
 
 // Session tokens use the required JWT signing secret.
 const SESSION_SECRET = JWT_SECRET;
+const isValidAdminSession = createAdminSessionVerifier(SESSION_SECRET);
 
 function tokensMatch(candidate: string, expected: string): boolean {
   const candidateBuffer = Buffer.from(candidate);
   const expectedBuffer = Buffer.from(expected);
   return candidateBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(candidateBuffer, expectedBuffer);
-}
-
-function isValidAdminSession(token: string): boolean {
-  try {
-    const decoded = jwt.verify(token, SESSION_SECRET, { algorithms: ["HS256"] }) as jwt.JwtPayload;
-    return decoded.scope === "admin";
-  } catch (_) {
-    return false;
-  }
 }
 
 // In-memory fallback structures for development
@@ -3316,18 +3314,7 @@ app.use(["/api/ask", "/api/internal/ask", "/api/v1/ask"], aiRateLimiter);
 app.use("/api/admin/", adminRateLimiter);
 
 // Security: Admin Route Authorization Middleware
-function adminAuthMiddleware(req: Request, res: Response, next: NextFunction) {
-  if (req.path === "/verify") {
-    return next();
-  }
-  const token = (req.headers["x-admin-token"] as string) || (req.headers.authorization as string);
-  const normalizedToken = token?.startsWith("Bearer ") ? token.slice(7).trim() : token?.trim();
-
-  if (!normalizedToken || !isValidAdminSession(normalizedToken)) {
-    return res.status(401).json({ error: "Unauthorized: Invalid or missing administrative authorization token." });
-  }
-  next();
-}
+const adminAuthMiddleware = createAdminAuthMiddleware(isValidAdminSession);
 
 app.use("/api/admin", adminAuthMiddleware);
 
@@ -6544,6 +6531,184 @@ app.get("/api/usage", async (req: Request, res: Response) => {
   });
 });
 
+app.get("/api/admin/catalog", async (req: Request, res: Response) => {
+  const classLevel = req.query.classLevel;
+  if (classLevel !== undefined && !isClassLevelId(classLevel)) {
+    return res.status(400).json({ success: false, error: "A supported classLevel is required." });
+  }
+  if (!dbPool) {
+    return res.status(503).json({ success: false, error: "The subject catalog is temporarily unavailable." });
+  }
+
+  try {
+    const result = await dbPool.query(`
+      SELECT book.id, book.class_level, book.subject_key, book.title, book.board, book.publisher,
+             book.status, book.persona_group, book.starter_topics, book.display_order,
+             COUNT(vote.id)::int AS vote_count,
+             EXISTS (
+               SELECT 1 FROM expert_personas persona
+               WHERE persona.is_active = true AND persona.group_name = book.persona_group
+             ) AS has_active_teacher
+      FROM catalog_books book
+      LEFT JOIN catalog_votes vote ON vote.book_id = book.id
+      WHERE ($1::varchar IS NULL OR book.class_level = $1)
+      GROUP BY book.id
+      ORDER BY book.class_level, book.display_order, book.subject_key, book.title
+    `, [classLevel || null]);
+    return res.json({
+      success: true,
+      books: result.rows.map((row) => ({
+        id: row.id,
+        classLevel: row.class_level,
+        subjectKey: row.subject_key,
+        title: row.title,
+        board: row.board,
+        publisher: row.publisher,
+        status: row.status === "available" ? "available" : "coming_soon",
+        personaGroup: row.persona_group,
+        starterTopics: Array.isArray(row.starter_topics) ? row.starter_topics : [],
+        displayOrder: Number(row.display_order) || 0,
+        voteCount: Number(row.vote_count) || 0,
+        available: isCatalogBookAvailable(row.status, row.persona_group, row.has_active_teacher === true),
+      })),
+    });
+  } catch (error) {
+    console.error("GET /api/admin/catalog error:", error);
+    return res.status(500).json({ success: false, error: "Failed to load the subject catalog." });
+  }
+});
+
+app.post("/api/admin/catalog", async (req: Request, res: Response) => {
+  const item = parseCatalogWriteInput(req.body);
+  if (!item) {
+    return res.status(400).json({ success: false, error: "Catalog item fields are invalid." });
+  }
+  if (!dbPool) {
+    return res.status(503).json({ success: false, error: "The subject catalog is temporarily unavailable." });
+  }
+
+  try {
+    if (item.personaGroup) {
+      const group = await dbPool.query(
+        "SELECT 1 FROM expert_personas WHERE group_name = $1 LIMIT 1",
+        [item.personaGroup],
+      );
+      if (!group.rows.length) {
+        return res.status(400).json({ success: false, error: "Choose an existing teacher group." });
+      }
+    }
+    const result = await dbPool.query(
+      `INSERT INTO catalog_books
+       (class_level, subject_key, title, board, publisher, persona_group, status, starter_topics, display_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb,
+         COALESCE((SELECT MAX(display_order) + 1 FROM catalog_books WHERE class_level = $1), 0))
+       RETURNING id`,
+      [item.classLevel, item.subjectKey, item.title, item.board, item.publisher, item.personaGroup, item.status, JSON.stringify(item.starterTopics)],
+    );
+    return res.status(201).json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error("POST /api/admin/catalog error:", error);
+    return res.status(500).json({ success: false, error: "Catalog item could not be created." });
+  }
+});
+
+app.patch("/api/admin/catalog/reorder", async (req: Request, res: Response) => {
+  const items: unknown = req.body?.items;
+  if (
+    !Array.isArray(items)
+    || items.length > 500
+    || items.some((item) => !item || typeof item.id !== "string"
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id)
+      || !Number.isSafeInteger(item.displayOrder) || item.displayOrder < 0)
+  ) {
+    return res.status(400).json({ success: false, error: "Catalog ordering is invalid." });
+  }
+  if (new Set(items.map((item) => item.id)).size !== items.length) {
+    return res.status(400).json({ success: false, error: "Catalog ordering contains duplicate items." });
+  }
+  if (!dbPool) {
+    return res.status(503).json({ success: false, error: "The subject catalog is temporarily unavailable." });
+  }
+  let client: PoolClient | null = null;
+  try {
+    client = await dbPool.connect();
+    await client.query("BEGIN");
+    for (const item of items) {
+      const updated = await client.query(
+        "UPDATE catalog_books SET display_order = $2, updated_at = NOW() WHERE id = $1 RETURNING id",
+        [item.id, item.displayOrder],
+      );
+      if (!updated.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "A catalog item could not be found." });
+      }
+    }
+    await client.query("COMMIT");
+    return res.json({ success: true });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => undefined);
+    console.error("PATCH /api/admin/catalog/reorder error:", error);
+    return res.status(500).json({ success: false, error: "Catalog order could not be saved." });
+  } finally {
+    client?.release();
+  }
+});
+
+app.patch("/api/admin/catalog/:bookId", async (req: Request, res: Response) => {
+  const item = parseCatalogWriteInput(req.body);
+  if (!item) {
+    return res.status(400).json({ success: false, error: "Catalog item fields are invalid." });
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.bookId)) {
+    return res.status(400).json({ success: false, error: "Invalid catalog item." });
+  }
+  if (!dbPool) {
+    return res.status(503).json({ success: false, error: "The subject catalog is temporarily unavailable." });
+  }
+
+  try {
+    if (item.personaGroup) {
+      const group = await dbPool.query(
+        "SELECT 1 FROM expert_personas WHERE group_name = $1 LIMIT 1",
+        [item.personaGroup],
+      );
+      if (!group.rows.length) {
+        return res.status(400).json({ success: false, error: "Choose an existing teacher group." });
+      }
+    }
+    const result = await dbPool.query(
+      `UPDATE catalog_books
+       SET class_level = $2, subject_key = $3, title = $4, board = $5, publisher = $6,
+           persona_group = $7, status = $8, starter_topics = $9::jsonb, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id`,
+      [req.params.bookId, item.classLevel, item.subjectKey, item.title, item.board, item.publisher, item.personaGroup, item.status, JSON.stringify(item.starterTopics)],
+    );
+    if (!result.rows.length) return res.status(404).json({ success: false, error: "Catalog item not found." });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("PATCH /api/admin/catalog/:bookId error:", error);
+    return res.status(500).json({ success: false, error: "Catalog item could not be updated." });
+  }
+});
+
+app.delete("/api/admin/catalog/:bookId", async (req: Request, res: Response) => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.bookId)) {
+    return res.status(400).json({ success: false, error: "Invalid catalog item." });
+  }
+  if (!dbPool) {
+    return res.status(503).json({ success: false, error: "The subject catalog is temporarily unavailable." });
+  }
+  try {
+    const result = await dbPool.query("DELETE FROM catalog_books WHERE id = $1 RETURNING id", [req.params.bookId]);
+    if (!result.rows.length) return res.status(404).json({ success: false, error: "Catalog item not found." });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("DELETE /api/admin/catalog/:bookId error:", error);
+    return res.status(500).json({ success: false, error: "Catalog item could not be deleted." });
+  }
+});
+
 app.get("/api/catalog", async (req: Request, res: Response) => {
   const classLevel = req.query.classLevel;
   if (!isClassLevelId(classLevel)) {
@@ -6573,12 +6738,12 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
             SELECT 1 FROM expert_personas persona
             WHERE persona.is_active = true AND persona.group_name = book.persona_group
           )
-        ) AS available
+        ) AS has_active_teacher
       FROM catalog_books book
       LEFT JOIN catalog_votes vote ON vote.book_id = book.id
       WHERE book.class_level = $1
       GROUP BY book.id
-      ORDER BY book.subject_key, book.title
+      ORDER BY book.display_order, book.subject_key, book.title
     `, [classLevel]);
     const grouped = new Map<string, Array<Record<string, unknown>>>();
     for (const row of result.rows) {
@@ -6591,7 +6756,7 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
         board: row.board,
         publisher: row.publisher,
         status: row.status === "available" ? "available" : "coming_soon",
-        available: row.available === true,
+        available: isCatalogBookAvailable(row.status, row.persona_group, row.has_active_teacher === true),
         personaGroup: row.persona_group,
         starterTopics: Array.isArray(row.starter_topics) ? row.starter_topics : [],
         voteCount: Number(row.vote_count) || 0,

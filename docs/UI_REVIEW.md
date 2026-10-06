@@ -21,17 +21,19 @@ as verified.
 | 8 | Empty catalog home | Partial | Catalog data remains empty by design; the home renders catalog empty/error states and teacher rows independently of catalog results. A selected class appears in the home header. Empty-catalog behavior has not been exercised in a browser against an API response. |
 | 9 | i18n | Partial | New redesign copy is routed through `uiCopy` in English, Roman Urdu and Urdu. Some legacy copy in modified, still-mounted chat/persona surfaces remains hard-coded; no claim of complete localization is made. |
 | 10 | Night mode | Partial | `npm run check:tokens` passes the shared semantic-token contrast checks. Every new/modified surface still needs visual review in night mode. |
+| 11 | Owner-facing catalog administration | Partial | Admin-session-protected list, create, edit, delete, status and reorder endpoints plus the Catalog tab are implemented. Validation and unauthorized-session tests pass; an available row without an active teacher is returned unavailable and shown as coming soon. No staging database CRUD run was possible. |
+| 12 | Catalog seed workflow | Partial | Only a clearly fake `_example` JSON file is committed; the real seed file is ignored. The script requires staging/preview plus a production-host guard and stable IDs with `ON CONFLICT DO NOTHING`; production refusal was exercised. No import was run against a database. |
 
 ## Build and test evidence
 
 | Check | Result |
 |---|---|
 | `npm run lint` | Pass; TypeScript and design-token checks passed. |
-| `npm test` | Pass; 31 tests in 10 files. |
+| `npm test` | Pass; 36 tests in 12 files. |
 | `npm run build` | Pass; the missing local Nastaleeq reference and mixed `CompiledNotesModal` import warning are fixed. Vite still reports the large main-chunk warning. |
 | Main JS gzip baseline | 306.73 kB at pre-redesign commit `3fbb4ca3b3826848505ffa2d6d377b9cd62e02d1`. |
-| Current main JS gzip | 316.06 kB; +3.04% from baseline, within the baseline +20% budget. |
-| Current main JS raw | 1,071.29 kB; still above Vite's 500 kB warning threshold. |
+| Current main JS gzip | 317.53 kB; +3.52% from baseline, within the baseline +20% budget. |
+| Current main JS raw | 1,076.72 kB; still above Vite's 500 kB warning threshold. |
 | Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API and Product Tour use lazy imports; Markdown rendering is also behind `React.lazy`. Their separate chunks are present in the build output. |
 
 The baseline was built in a temporary detached worktree from the commit before

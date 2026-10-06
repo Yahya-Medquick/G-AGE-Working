@@ -63,6 +63,24 @@ refuses the production domain and unnamed Railway hosts.
 `tests/route-contract.test.ts` permits additive routes but detects a removed or
 method-changed baseline route.
 
+## Owner-supplied catalog seed
+
+Catalog rows are intentionally empty until the owner supplies verified data.
+Copy `data/catalog.seed.example.json` to `data/catalog.seed.json`, replace the
+example item with verified values, and keep the real seed file out of version
+control. Supported class IDs, status values, existing teacher groups, and
+starter topics are validated before import. The script derives stable row IDs
+from each item's unique `key` and uses `ON CONFLICT DO NOTHING`, so reruns do
+not duplicate rows or overwrite later admin edits.
+
+Run `npm run seed:catalog` only with `APP_ENV=staging` (or `preview`),
+`DATABASE_URL` (or `POSTGRES_URL`) bound to that non-production database, and
+`PROD_DB_HOST_GUARD` set to the production host fragment. The script refuses
+to run outside staging/preview, refuses a matching production host, never
+prints connection values, and will not import a file marked `"_example": true`
+in production. The example contains fake placeholder values and is not real
+catalog content.
+
 ## Promotion and rollback
 
 Feature branch → pull request → Railway PR environment on staging configuration

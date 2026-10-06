@@ -17,6 +17,7 @@
     "lint": "tsc --noEmit && npm run check:tokens",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
+    "seed:catalog": "node scripts/seed-catalog.mjs",
     "check:tokens": "node scripts/check-design-tokens.mjs"
   },
   "dependencies": {

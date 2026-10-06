@@ -14,6 +14,7 @@ export interface CatalogBook {
   available: boolean;
   starterTopics: string[];
   voteCount: number;
+  displayOrder?: number;
 }
 
 export interface CatalogSubject {

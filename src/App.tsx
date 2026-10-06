@@ -968,6 +968,7 @@ export default function App() {
         <AdminDashboardModal
           isOpen={isAdminOpen}
           onClose={() => setIsAdminOpen(false)}
+          language={language}
         />
 
         <UserProfileModal

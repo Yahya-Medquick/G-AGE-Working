@@ -8,6 +8,7 @@ type Route = { method: string; path: string };
 const baseline = JSON.parse(
   readFileSync(resolve(process.cwd(), 'tests/route-baseline.json'), 'utf8'),
 ) as Route[];
+const serverSource = readFileSync(resolve(process.cwd(), 'server.ts'), 'utf8');
 
 describe('route contract', () => {
   it('keeps every baseline method and path registration', () => {
@@ -24,5 +25,12 @@ describe('route contract', () => {
     const slugIndex = routes.findIndex(({ method, path }) => method === 'GET' && path === '/api/v1/personas/:slug');
     expect(recentIndex).toBeGreaterThanOrEqual(0);
     expect(slugIndex).toBeGreaterThan(recentIndex);
+  });
+
+  it('mounts admin-session authorization before the admin catalog routes', () => {
+    const middlewareIndex = serverSource.indexOf('app.use("/api/admin", adminAuthMiddleware)');
+    const catalogRouteIndex = serverSource.indexOf('app.get("/api/admin/catalog"');
+    expect(middlewareIndex).toBeGreaterThanOrEqual(0);
+    expect(catalogRouteIndex).toBeGreaterThan(middlewareIndex);
   });
 });

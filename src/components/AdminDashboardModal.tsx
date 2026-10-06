@@ -33,8 +33,12 @@ import {
   Mail,
   Crown,
   Clock,
+  BookOpen,
 } from "lucide-react";
 import { AdminStats, Entity, ExpertPersona } from "../types";
+import { CLASS_LEVELS } from "../data/classLevels";
+import type { CatalogBook, CatalogBookStatus } from "../types/catalog";
+import { uiCopy, type UiLanguage } from "../i18n/ui";
 import {
   adminFetchAll,
   adminCreatePersona,
@@ -47,24 +51,54 @@ import {
 interface AdminDashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
+  language: UiLanguage;
   onRefreshEntityData?: (slug: string) => void;
 }
+
+interface CatalogFormState {
+  classLevel: string;
+  subjectKey: string;
+  title: string;
+  board: string;
+  publisher: string;
+  personaGroup: string;
+  status: CatalogBookStatus;
+  starterTopicsText: string;
+}
+
+const emptyCatalogForm = (): CatalogFormState => ({
+  classLevel: "",
+  subjectKey: "",
+  title: "",
+  board: "",
+  publisher: "",
+  personaGroup: "",
+  status: "coming_soon",
+  starterTopicsText: "",
+});
 
 export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   isOpen,
   onClose,
+  language,
 }) => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [entities, setEntities] = useState<Entity[]>([]);
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [personas, setPersonas] = useState<ExpertPersona[]>([]);
+  const [catalogBooks, setCatalogBooks] = useState<CatalogBook[]>([]);
+  const [catalogClassFilter, setCatalogClassFilter] = useState("all");
+  const [catalogForm, setCatalogForm] = useState<CatalogFormState>(emptyCatalogForm);
+  const [editingCatalogBookId, setEditingCatalogBookId] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [isSavingCatalog, setIsSavingCatalog] = useState(false);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userTierFilter, setUserTierFilter] = useState<"all" | "free" | "paid">("all");
   const [updatingUserTierId, setUpdatingUserTierId] = useState<string | null>(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "entities" | "cache" | "apikeys" | "personas" | "users">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "entities" | "cache" | "apikeys" | "personas" | "catalog" | "users">("overview");
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
 
   // New Expert Persona form state
@@ -124,10 +158,11 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     setIsLoading(true);
     try {
       const authHeaders = { "X-Admin-Token": activeAdminToken };
-      const [statsRes, entitiesRes, keysRes] = await Promise.all([
+      const [statsRes, entitiesRes, keysRes, catalogRes] = await Promise.all([
         fetch("/api/admin/stats", { headers: authHeaders }),
         fetch("/api/admin/entities", { headers: authHeaders }),
         fetch("/api/admin/apikeys", { headers: authHeaders }),
+        fetch("/api/admin/catalog", { headers: authHeaders }),
       ]);
 
       if (statsRes.status === 401) {
@@ -149,6 +184,14 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
       if (keysRes.ok) {
         const keysData = await keysRes.json();
         setApiKeys(keysData.keys || []);
+      }
+      if (catalogRes.ok) {
+        const catalogData = await catalogRes.json();
+        setCatalogBooks(Array.isArray(catalogData.books) ? catalogData.books : []);
+        setCatalogError(null);
+      } else {
+        const catalogData = await catalogRes.json().catch(() => ({}));
+        setCatalogError(catalogData.error || "Failed to load catalog items.");
       }
 
       // Fetch personas using unified persona store
@@ -292,6 +335,113 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     } catch (err) {
       console.warn("Failed to refresh entity:", err);
     }
+  };
+
+  const handleCatalogSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setCatalogError(null);
+    setIsSavingCatalog(true);
+    const payload = {
+      classLevel: catalogForm.classLevel,
+      subjectKey: catalogForm.subjectKey.trim(),
+      title: catalogForm.title.trim(),
+      board: catalogForm.board.trim() || null,
+      publisher: catalogForm.publisher.trim() || null,
+      personaGroup: catalogForm.personaGroup || null,
+      status: catalogForm.status,
+      starterTopics: catalogForm.starterTopicsText.split("\n").map((topic) => topic.trim()).filter(Boolean),
+    };
+    try {
+      const response = await fetch(
+        editingCatalogBookId ? `/api/admin/catalog/${encodeURIComponent(editingCatalogBookId)}` : "/api/admin/catalog",
+        {
+          method: editingCatalogBookId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json", "X-Admin-Token": adminToken },
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || uiCopy(language, "catalogSaveError"));
+      setCatalogForm(emptyCatalogForm());
+      setEditingCatalogBookId(null);
+      const refreshed = await fetch("/api/admin/catalog", { headers: { "X-Admin-Token": adminToken } });
+      const refreshedData = await refreshed.json().catch(() => ({}));
+      if (!refreshed.ok || !Array.isArray(refreshedData.books)) {
+        throw new Error(refreshedData.error || uiCopy(language, "catalogRefreshError"));
+      }
+      setCatalogBooks(refreshedData.books);
+      setRefreshMessage(uiCopy(language, editingCatalogBookId ? "catalogUpdated" : "catalogCreated"));
+      setTimeout(() => setRefreshMessage(null), 3500);
+    } catch (error) {
+      console.error("Catalog save failed:", error);
+      setCatalogError(error instanceof Error ? error.message : uiCopy(language, "catalogSaveError"));
+    } finally {
+      setIsSavingCatalog(false);
+    }
+  };
+
+  const handleCatalogDelete = async (book: CatalogBook) => {
+    if (!window.confirm(`${uiCopy(language, "catalogDeleteConfirm")} (${book.title})`)) return;
+    setCatalogError(null);
+    try {
+      const response = await fetch(`/api/admin/catalog/${encodeURIComponent(book.id)}`, {
+        method: "DELETE",
+        headers: { "X-Admin-Token": adminToken },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || uiCopy(language, "catalogDeleteError"));
+      setCatalogBooks((current) => current.filter((item) => item.id !== book.id));
+      setRefreshMessage(uiCopy(language, "catalogDeleted"));
+      setTimeout(() => setRefreshMessage(null), 3500);
+    } catch (error) {
+      console.error("Catalog delete failed:", error);
+      setCatalogError(error instanceof Error ? error.message : uiCopy(language, "catalogDeleteError"));
+    }
+  };
+
+  const handleCatalogReorder = async (book: CatalogBook, direction: -1 | 1) => {
+    const siblings = catalogBooks
+      .filter((item) => item.classLevel === book.classLevel)
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    const index = siblings.findIndex((item) => item.id === book.id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= siblings.length) return;
+    [siblings[index], siblings[nextIndex]] = [siblings[nextIndex], siblings[index]];
+    setCatalogError(null);
+    try {
+      const response = await fetch("/api/admin/catalog/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-Admin-Token": adminToken },
+        body: JSON.stringify({
+          items: siblings.map((item, displayOrder) => ({ id: item.id, displayOrder })),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || uiCopy(language, "catalogOrderError"));
+      setCatalogBooks((current) => current.map((item) => {
+        const moved = siblings.find((sibling) => sibling.id === item.id);
+        return moved ? { ...item, displayOrder: siblings.indexOf(moved) } : item;
+      }));
+    } catch (error) {
+      console.error("Catalog reorder failed:", error);
+      setCatalogError(error instanceof Error ? error.message : uiCopy(language, "catalogOrderError"));
+    }
+  };
+
+  const editCatalogBook = (book: CatalogBook) => {
+    setEditingCatalogBookId(book.id);
+    setCatalogForm({
+      classLevel: book.classLevel,
+      subjectKey: book.subjectKey,
+      title: book.title,
+      board: book.board || "",
+      publisher: book.publisher || "",
+      personaGroup: book.personaGroup || "",
+      status: book.status,
+      starterTopicsText: book.starterTopics.join("\n"),
+    });
+    setCatalogError(null);
+    setActiveTab("catalog");
   };
 
   const handleCreateEntity = async (e: React.FormEvent) => {
@@ -746,6 +896,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           >
             <UserCheck className="w-4 h-4 text-emerald-500" />
             <span>Counseling Personas ({personas.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("catalog")}
+            className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === "catalog"
+                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold"
+                : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+            }`}
+          >
+            <BookOpen className="w-4 h-4 text-amber-500" />
+            <span>{uiCopy(language, "catalogTab")} ({catalogBooks.length})</span>
           </button>
           <button
             onClick={() => setActiveTab("users")}
@@ -1891,7 +2052,194 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             </div>
           )}
 
-          {/* TAB 6: USERS MANAGEMENT (BUG 9: Manual Tier Upgrade for Paid Users) */}
+          {activeTab === "catalog" && (
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">{uiCopy(language, "catalogAdminTitle")}</h2>
+                  <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+                    {uiCopy(language, "catalogAdminHelp")}
+                  </p>
+                </div>
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  {uiCopy(language, "catalogFilterClass")}
+                  <select
+                    value={catalogClassFilter}
+                    onChange={(event) => setCatalogClassFilter(event.target.value)}
+                    className="ml-2 min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <option value="all">{uiCopy(language, "catalogAllClasses")}</option>
+                    {CLASS_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <form
+                onSubmit={handleCatalogSave}
+                className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900 md:grid-cols-2"
+              >
+                <h3 className="md:col-span-2 text-sm font-bold text-slate-900 dark:text-white">
+                  {uiCopy(language, editingCatalogBookId ? "catalogEditItem" : "catalogAddItem")}
+                </h3>
+                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  {uiCopy(language, "catalogFilterClass")}
+                  <select
+                    required
+                    value={catalogForm.classLevel}
+                    onChange={(event) => setCatalogForm((current) => ({ ...current, classLevel: event.target.value }))}
+                    className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="" disabled>{uiCopy(language, "selectClass")}</option>
+                    {CLASS_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  {uiCopy(language, "catalogSubjectKey")}
+                  <input
+                    required maxLength={100}
+                    value={catalogForm.subjectKey}
+                    onChange={(event) => setCatalogForm((current) => ({ ...current, subjectKey: event.target.value }))}
+                    className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  {uiCopy(language, "catalogVerifiedTitle")}
+                  <input
+                    required maxLength={255}
+                    value={catalogForm.title}
+                    onChange={(event) => setCatalogForm((current) => ({ ...current, title: event.target.value }))}
+                    className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  {uiCopy(language, "catalogBoardOptional")}
+                  <input
+                    maxLength={255}
+                    value={catalogForm.board}
+                    onChange={(event) => setCatalogForm((current) => ({ ...current, board: event.target.value }))}
+                    className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  {uiCopy(language, "catalogPublisherOptional")}
+                  <input
+                    maxLength={255}
+                    value={catalogForm.publisher}
+                    onChange={(event) => setCatalogForm((current) => ({ ...current, publisher: event.target.value }))}
+                    className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  {uiCopy(language, "catalogTeacherGroup")}
+                  <select
+                    value={catalogForm.personaGroup}
+                    onChange={(event) => setCatalogForm((current) => ({ ...current, personaGroup: event.target.value }))}
+                    className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="">{uiCopy(language, "catalogNoGroupSelected")}</option>
+                    {Array.from(new Set(personas.map((persona) => persona.group_name).filter((group): group is string => Boolean(group))))
+                      .sort((a, b) => a.localeCompare(b))
+                      .map((group) => <option key={group} value={group}>{group}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  {uiCopy(language, "catalogStatus")}
+                  <select
+                    value={catalogForm.status}
+                    onChange={(event) => setCatalogForm((current) => ({ ...current, status: event.target.value as CatalogBookStatus }))}
+                    className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="coming_soon">{uiCopy(language, "comingSoon")}</option>
+                    <option value="available">{uiCopy(language, "catalogAvailable")}</option>
+                  </select>
+                </label>
+                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300 md:col-span-2">
+                  {uiCopy(language, "catalogStarterTopics")} ({uiCopy(language, "catalogOnePerLine")})
+                  <textarea
+                    rows={3}
+                    value={catalogForm.starterTopicsText}
+                    onChange={(event) => setCatalogForm((current) => ({ ...current, starterTopicsText: event.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2 md:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingCatalog}
+                    className="min-h-10 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {isSavingCatalog
+                      ? uiCopy(language, "catalogSaving")
+                      : editingCatalogBookId ? uiCopy(language, "catalogSaveChanges") : uiCopy(language, "catalogAddItem")}
+                  </button>
+                  {editingCatalogBookId && (
+                    <button
+                      type="button"
+                      onClick={() => { setEditingCatalogBookId(null); setCatalogForm(emptyCatalogForm()); }}
+                      className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                    >
+                      {uiCopy(language, "catalogCancelEdit")}
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              {catalogError && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">{catalogError}</p>}
+
+              {catalogBooks.filter((book) => catalogClassFilter === "all" || book.classLevel === catalogClassFilter).length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                  {uiCopy(language, "catalogNoRecords")} {uiCopy(language, "catalogOwnerVerifyOnly")}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {catalogBooks
+                    .filter((book) => catalogClassFilter === "all" || book.classLevel === catalogClassFilter)
+                    .sort((a, b) => a.classLevel.localeCompare(b.classLevel)
+                      || (a.displayOrder ?? 0) - (b.displayOrder ?? 0)
+                      || a.subjectKey.localeCompare(b.subjectKey))
+                    .map((book) => {
+                      const siblings = catalogBooks
+                        .filter((item) => item.classLevel === book.classLevel)
+                        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+                      const itemIndex = siblings.findIndex((item) => item.id === book.id);
+                      return (
+                        <article key={book.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-semibold text-slate-500">{CLASS_LEVELS.find((level) => level.id === book.classLevel)?.label}</span>
+                              <span className="text-xs text-slate-500">{book.subjectKey}</span>
+                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${book.available ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"}`}>
+                                {book.available
+                                  ? uiCopy(language, "catalogAvailable")
+                                  : book.status === "available"
+                                    ? uiCopy(language, "catalogNoActiveTeacher")
+                                    : uiCopy(language, "comingSoon")}
+                              </span>
+                            </div>
+                            <h4 className="mt-1 break-words text-sm font-semibold text-slate-900 dark:text-white">{book.title}</h4>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {[book.board, book.publisher, book.personaGroup].filter(Boolean).join(" · ") || uiCopy(language, "catalogNoCatalogMetadata")}
+                              {" · "}{book.voteCount} {book.voteCount === 1 ? uiCopy(language, "catalogVote") : uiCopy(language, "catalogVotes")}
+                            </p>
+                            {book.starterTopics.length > 0 && (
+                              <p className="mt-1 break-words text-xs text-slate-500 dark:text-slate-400">Topics: {book.starterTopics.join(" · ")}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button type="button" aria-label={uiCopy(language, "catalogMoveUp")} title={uiCopy(language, "catalogMoveUp")} disabled={itemIndex <= 0} onClick={() => void handleCatalogReorder(book, -1)} className="min-h-10 min-w-10 rounded-lg p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"><ArrowUp className="h-4 w-4" /></button>
+                            <button type="button" aria-label={uiCopy(language, "catalogMoveDown")} title={uiCopy(language, "catalogMoveDown")} disabled={itemIndex < 0 || itemIndex >= siblings.length - 1} onClick={() => void handleCatalogReorder(book, 1)} className="min-h-10 min-w-10 rounded-lg p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"><ArrowDown className="h-4 w-4" /></button>
+                            <button type="button" onClick={() => editCatalogBook(book)} className="min-h-10 rounded-lg px-3 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/40">{uiCopy(language, "catalogEdit")}</button>
+                            <button type="button" onClick={() => void handleCatalogDelete(book)} className="min-h-10 rounded-lg px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40">{uiCopy(language, "catalogDelete")}</button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 7: USERS MANAGEMENT (BUG 9: Manual Tier Upgrade for Paid Users) */}
           {activeTab === "users" && (
             <div className="space-y-6 animate-in fade-in">
               {/* Header Controls & Filters */}
