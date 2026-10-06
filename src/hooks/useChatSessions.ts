@@ -125,6 +125,8 @@ export function useChatSessions() {
         mode,
         personaId: persona.id,
         personaVariant: variant,
+        personaName: persona.name,
+        personaInitials: persona.initials,
       };
 
       const newSession: ChatSession = {

@@ -56,6 +56,7 @@ import { MCQCard } from '../cards/MCQCard';
 import { VideoCard } from '../cards/VideoCard';
 import { NewsCard } from '../cards/NewsCard';
 import { MultiLevelDefinitionCard } from '../MultiLevelDefinitionCard';
+import { resolvePersonaIdentity } from '../../utils/resolvePersonaIdentity';
 
 // Helper component for YouTube Video Guides (backend YouTube Data API integration)
 const ExploreVideosSection: React.FC<{ topic: string; query?: string }> = ({ topic, query }) => {
@@ -1085,14 +1086,17 @@ export const ChatStage: React.FC<ChatStageProps> = ({
             -1
           );
           const isLatestTurnStart = idx === Math.max(0, (session?.messages.length || 0) - (isLoading ? 1 : 2));
-          const personaVariant = msg.personaVariant || session?.variant || variant;
-          const personaSet = personaVariant === 'pk' ? pkPersonas : globalPersonas;
-          const savedPersona = personaSet[msg.personaId || ''];
+          const savedPersona = resolvePersonaIdentity(
+            msg,
+            session?.variant || variant,
+            globalPersonas,
+            pkPersonas,
+          );
           const msgPersona = isAssistant ? {
-            name: msg.personaName || savedPersona?.name || 'Unknown persona',
-            initials: msg.personaInitials || savedPersona?.initials || '?',
-            avatar_color: savedPersona?.avatar_color || '#64748b',
-            group_name: savedPersona?.group_name || '',
+            name: savedPersona.name,
+            initials: savedPersona.initials,
+            avatar_color: savedPersona.avatarColor,
+            group_name: savedPersona.groupName,
           } : null;
 
           return (

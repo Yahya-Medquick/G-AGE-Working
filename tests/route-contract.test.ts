@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { getRegisteredRoutes } from '../scripts/route-contract.mjs';
+import { getOrderedRegisteredRoutes, getRegisteredRoutes } from '../scripts/route-contract.mjs';
 
 type Route = { method: string; path: string };
 
@@ -16,5 +16,13 @@ describe('route contract', () => {
       .map(({ method, path }) => `${method} ${path}`)
       .filter((route) => !current.has(route));
     expect(missing).toEqual([]);
+  });
+
+  it('registers the recent-personas endpoint before the dynamic slug route', () => {
+    const routes = getOrderedRegisteredRoutes();
+    const recentIndex = routes.findIndex(({ method, path }) => method === 'GET' && path === '/api/v1/personas/recent');
+    const slugIndex = routes.findIndex(({ method, path }) => method === 'GET' && path === '/api/v1/personas/:slug');
+    expect(recentIndex).toBeGreaterThanOrEqual(0);
+    expect(slugIndex).toBeGreaterThan(recentIndex);
   });
 });

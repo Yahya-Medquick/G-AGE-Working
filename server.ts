@@ -4619,6 +4619,36 @@ app.get("/api/v1/personas", async (req: Request, res: Response) => {
   return res.json({ success: true, personas: personaRegistry.personas });
 });
 
+// GET /api/v1/personas/recent - Returns recent teachers across both variants
+app.get("/api/v1/personas/recent", async (req: Request, res: Response) => {
+  try {
+    const user = getCurrentUser(req);
+    const userId = typeof user?.id === "string" ? user.id.replace(/^usr-/i, "") : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId) || !dbPool) {
+      return res.json({ success: true, personas: [] });
+    }
+    const allowedSlugs = new Set(personaRegistry.personas.map((persona) => persona.slug));
+    const result = await dbPool.query(`
+      SELECT ep.*, upu.last_used_at as user_last_used
+      FROM user_persona_usage upu
+      JOIN expert_personas ep ON ep.slug = upu.persona_slug
+      WHERE upu.user_id = $1::uuid AND ep.is_active = true
+      ORDER BY upu.last_used_at DESC
+      LIMIT 3
+    `, [userId]);
+    const personas = result.rows
+      .filter((persona: any) => allowedSlugs.has(persona.slug))
+      .map((persona: any) => ({
+        ...persona,
+        group_name: personaRegistry.personas.find((entry) => entry.slug === persona.slug)?.group_name || persona.group_name,
+      }));
+    return res.json({ success: true, personas });
+  } catch (err) {
+    console.error("GET /api/v1/personas/recent error:", err);
+    return res.status(500).json({ success: false, error: "Failed to load recent teachers." });
+  }
+});
+
 // GET /api/v1/personas/:slug - Returns a single persona by slug or id
 app.get("/api/v1/personas/:slug", async (req: Request, res: Response) => {
   const { slug } = req.params;
@@ -4635,60 +4665,25 @@ app.get("/api/v1/personas/:slug", async (req: Request, res: Response) => {
 app.post("/api/v1/personas/:slug/used", async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
-    const token = req.cookies?.token;
-    if (token) {
+    const user = getCurrentUser(req);
+    const userId = typeof user?.id === "string" ? user.id.replace(/^usr-/i, "") : "";
+    if (dbPool && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
       try {
-        const jwt = await import('jsonwebtoken');
-        const decoded: any = jwt.default.verify(token, JWT_SECRET);
-        const userId = decoded?.userId || decoded?.id;
-        if (userId) {
-          await dbPool.query(`
-            INSERT INTO user_persona_usage (user_id, persona_slug, last_used_at)
-            VALUES ($1, $2, now())
-            ON CONFLICT (user_id, persona_slug)
-            DO UPDATE SET last_used_at = now()
-          `, [userId, slug]);
-        }
-      } catch (_) {}
-    } else {
-      // Guest: handled client-side via localStorage
+        await dbPool.query(`
+          INSERT INTO user_persona_usage (user_id, persona_slug, last_used_at)
+          VALUES ($1::uuid, $2, now())
+          ON CONFLICT (user_id, persona_slug)
+          DO UPDATE SET last_used_at = now()
+        `, [userId, slug]);
+      } catch (error) {
+        console.error("POST /api/v1/personas/:slug/used persistence error:", error);
+        return res.status(500).json({ success: false, error: "Failed to record teacher usage." });
+      }
     }
     return res.json({ success: true });
   } catch (err) {
     console.error("POST /api/v1/personas/:slug/used error:", err);
     return res.json({ success: true }); // non-fatal
-  }
-});
-
-// GET /api/v1/personas/recent - Returns last 3 used personas for logged-in user
-app.get("/api/v1/personas/recent", async (req: Request, res: Response) => {
-  try {
-    const variant: PersonaVariant = req.query.variant === "pk" ? "pk" : "global";
-    const allowedSlugs = new Set(getRegistryPersonas(variant).map((persona) => persona.slug));
-    const token = req.cookies?.token;
-    if (!token) return res.json({ success: true, personas: [] });
-    const jwt = await import('jsonwebtoken');
-    const decoded: any = jwt.default.verify(token, JWT_SECRET);
-    const userId = decoded?.userId || decoded?.id;
-    if (!userId) return res.json({ success: true, personas: [] });
-    const result = await dbPool.query(`
-      SELECT ep.*, upu.last_used_at as user_last_used
-      FROM user_persona_usage upu
-      JOIN expert_personas ep ON ep.slug = upu.persona_slug
-      WHERE upu.user_id = $1 AND ep.is_active = true AND COALESCE(ep.variant, 'global') = $2
-      ORDER BY upu.last_used_at DESC
-      LIMIT 3
-    `, [userId, variant]);
-    const personas = result.rows
-      .filter((persona: any) => allowedSlugs.has(persona.slug))
-      .map((persona: any) => ({
-        ...persona,
-        group_name: personaRegistry.personas.find((entry) => entry.slug === persona.slug && entry.variant === variant)?.group_name,
-      }));
-    return res.json({ success: true, personas });
-  } catch (err) {
-    console.error("GET /api/v1/personas/recent error:", err);
-    return res.json({ success: true, personas: [] });
   }
 });
 

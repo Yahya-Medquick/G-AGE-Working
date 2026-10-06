@@ -17,7 +17,7 @@ function pathsFromNode(node) {
   return [];
 }
 
-export function getRegisteredRoutes(source = fs.readFileSync(sourcePath, 'utf8')) {
+export function getOrderedRegisteredRoutes(source = fs.readFileSync(sourcePath, 'utf8')) {
   const file = ts.createSourceFile(sourcePath, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const routes = [];
   function visit(node) {
@@ -36,7 +36,12 @@ export function getRegisteredRoutes(source = fs.readFileSync(sourcePath, 'utf8')
     ts.forEachChild(node, visit);
   }
   visit(file);
-  return routes.sort((a, b) => a.method.localeCompare(b.method) || a.path.localeCompare(b.path));
+  return routes;
+}
+
+export function getRegisteredRoutes(source = fs.readFileSync(sourcePath, 'utf8')) {
+  return getOrderedRegisteredRoutes(source)
+    .sort((a, b) => a.method.localeCompare(b.method) || a.path.localeCompare(b.path));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
