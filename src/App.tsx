@@ -21,6 +21,7 @@ import { ChatMode, ChatMessage, ChatSession } from './types/chat';
 import { PublicQAPage } from './components/PublicQAPage';
 import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
 import { SubjectsHome } from './components/home/SubjectsHome';
+import { MeScreen } from './components/home/MeScreen';
 import { FirstRunOverlay } from './components/home/FirstRunOverlay';
 import { ClassLevelPrompt } from './components/home/ClassLevelPrompt';
 import { uiCopy } from './i18n/ui';
@@ -183,6 +184,7 @@ export default function App() {
   const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+  const [isMeOpen, setIsMeOpen] = useState(false);
   const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'history' | 'preferences'>('profile');
   const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState<boolean>(false);
@@ -399,6 +401,7 @@ export default function App() {
   // Create new chat
   const handleNewChat = useCallback(() => {
     skipReveal();
+    setIsMeOpen(false);
     setIsSubjectsHomeOpen(true);
     if (window.innerWidth < 1024) {
       setIsLeftPanelOpen(false);
@@ -744,6 +747,7 @@ export default function App() {
         activeSessionId={activeSessionId}
         onSelectSession={(id) => {
           skipReveal();
+          setIsMeOpen(false);
           setIsSubjectsHomeOpen(false);
           selectSession(id);
           if (window.innerWidth < 1024) setIsLeftPanelOpen(false);
@@ -789,7 +793,20 @@ export default function App() {
           }
         }}
       >
-        {!isSubjectsHomeOpen && displayedSession ? (
+        {isMeOpen ? (
+          <MeScreen
+            language={language}
+            theme={theme}
+            onOpenProfile={() => handleOpenProfile('profile')}
+            onOpenClass={() => handleOpenProfile('profile')}
+            onOpenPlan={triggerPaywall}
+            onOpenSettings={() => handleOpenProfile('preferences')}
+            onToggleTheme={toggleTheme}
+            onOpenDownload={handleOpenDownload}
+            onOpenApiDocs={() => setIsApiDocsOpen(true)}
+            onOpenAdmin={() => setIsAdminOpen(true)}
+          />
+        ) : !isSubjectsHomeOpen && displayedSession ? (
           <ChatStage
             session={displayedSession}
             activePersona={activePersona}
@@ -828,6 +845,7 @@ export default function App() {
             language={language}
             onStartChat={(persona, topic, starterTopics) => {
               const variant = persona.variant || 'global';
+              setIsMeOpen(false);
               setIsSubjectsHomeOpen(false);
               setExpertVariant(variant);
               createSession(persona.id, 'concept', topic, topic, variant, persona, starterTopics);
@@ -860,11 +878,12 @@ export default function App() {
           <button
             type="button"
             onClick={() => {
+              setIsMeOpen(false);
               setIsSubjectsHomeOpen(true);
               setIsLeftPanelOpen(false);
             }}
-            aria-current={isSubjectsHomeOpen || !displayedSession ? 'page' : undefined}
-            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${isSubjectsHomeOpen || !displayedSession ? 'text-accent-text' : ''}`}
+            aria-current={!isMeOpen && (isSubjectsHomeOpen || !displayedSession) ? 'page' : undefined}
+            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${!isMeOpen && (isSubjectsHomeOpen || !displayedSession) ? 'text-accent-text' : ''}`}
           >
             <BookOpen aria-hidden="true" className="h-5 w-5" />
             <span>{uiCopy(language, 'navSubjects')}</span>
@@ -872,11 +891,12 @@ export default function App() {
           <button
             type="button"
             onClick={() => {
+              setIsMeOpen(false);
               setIsSubjectsHomeOpen(false);
               setIsLeftPanelOpen(true);
             }}
-            aria-current={!isSubjectsHomeOpen && displayedSession ? 'page' : undefined}
-            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${!isSubjectsHomeOpen && displayedSession ? 'text-accent-text' : ''}`}
+            aria-current={!isMeOpen && !isSubjectsHomeOpen && displayedSession ? 'page' : undefined}
+            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${!isMeOpen && !isSubjectsHomeOpen && displayedSession ? 'text-accent-text' : ''}`}
           >
             <MessageSquare aria-hidden="true" className="h-5 w-5" />
             <span>{uiCopy(language, 'navChats')}</span>
@@ -884,6 +904,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => {
+              setIsMeOpen(false);
               setIsNotesOpen(true);
               setSavedNotesCount(0);
             }}
@@ -894,7 +915,16 @@ export default function App() {
           </button>
           <button
             type="button"
-            onClick={() => isLoggedIn ? handleOpenProfile() : setIsLoginOpen(true)}
+            onClick={() => {
+              if (isLoggedIn) {
+                setIsMeOpen(true);
+                setIsSubjectsHomeOpen(false);
+                setIsLeftPanelOpen(false);
+              } else {
+                setIsLoginOpen(true);
+              }
+            }}
+            aria-current={isMeOpen ? 'page' : undefined}
             className="flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent"
           >
             <UserRound aria-hidden="true" className="h-5 w-5" />
