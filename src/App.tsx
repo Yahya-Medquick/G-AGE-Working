@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense, useCallback, useRef } from 'react';
-import { Check } from 'lucide-react';
+import { BookOpen, Check, FileText, MessageSquare, UserRound } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { useNotes } from './hooks/useNotes';
 import { useUser } from './context/UserContext';
@@ -21,6 +21,7 @@ import { PublicQAPage } from './components/PublicQAPage';
 import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
 import { SubjectsHome } from './components/home/SubjectsHome';
 import { FirstRunOverlay } from './components/home/FirstRunOverlay';
+import { uiCopy } from './i18n/ui';
 
 // Lazy-loaded secondary modals for optimal performance
 const AdminDashboardModal = lazy(() =>
@@ -102,6 +103,7 @@ export default function App() {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(() => window.innerWidth >= 1024);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(() => window.innerWidth >= 1280);
   const [isSubjectsHomeOpen, setIsSubjectsHomeOpen] = useState(false);
+  const [isMobileKeyboardOpen, setIsMobileKeyboardOpen] = useState(false);
   const [initialPersonaGroup, setInitialPersonaGroup] = useState<string | null>(null);
 
   // Active persona region variant ('global' | 'pk') - default to Pakistani first
@@ -109,6 +111,19 @@ export default function App() {
   const [language, setLanguage] = useState<'english' | 'roman-urdu' | 'urdu'>(() => {
     return (localStorage.getItem('gage_language') as 'english' | 'roman-urdu' | 'urdu') || 'english';
   });
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const updateKeyboardState = () => setIsMobileKeyboardOpen(window.innerHeight - viewport.height > 120);
+    updateKeyboardState();
+    viewport.addEventListener('resize', updateKeyboardState);
+    viewport.addEventListener('scroll', updateKeyboardState);
+    return () => {
+      viewport.removeEventListener('resize', updateKeyboardState);
+      viewport.removeEventListener('scroll', updateKeyboardState);
+    };
+  }, []);
 
   const handleLanguageChange = useCallback((lang: 'english' | 'roman-urdu' | 'urdu') => {
     setLanguage(lang);
@@ -724,7 +739,7 @@ export default function App() {
 
       {/* 2. CENTER PANEL: MAIN CHAT STAGE */}
       <div
-        className="flex-1 min-w-0 h-full"
+        className="h-full min-w-0 flex-1 pb-[calc(var(--space-16)+env(safe-area-inset-bottom))] md:pb-0"
         onClickCapture={(event) => {
           if (event.target instanceof Element && event.target.closest('div.flex.flex-col.max-w-3xl.mx-auto.w-full')) {
             skipReveal();
@@ -787,6 +802,57 @@ export default function App() {
         onSelectTopic={(topic) => createSession(currentPersonaId, 'concept', topic, topic, activeVariant)}
         onOpenPaywall={triggerPaywall}
       />}
+
+      {!isMobileKeyboardOpen && (
+        <nav
+          aria-label={uiCopy(language, 'primaryNavigation')}
+          className="fixed inset-x-0 bottom-0 z-sticky grid min-h-14 grid-cols-4 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] text-xs text-muted md:hidden"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setIsSubjectsHomeOpen(true);
+              setIsLeftPanelOpen(false);
+            }}
+            aria-current={isSubjectsHomeOpen || !displayedSession ? 'page' : undefined}
+            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${isSubjectsHomeOpen || !displayedSession ? 'text-accent-text' : ''}`}
+          >
+            <BookOpen aria-hidden="true" className="h-5 w-5" />
+            <span>{uiCopy(language, 'navSubjects')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsSubjectsHomeOpen(false);
+              setIsLeftPanelOpen(true);
+            }}
+            aria-current={!isSubjectsHomeOpen && displayedSession ? 'page' : undefined}
+            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${!isSubjectsHomeOpen && displayedSession ? 'text-accent-text' : ''}`}
+          >
+            <MessageSquare aria-hidden="true" className="h-5 w-5" />
+            <span>{uiCopy(language, 'navChats')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsNotesOpen(true);
+              setSavedNotesCount(0);
+            }}
+            className="flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <FileText aria-hidden="true" className="h-5 w-5" />
+            <span>{uiCopy(language, 'navNotes')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => isLoggedIn ? setIsProfileOpen(true) : setIsLoginOpen(true)}
+            className="flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <UserRound aria-hidden="true" className="h-5 w-5" />
+            <span>{uiCopy(language, 'navMe')}</span>
+          </button>
+        </nav>
+      )}
 
       {/* MODALS & OVERLAYS */}
       <PaywallModal
