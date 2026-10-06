@@ -886,9 +886,16 @@ export default function App() {
             isLeftPanelOpen={isLeftPanelOpen}
             onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
             isRightPanelOpen={isRightPanelOpen}
+            onBackToSubjects={() => {
+              skipReveal();
+              setIsMeOpen(false);
+              setIsSubjectsHomeOpen(true);
+              setIsLeftPanelOpen(false);
+            }}
             onUpdateSessionMeta={updateSessionMeta}
             onSaveToNotes={handleSaveToNotes}
             onOpenPaywall={triggerPaywall}
+            onOpenPlanUsage={handleOpenPlanUsage}
             onNewChatWithTeacher={() => {
               skipReveal();
               setIsSubjectsHomeOpen(false);

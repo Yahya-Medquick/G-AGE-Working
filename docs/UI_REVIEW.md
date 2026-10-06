@@ -28,6 +28,7 @@ as verified.
 | 15 | Mobile Me tab | Partial | A dedicated mobile Me screen now groups account, study, settings, app, help, developer, account-safety and admin actions. Existing profile/class/settings/paywall/theme/install/tour/support/API/admin actions are wired; unfinished Practice, Progress, Privacy, Terms, export and deletion are visibly marked “Coming soon”. No viewport or device observation has been performed. |
 | 16 | Settings screen | Partial | Response and app language can be controlled independently, with app language following response language by default; preferred Learning/Research mode persists through the existing user API; class uses the existing validated update; default chat filters share `gage_specs_prefs` with Tune and can be reset; theme supports system/light/dark. Type/build/tests pass, but browser persistence, account sync and visual behavior remain unobserved. |
 | 17 | Plan & usage | Partial | `/api/usage` additively returns `tier`, `used`, `resetsAt` and `proExpiresAt` while preserving existing quota fields. The screen maps numbers directly from the response, shows Pro expiry when supplied, handles retry/error/empty states, lists only the server-enforced image gate and reported allowance, and uses the existing WhatsApp helper for context with a staging prefix outside production. Mapper tests use non-default server values; no live staging response was available. |
+| 18 | Persona chat header | Partial | The header is reduced to back/sidebar, teacher identity with `VariantBadge` and role, response-language chip, teacher selector and an options menu for same-teacher chat, public questions, support report and Plan & usage. Mobile back returns to Subjects; mode selection is retained in the composer. Browser and keyboard behavior remain unobserved. |
 
 ## Build and test evidence
 
@@ -37,8 +38,8 @@ as verified.
 | `npm test` | Pass; 37 tests in 12 files. |
 | `npm run build` | Pass; the missing local Nastaleeq reference and mixed `CompiledNotesModal` import warning are fixed. Vite still reports the large main-chunk warning. |
 | Main JS gzip baseline | 306.73 kB at pre-redesign commit `3fbb4ca3b3826848505ffa2d6d377b9cd62e02d1`. |
-| Current main JS gzip | 326.59 kB; +6.47% from baseline, within the baseline +20% budget. |
-| Current main JS raw | 1,118.03 kB; still above Vite's 500 kB warning threshold. |
+| Current main JS gzip | 327.11 kB; +6.64% from baseline, within the baseline +20% budget. |
+| Current main JS raw | 1,120.29 kB; still above Vite's 500 kB warning threshold. |
 | Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API and Product Tour use lazy imports; Markdown rendering is also behind `React.lazy`. Their separate chunks are present in the build output. |
 
 The baseline was built in a temporary detached worktree from the commit before

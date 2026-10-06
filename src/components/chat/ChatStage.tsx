@@ -21,6 +21,7 @@ import {
   Share2,
   Flag,
   Zap,
+  ArrowLeft,
   ArrowRight,
   Code2,
   Atom,
@@ -405,9 +406,11 @@ interface ChatStageProps {
   isLeftPanelOpen: boolean;
   onToggleRightPanel: () => void;
   isRightPanelOpen: boolean;
+  onBackToSubjects: () => void;
   onUpdateSessionMeta: (sessionId: string, updates: Partial<Pick<ChatSession, 'mode' | 'personaId' | 'variant' | 'specs' | 'title'>>) => void;
   onSaveToNotes: (content: string, title?: string) => void;
   onOpenPaywall: () => void;
+  onOpenPlanUsage: () => void;
   onNewChatWithTeacher: () => void;
   onOpenPersonaGroup?: (groupName: string) => void;
   onOpenKnowledgeGraph?: () => void;
@@ -440,9 +443,11 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   isLeftPanelOpen,
   onToggleRightPanel,
   isRightPanelOpen,
+  onBackToSubjects,
   onUpdateSessionMeta,
   onSaveToNotes,
   onOpenPaywall,
+  onOpenPlanUsage,
   onNewChatWithTeacher,
   onOpenPersonaGroup,
   onOpenKnowledgeGraph,
@@ -456,6 +461,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
   const [showImageProNotice, setShowImageProNotice] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
@@ -467,6 +473,24 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const cropProcessingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!showHeaderMenu) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && !headerMenuRef.current?.contains(event.target)) {
+        setShowHeaderMenu(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowHeaderMenu(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showHeaderMenu]);
 
   const [isSpecsOpen, setIsSpecsOpen] = useState(false);
   const [showMCQCard, setShowMCQCard] = useState<boolean>(false);
@@ -909,6 +933,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
       ? uiCopy(language, 'modeExam')
       : uiCopy(language, 'modeResearch');
   const reportSupportUrl = getWhatsAppSupportUrl(uiCopy(language, 'reportSupportMessage'));
+  const personaQuestionsPath = `/persona/${encodeURIComponent(activePersona.slug || activePersona.id)}/questions`;
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-bg text-text">
@@ -917,12 +942,15 @@ export const ChatStage: React.FC<ChatStageProps> = ({
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {!isLeftPanelOpen && (
             <button
-              onClick={onToggleLeftPanel}
+              onClick={() => {
+                if (window.innerWidth < 1024) onBackToSubjects();
+                else onToggleLeftPanel();
+              }}
               className="flex h-11 w-11 items-center justify-center rounded-pill text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              aria-label="Open recent chats"
-              title="Open Chat Sessions"
+              aria-label={uiCopy(language, window.innerWidth < 1024 ? 'chatBackSubjects' : 'chatOpenRecent')}
+              title={uiCopy(language, window.innerWidth < 1024 ? 'chatBackSubjects' : 'chatOpenRecent')}
             >
-              <PanelLeft className="w-5 h-5" />
+              {window.innerWidth < 1024 ? <ArrowLeft className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
             </button>
           )}
 
@@ -961,18 +989,6 @@ export const ChatStage: React.FC<ChatStageProps> = ({
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
-          <SegmentedControl
-            label={uiCopy(language, 'chatModeLabel')}
-            value={activeMode}
-            options={[
-              { value: 'concept', label: uiCopy(language, 'modeConcept') },
-              { value: 'exam', label: uiCopy(language, 'modeExam') },
-              { value: 'research', label: uiCopy(language, 'modeResearch') },
-            ]}
-            onChange={handleModeChange}
-            className="max-w-full"
-          />
-
           {/* Language Switcher */}
           <div className="relative" data-lang-switcher>
             <button
@@ -1028,7 +1044,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               <PanelRight className="w-5 h-5" />
             </button>
           )}
-          <div className="relative">
+          <div ref={headerMenuRef} className="relative">
             <button
               type="button"
               onClick={() => setShowHeaderMenu((open) => !open)}
@@ -1052,6 +1068,38 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 >
                   <Plus className="h-4 w-4" />
                   {uiCopy(language, 'newChatWithTeacher')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    window.location.assign(personaQuestionsPath);
+                  }}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-control px-3 text-start text-sm text-text hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  {uiCopy(language, 'chatPublicQuestions')}
+                </button>
+                {reportSupportUrl ? (
+                  <a role="menuitem" href={reportSupportUrl} target="_blank" rel="noreferrer" onClick={() => setShowHeaderMenu(false)} className="flex min-h-11 items-center gap-2 rounded-control px-3 text-sm text-text hover:bg-surface-2">
+                    <Flag className="h-4 w-4" />
+                    {uiCopy(language, 'chatReportIssue')}
+                  </a>
+                ) : (
+                  <div className="px-3 py-2 text-xs text-muted">{uiCopy(language, 'sidebarSupportMissing')}</div>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    onOpenPlanUsage();
+                  }}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-control px-3 text-start text-sm text-text hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  <Crown className="h-4 w-4" />
+                  {uiCopy(language, 'sidebarPlanUsage')}
                 </button>
               </div>
             )}
@@ -1806,6 +1854,17 @@ export const ChatStage: React.FC<ChatStageProps> = ({
       {/* 4. WHATSAPP CHAT COMPOSER STAGE */}
       <div className="z-sticky shrink-0 border-t border-border bg-bg px-3 pt-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:px-4">
         <div className="mx-auto max-w-reading space-y-2">
+          <SegmentedControl
+            label={uiCopy(language, 'chatModeLabel')}
+            value={activeMode}
+            options={[
+              { value: 'concept', label: uiCopy(language, 'modeConcept') },
+              { value: 'exam', label: uiCopy(language, 'modeExam') },
+              { value: 'research', label: uiCopy(language, 'modeResearch') },
+            ]}
+            onChange={handleModeChange}
+            className="w-full max-w-full"
+          />
           {/* Hidden File Input for Image Upload */}
           <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" multiple className="hidden" />
           <input type="file" ref={cameraInputRef} onChange={handleImageSelect} accept="image/*" capture="environment" className="hidden" />
