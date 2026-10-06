@@ -1,5 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "./ui/Button";
 
 interface Props {
   children: ReactNode;
@@ -37,27 +38,23 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-[400px] w-full flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <div className="flex min-h-[25rem] w-full items-center justify-center rounded-sheet border border-border bg-bg p-6 text-text">
           <div className="max-w-md text-center space-y-4">
-            <div className="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-300 dark:border-rose-800">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-pill bg-surface-2 text-danger">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-bold tracking-tight">Something went wrong</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              An unpredictable rendering error occurred. The application recovered safely.
+            <h2 className="text-xl font-semibold tracking-tight">Something went wrong</h2>
+            <p className="text-base text-muted">
+              The app could not show this screen. Reload to try again.
             </p>
-            {this.state.error && (
-              <pre className="p-3 bg-slate-100 dark:bg-slate-900 rounded-lg text-xs font-mono text-left text-slate-700 dark:text-slate-300 overflow-x-auto max-h-32 border border-slate-200 dark:border-slate-800">
-                {this.state.error.message}
-              </pre>
-            )}
-            <button
+            <Button
               onClick={this.handleReset}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors inline-flex items-center gap-2 shadow-sm"
+              variant="primary"
+              size="md"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              Reload Application
-            </button>
+              Reload
+            </Button>
           </div>
         </div>
       );

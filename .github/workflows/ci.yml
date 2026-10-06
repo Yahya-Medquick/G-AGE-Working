@@ -21,7 +21,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run Type Check & Linter
         run: npm run lint
@@ -52,4 +52,3 @@ jobs:
           tags: project-atlas:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
