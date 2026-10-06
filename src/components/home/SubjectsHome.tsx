@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, GraduationCap, RotateCw } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpen, GraduationCap, RotateCw, Search, X } from 'lucide-react';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useUser } from '../../context/UserContext';
 import { getAuthHeaders } from '../../services/api';
@@ -19,6 +19,7 @@ interface SubjectsHomeProps {
   pkPersonas: Record<string, ExpertPersona>;
   language: UiLanguage;
   onStartChat: (persona: ExpertPersona, topic: string, starterTopics?: string[]) => void;
+  focusSearchRequest?: number;
 }
 
 function readRecentSlugs(): string[] {
@@ -40,7 +41,7 @@ function subjectTint(subjectKey: string) {
   return 'bg-surface-2 text-text';
 }
 
-export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat }: SubjectsHomeProps) {
+export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat, focusSearchRequest = 0 }: SubjectsHomeProps) {
   const { user, updateClassLevel } = useUser();
   const [classLevel, setClassLevel] = useState<ClassLevelId | null>(() => {
     const saved = user?.class_level || localStorage.getItem('gage_class_level');
@@ -51,6 +52,8 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
   const [voteCounts, setVoteCounts] = useState<Record<string, number>>({});
   const [votedBookIds, setVotedBookIds] = useState<Set<string>>(new Set());
   const [recentSlugs, setRecentSlugs] = useState<string[]>(readRecentSlugs);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { catalog, loading, stale, error, reload } = useCatalog(classLevel);
 
   const t = useCallback((key: Parameters<typeof uiCopy>[1]) => uiCopy(language, key), [language]);
@@ -71,6 +74,32 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
   const featuredPersonas = recentPersonas.length
     ? recentPersonas
     : personas.slice(0, 4);
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  const displayedPersonas = useMemo(() => {
+    if (!normalizedSearch) return featuredPersonas;
+    return personas.filter((persona) => [
+      persona.name,
+      persona.role,
+      persona.group_name,
+      persona.badge,
+      ...(persona.specialties || []),
+    ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch)));
+  }, [featuredPersonas, normalizedSearch, personas]);
+  const displayedSubjects = useMemo(() => {
+    if (!catalog) return [];
+    if (!normalizedSearch) return catalog.subjects;
+    return catalog.subjects.map((subject) => ({
+      ...subject,
+      books: subject.books.filter((book) => [
+        subject.key,
+        book.title,
+        book.board,
+        book.publisher,
+        book.personaGroup,
+        ...book.starterTopics,
+      ].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch))),
+    })).filter((subject) => subject.books.length > 0);
+  }, [catalog, normalizedSearch]);
 
   useEffect(() => {
     if (isClassLevelId(user?.class_level)) setClassLevel(user.class_level);
@@ -95,6 +124,10 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
       .catch((fetchError) => console.warn('Unable to load recent teachers:', fetchError));
     return () => { active = false; };
   }, [user]);
+
+  useEffect(() => {
+    if (focusSearchRequest > 0) searchInputRef.current?.focus();
+  }, [focusSearchRequest]);
 
   const handleClassLevelChange = async (value: string) => {
     if (!isClassLevelId(value)) return;
@@ -166,6 +199,24 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
           <p className="max-w-2xl text-base leading-relaxed text-muted">{t('homeSubtitle')}</p>
         </header>
 
+        <div className="flex min-h-12 items-center gap-3 rounded-control border border-border bg-surface px-3 shadow-lift focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+          <Search aria-hidden="true" className="h-5 w-5 shrink-0 text-muted" />
+          <input
+            ref={searchInputRef}
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t('subjectsSearchPlaceholder')}
+            aria-label={t('subjectsSearchLabel')}
+            className="min-w-0 flex-1 bg-transparent py-2 text-base text-text placeholder:text-muted focus:outline-none"
+          />
+          {searchQuery && (
+            <button type="button" onClick={() => setSearchQuery('')} aria-label={t('clearSearch')} className="flex h-11 w-11 items-center justify-center rounded-pill text-muted hover:bg-surface-2">
+              <X aria-hidden="true" className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         <div className="max-w-sm">
           <label htmlFor="subjects-class-level" className="mb-2 block text-sm font-medium text-text">
             {t('chooseClassLabel')}
@@ -203,9 +254,9 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
                 </Button>
               </div>
             )}
-            {catalog && catalog.subjects.length > 0 && (
+            {catalog && displayedSubjects.length > 0 && (
               <div className="grid gap-3 sm:grid-cols-2">
-                {catalog.subjects.map((subject) => (
+                {displayedSubjects.map((subject) => (
                   <article key={subject.key} className={`min-w-0 rounded-tile p-4 shadow-lift ${subjectTint(subject.key)}`}>
                     <div className="mb-3 flex items-center gap-2">
                       <BookOpen aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -253,12 +304,15 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
                 ))}
               </div>
             )}
-            {catalog && catalog.subjects.length === 0 && (
+            {catalog && catalog.subjects.length === 0 && !normalizedSearch && (
               <EmptyState
                 icon={<BookOpen className="h-8 w-8" />}
                 title={t('catalogEmptyTitle')}
                 description={t('catalogEmptyDescription')}
               />
+            )}
+            {catalog && normalizedSearch && displayedSubjects.length === 0 && (
+              <EmptyState title={t('searchNoResults')} description={t('searchNoResultsDescription')} />
             )}
             {voteError && <p role="alert" className="text-sm text-danger">{voteError}</p>}
           </section>
@@ -267,13 +321,13 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
         <section aria-labelledby="teachers-heading" className="space-y-3">
           <div>
             <h2 id="teachers-heading" className="text-xl font-semibold text-text">
-              {recentPersonas.length ? t('recentTeachers') : t('teachers')}
+              {normalizedSearch ? t('searchResults') : recentPersonas.length ? t('recentTeachers') : t('teachers')}
             </h2>
             <p className="mt-1 text-sm leading-relaxed text-muted">{t('teachersDescription')}</p>
           </div>
-          {featuredPersonas.length > 0 ? (
+          {displayedPersonas.length > 0 ? (
             <ul className="divide-y divide-border overflow-hidden rounded-tile border border-border bg-surface">
-              {featuredPersonas.map((persona) => (
+              {displayedPersonas.map((persona) => (
                 <li key={`${persona.variant}:${persona.slug || persona.id}`}>
                   <button
                     type="button"
@@ -302,7 +356,10 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
               ))}
             </ul>
           ) : (
-            <EmptyState title={t('teachers')} description={t('teachersDescription')} />
+            <EmptyState
+              title={normalizedSearch ? t('searchNoResults') : t('teachers')}
+              description={normalizedSearch ? t('searchNoResultsDescription') : t('teachersDescription')}
+            />
           )}
         </section>
       </div>

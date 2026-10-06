@@ -234,6 +234,7 @@ export default function App() {
   const [saveNoteToast, setSaveNoteToast] = useState<boolean>(false);
   const [isKnowledgeGraphOpen, setIsKnowledgeGraphOpen] = useState<boolean>(false);
   const [openExploreRequest, setOpenExploreRequest] = useState(0);
+  const [subjectsSearchFocusRequest, setSubjectsSearchFocusRequest] = useState(0);
   const [compiledNotesModalState, setCompiledNotesModalState] = useState<{
     isOpen: boolean;
     compiledText: string;
@@ -435,10 +436,11 @@ export default function App() {
   }, []);
 
   // Create new chat
-  const handleNewChat = useCallback(() => {
+  const handleNewChat = useCallback((focusSearch = false) => {
     skipReveal();
     setIsMeOpen(false);
     setIsSubjectsHomeOpen(true);
+    if (focusSearch) setSubjectsSearchFocusRequest((request) => request + 1);
     if (window.innerWidth < 1024) {
       setIsLeftPanelOpen(false);
     }
@@ -449,7 +451,7 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        handleNewChat();
+        handleNewChat(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -910,6 +912,7 @@ export default function App() {
             globalPersonas={globalExperts}
             pkPersonas={pkExperts}
             language={language}
+            focusSearchRequest={subjectsSearchFocusRequest}
             onStartChat={(persona, topic, starterTopics) => {
               const variant = persona.variant || 'global';
               setIsMeOpen(false);
