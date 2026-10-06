@@ -109,9 +109,12 @@ export interface ChatSession {
 
 export interface QueryUsageState {
   isLoggedIn: boolean;
-  tier: 'free' | 'logged_out' | 'paid';
+  tier: 'free' | 'logged_out' | 'paid' | 'pro' | 'unlimited';
   count: number;
+  used: number;
   limit: number;
   remaining: number;
   resetInSeconds: number;
+  resetsAt: string | null;
+  proExpiresAt: string | null;
 }

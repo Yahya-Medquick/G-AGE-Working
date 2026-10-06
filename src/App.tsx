@@ -27,6 +27,7 @@ import { ClassLevelPrompt } from './components/home/ClassLevelPrompt';
 import { uiCopy, type UiLanguage } from './i18n/ui';
 import { shouldPromptForClass } from './data/classLevels';
 import { SettingsScreen } from './components/SettingsScreen';
+import { PlanUsageScreen } from './components/PlanUsageScreen';
 
 // Lazy-loaded secondary modals for optimal performance
 const AdminDashboardModal = lazy(() =>
@@ -88,6 +89,8 @@ export default function App() {
   // Query usage & paywall tracker
   const {
     usage,
+    usageLoaded,
+    usageError,
     canExecuteQuery,
     refreshUsage,
     isPaywallOpen,
@@ -144,6 +147,11 @@ export default function App() {
     } catch (error) {
       console.warn('Unable to save class prompt preference:', error);
     }
+  };
+
+  const handleOpenPlanUsage = () => {
+    setIsPlanUsageOpen(true);
+    void refreshUsage();
   };
 
   useEffect(() => {
@@ -207,6 +215,7 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPlanUsageOpen, setIsPlanUsageOpen] = useState(false);
   const [isMeOpen, setIsMeOpen] = useState(false);
   const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'history' | 'preferences'>('profile');
   const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
@@ -803,12 +812,23 @@ export default function App() {
         onOpenCompare={() => setIsCompareOpen(true)}
         onOpenTimeline={() => setIsTimelineOpen(true)}
         onOpenLogin={() => setIsLoginOpen(true)}
-        onOpenPaywall={triggerPaywall}
+        onOpenPlanUsage={handleOpenPlanUsage}
         onOpenDownload={handleOpenDownload}
         queryUsage={usage}
         theme={theme}
         toggleTheme={toggleTheme}
         language={language}
+      />
+
+      <PlanUsageScreen
+        isOpen={isPlanUsageOpen}
+        onClose={() => setIsPlanUsageOpen(false)}
+        language={language}
+        usage={usage}
+        hasData={usageLoaded}
+        isLoading={!usageLoaded && !usageError}
+        hasError={usageError}
+        onRetry={refreshUsage}
       />
 
       <SettingsScreen
@@ -838,7 +858,7 @@ export default function App() {
             theme={theme}
             onOpenProfile={() => handleOpenProfile('profile')}
             onOpenClass={() => handleOpenProfile('profile')}
-            onOpenPlan={triggerPaywall}
+            onOpenPlan={handleOpenPlanUsage}
             onOpenSettings={() => handleOpenProfile('preferences')}
             onToggleTheme={toggleTheme}
             onOpenDownload={handleOpenDownload}

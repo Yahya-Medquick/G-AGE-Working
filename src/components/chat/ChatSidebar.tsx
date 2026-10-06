@@ -59,7 +59,7 @@ interface ChatSidebarProps {
   onOpenCompare: () => void;
   onOpenTimeline: () => void;
   onOpenLogin: () => void;
-  onOpenPaywall: () => void;
+  onOpenPlanUsage: () => void;
   onOpenDownload?: () => void;
   queryUsage: {
     count: number;
@@ -95,7 +95,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onOpenCompare,
   onOpenTimeline,
   onOpenLogin,
-  onOpenPaywall,
+  onOpenPlanUsage,
   onOpenDownload,
   queryUsage,
   theme,
@@ -111,7 +111,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const supportUrl = getWhatsAppSupportUrl(uiCopy(language, 'sidebarSupportMessage'));
-  const isPaid = queryUsage.tier === 'paid' || user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
+  const isPaid = queryUsage.tier === 'paid' || queryUsage.tier === 'pro' || queryUsage.tier === 'unlimited' || user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
 
   useEffect(() => {
     if (!isProfileMenuOpen) return;
@@ -508,7 +508,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 </div>
                 <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenProfile('profile'); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><UserRound className="h-4 w-4" />{uiCopy(language, 'sidebarProfile')}</button>
                 <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenProfile('profile'); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><BookOpen className="h-4 w-4" />{uiCopy(language, 'sidebarClass')}</button>
-                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenPaywall(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Crown className="h-4 w-4" />{uiCopy(language, 'sidebarPlanUsage')}</button>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenPlanUsage(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Crown className="h-4 w-4" />{uiCopy(language, 'sidebarPlanUsage')}</button>
                 <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenProfile('preferences'); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Settings className="h-4 w-4" />{uiCopy(language, 'sidebarSettings')}</button>
                 <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); toggleTheme(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2">{theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}{uiCopy(language, 'sidebarNightMode')}</button>
                 <button type="button" role="menuitem" disabled title={uiCopy(language, 'sidebarNotReady')} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-muted"><BarChart3 className="h-4 w-4" />{uiCopy(language, 'sidebarProgress')}<span className="ml-auto text-[10px]">{uiCopy(language, 'sidebarNotReady')}</span></button>

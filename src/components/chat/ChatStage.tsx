@@ -450,7 +450,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 }) => {
   const replyActionClass = 'inline-flex min-h-11 items-center gap-2 rounded-control px-2.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
   const { user } = useUser();
-  const isPaid = queryUsage.tier === 'paid' || user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
+  const isPaid = queryUsage.tier === 'paid' || queryUsage.tier === 'pro' || queryUsage.tier === 'unlimited' || user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
 
   const [inputText, setInputText] = useState('');
   const [attachedImages, setAttachedImages] = useState<string[]>([]);

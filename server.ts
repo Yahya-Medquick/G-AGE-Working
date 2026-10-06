@@ -6488,8 +6488,11 @@ app.get("/api/usage", async (req: Request, res: Response) => {
       guestLifetimeCount: 0,
       limit: 999999,
       count: 0,
+      used: 0,
       remaining: 999999,
       resetInSeconds: 0,
+      resetsAt: null,
+      proExpiresAt: currentUser.pro_expires_at || null,
     });
   }
 
@@ -6514,6 +6517,7 @@ app.get("/api/usage", async (req: Request, res: Response) => {
   const resetInSeconds = getSecondsUntilUtcMidnight();
   res.json({
     loggedIn: !!currentUser,
+    tier: currentUser?.tier || "logged_out",
     tab,
     deviceId,
     deviceLimit: 15,
@@ -6526,8 +6530,11 @@ app.get("/api/usage", async (req: Request, res: Response) => {
     guestLifetimeCount,
     limit: currentUser ? Math.min(15, 10) : GUEST_LIFETIME_LIMIT,
     count: currentUser ? accountCount : guestLifetimeCount,
+    used: currentUser ? accountCount : guestLifetimeCount,
     remaining: effectiveRemaining,
     resetInSeconds,
+    resetsAt: new Date(Date.now() + resetInSeconds * 1000).toISOString(),
+    proExpiresAt: null,
   });
 });
 
