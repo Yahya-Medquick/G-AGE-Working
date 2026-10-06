@@ -54,7 +54,7 @@ npm start
 
 ## 4. Deploying to Railway (Recommended)
 
-Railway is the primary cloud host for G-AGE AI, serving traffic at **`bifrostai.up.railway.app`**.
+Railway is the primary cloud host for G-AGE AI, serving traffic at **`gageai.org**.
 
 ### Step 1: Push Code to GitHub
 Ensure your repository is initialized and pushed to a remote GitHub repository.
@@ -75,8 +75,8 @@ git push -u origin main
 ### Step 3: Configure Environment Variables
 In the **Variables** tab of your Railway service, add the following parameters:
 - `NODE_ENV`: `production`
-- `PORT`: `3000`
-- `APP_URL`: `https://bifrostai.up.railway.app`
+- `PORT`: `8080`
+- `APP_URL`: `https://gageai.org`
 - `GEMINI_API_KEY`: *(Your Google Gemini API Key)*
 - `GEMINI_API_KEY_1`: *(Additional Gemini API key)*
 - `GEMINI_API_KEY_3`: *(Additional Gemini API key)*
@@ -87,7 +87,7 @@ In the **Variables** tab of your Railway service, add the following parameters:
 Keep the existing `GEMINI_API_KEY`, `GEMINI_API_KEY_1`, and `GEMINI_API_KEY_3` variables configured. These same keys work across all Gemini models in the fallback chain.
 
 ### Step 4: Verify Deployment
-Railway will automatically detect the root `Dockerfile`, build the multi-stage image, and expose the domain at `bifrostai.up.railway.app`. Verify that:
+Railway will automatically detect the root `Dockerfile`, build the multi-stage image, and expose the domain at `gageai.org`. Verify that:
 - `/api/v1/health` returns status `{ "status": "healthy" }`
 - The front-end interface loads with full responsive capabilities.
 
@@ -104,7 +104,7 @@ docker build -t gage-ai:latest .
 ```bash
 docker run -d \
   --name gage-prod \
-  -p 3000:3000 \
+  -p 8080:8080 \
   -e NODE_ENV=production \
   -e GEMINI_API_KEY="your-gemini-key" \
   -e ADMIN_TOKEN="your-admin-token" \
@@ -114,7 +114,7 @@ docker run -d \
 
 ### C. Verify Container Health
 ```bash
-curl http://localhost:3000/api/v1/health
+curl http://localhost:8080/api/v1/health
 ```
 
 ---
@@ -135,12 +135,12 @@ gcloud run deploy gage-ai \
   --region us-central1 \
   --platform managed \
   --allow-unauthenticated \
-  --port 3000 \
+  --port 8080 \
   --min-instances 1 \
   --max-instances 10 \
   --cpu 1 \
   --memory 512Mi \
-  --set-env-vars "NODE_ENV=production,APP_URL=https://bifrostai.up.railway.app" \
+  --set-env-vars "NODE_ENV=production,APP_URL=https://gageai.org" \
   --set-secrets "GEMINI_API_KEY=GEMINI_KEY_SECRET:latest,ADMIN_TOKEN=ADMIN_TOKEN_SECRET:latest"
 ```
 
@@ -165,20 +165,20 @@ spec:
       - name: explorer
         image: gage-ai:latest
         ports:
-        - containerPort: 3000
+        - containerPort: 8080
         envFrom:
         - secretRef:
             name: gage-secrets
         livenessProbe:
           httpGet:
             path: /api/v1/health
-            port: 3000
+            port: 8080
           initialDelaySeconds: 15
           periodSeconds: 20
         readinessProbe:
           httpGet:
             path: /api/v1/ready
-            port: 3000
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
         resources:
@@ -199,7 +199,7 @@ When deploying behind an Nginx gateway manually:
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name bifrostai.up.railway.app;
+    server_name gageai.org;
 
     ssl_certificate /etc/letsencrypt/live/bifrostai.up.railway.app/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/bifrostai.up.railway.app/privkey.pem;
@@ -210,7 +210,7 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
