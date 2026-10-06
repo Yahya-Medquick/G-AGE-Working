@@ -1,0 +1,398 @@
+[
+  {
+    "method": "DELETE",
+    "path": "/api/history"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/history/:id"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/notes/:id"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/personas/:id"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/personas/admin/:id"
+  },
+  {
+    "method": "GET",
+    "path": "*"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/apikeys"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/entities"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/personas"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/stats"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/users"
+  },
+  {
+    "method": "GET",
+    "path": "/api/ask"
+  },
+  {
+    "method": "GET",
+    "path": "/api/auth/me"
+  },
+  {
+    "method": "GET",
+    "path": "/api/autocomplete"
+  },
+  {
+    "method": "GET",
+    "path": "/api/category/:category"
+  },
+  {
+    "method": "GET",
+    "path": "/api/compare"
+  },
+  {
+    "method": "GET",
+    "path": "/api/counsel/session/:personaId"
+  },
+  {
+    "method": "GET",
+    "path": "/api/counsel/sessions"
+  },
+  {
+    "method": "GET",
+    "path": "/api/debug/sources"
+  },
+  {
+    "method": "GET",
+    "path": "/api/definition"
+  },
+  {
+    "method": "GET",
+    "path": "/api/download/apk"
+  },
+  {
+    "method": "GET",
+    "path": "/api/download/apk/info"
+  },
+  {
+    "method": "GET",
+    "path": "/api/entities/search"
+  },
+  {
+    "method": "GET",
+    "path": "/api/entities/trending"
+  },
+  {
+    "method": "GET",
+    "path": "/api/explore/papers"
+  },
+  {
+    "method": "GET",
+    "path": "/api/explore/repos"
+  },
+  {
+    "method": "GET",
+    "path": "/api/explore/research-news"
+  },
+  {
+    "method": "GET",
+    "path": "/api/health"
+  },
+  {
+    "method": "GET",
+    "path": "/api/history"
+  },
+  {
+    "method": "GET",
+    "path": "/api/internal/ask"
+  },
+  {
+    "method": "GET",
+    "path": "/api/mcqs"
+  },
+  {
+    "method": "GET",
+    "path": "/api/notes"
+  },
+  {
+    "method": "GET",
+    "path": "/api/persona/:personaSlug/questions"
+  },
+  {
+    "method": "GET",
+    "path": "/api/personas"
+  },
+  {
+    "method": "GET",
+    "path": "/api/q/:slug"
+  },
+  {
+    "method": "GET",
+    "path": "/api/ready"
+  },
+  {
+    "method": "GET",
+    "path": "/api/search"
+  },
+  {
+    "method": "GET",
+    "path": "/api/timeline"
+  },
+  {
+    "method": "GET",
+    "path": "/api/usage"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ask"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/compare"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/health"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/metrics"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/personas"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/personas/:slug"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/personas/admin/all"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/personas/recent"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/qa/admin/flagged"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/ready"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/timeline"
+  },
+  {
+    "method": "GET",
+    "path": "/download.apk"
+  },
+  {
+    "method": "GET",
+    "path": "/downloads/:filename"
+  },
+  {
+    "method": "GET",
+    "path": "/downloads/latest.apk"
+  },
+  {
+    "method": "GET",
+    "path": "/persona/:slug"
+  },
+  {
+    "method": "GET",
+    "path": "/robots.txt"
+  },
+  {
+    "method": "GET",
+    "path": "/sitemap-qa.xml"
+  },
+  {
+    "method": "GET",
+    "path": "/sitemap.xml"
+  },
+  {
+    "method": "GET",
+    "path": "/topic/:slug"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/users/:id/pro-expiry"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/users/:id/tier"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/notes/:id"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/personas/:id"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/user/onboarding"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/user/preferences"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/personas/admin/:id"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/personas/admin/:id/reorder"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/qa/admin/:id/flag"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/qa/admin/:id/unpublish"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/apikeys"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/apikeys/:id/revoke"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/cache/clear"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/cleanup-topics"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/entities"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/entities/:slug/refresh"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/personas/refresh"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/simulate-fallback"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/verify"
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/google"
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/login"
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/logout"
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/register"
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/request-otp"
+  },
+  {
+    "method": "POST",
+    "path": "/api/auth/verify-new-device"
+  },
+  {
+    "method": "POST",
+    "path": "/api/chat/message"
+  },
+  {
+    "method": "POST",
+    "path": "/api/counsel"
+  },
+  {
+    "method": "POST",
+    "path": "/api/explore/extract-topic"
+  },
+  {
+    "method": "POST",
+    "path": "/api/history"
+  },
+  {
+    "method": "POST",
+    "path": "/api/learn/answer"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notes"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notes/compile"
+  },
+  {
+    "method": "POST",
+    "path": "/api/notes/generate-questions"
+  },
+  {
+    "method": "POST",
+    "path": "/api/query/track"
+  },
+  {
+    "method": "POST",
+    "path": "/api/user/onboarding"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/personas/:slug/used"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/personas/admin/create"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/auth/profile"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/history/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/personas/:id"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/personas/admin/:id"
+  }
+]

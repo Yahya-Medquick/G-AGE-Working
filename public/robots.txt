@@ -1,3 +1,2 @@
 User-agent: *
 Allow: /
-Sitemap: https://gageai.org/sitemap-qa.xml

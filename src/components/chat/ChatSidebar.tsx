@@ -28,6 +28,7 @@ import {
 import { ChatSession } from '../../types/chat';
 import { useUser } from '../../context/UserContext';
 import { ExpertPersona } from '../../data/experts';
+import { appEnvironment } from '../../config/env';
 
 interface ChatSidebarProps {
   isOpen: boolean;
@@ -505,6 +506,16 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           )}
 
           {/* User Account / Sign In Footer */}
+          {appEnvironment !== 'production' && (
+            <div
+              className="flex justify-start px-1 py-0.5"
+              aria-label={import.meta.env.VITE_PR_NUMBER ? `Staging preview pull request ${import.meta.env.VITE_PR_NUMBER}` : 'Staging preview'}
+            >
+              <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+                {import.meta.env.VITE_PR_NUMBER ? `PR #${import.meta.env.VITE_PR_NUMBER}` : 'Staging'}
+              </span>
+            </div>
+          )}
           {isLoggedIn && user ? (
             <div className="flex items-center justify-between p-1.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
               <div

@@ -69,7 +69,7 @@ export const PublicQAPage: React.FC = () => {
       canonical.rel = "canonical";
       document.head.appendChild(canonical);
     }
-    canonical.href = `https://gageai.org/q/${encodeURIComponent(page.slug)}`;
+    canonical.href = `${window.location.origin}/q/${encodeURIComponent(page.slug)}`;
 
     const schemaId = "qa-page-jsonld";
     document.getElementById(schemaId)?.remove();

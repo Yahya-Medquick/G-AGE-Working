@@ -4,8 +4,22 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  const configuredAppEnv = process.env.VITE_APP_ENV || process.env.APP_ENV;
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'deployment-robots-meta',
+        transformIndexHtml(html) {
+          if (!configuredAppEnv || configuredAppEnv === 'production') return html;
+          return html.replace(
+            /<meta name="robots" content="[^"]*"\s*\/?>/i,
+            '<meta name="robots" content="noindex, nofollow" />',
+          );
+        },
+      },
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

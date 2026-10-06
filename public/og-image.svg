@@ -22,7 +22,7 @@
   <text x="541" y="378" font-size="17" fill="white" text-anchor="middle">PDF Notes</text>
   <rect x="624" y="350" width="195" height="44" rx="22" fill="#3a7bd5" fill-opacity="0.3" stroke="#3a7bd5" stroke-width="1.5"/>
   <text x="721" y="378" font-size="17" fill="white" text-anchor="middle">Urdu + English</text>
-  <text x="100" y="560" font-size="28" fill="#3a7bd5" font-weight="600">gageai.org</text>
+  <text x="100" y="560" font-size="28" fill="#3a7bd5" font-weight="600">G-AGE AI</text>
   <rect x="920" y="480" width="170" height="55" rx="10" fill="url(#accent)"/>
   <text x="1005" y="514" font-size="22" fill="white" text-anchor="middle" font-weight="700">100% Free</text>
 </svg>

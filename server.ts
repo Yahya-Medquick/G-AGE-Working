@@ -20,8 +20,23 @@ import {
   type PersonaVariant,
 } from "./src/data/personaRegistry";
 import { extractSuggestedGroup, fetchActivePersonaGroups } from "./src/data/personaGroups";
+import {
+  assertSafeDatabaseTarget,
+  resolveAppEnvironment,
+  shouldEnableBackgroundJobs,
+} from "./server/env";
 
 const { Pool } = pg;
+const APP_ENV = resolveAppEnvironment(process.env.APP_ENV);
+const NON_PRODUCTION_APP = APP_ENV !== "production";
+const ENABLE_BACKGROUND_JOBS = shouldEnableBackgroundJobs(process.env.ENABLE_BACKGROUND_JOBS);
+
+try {
+  assertSafeDatabaseTarget(process.env);
+} catch (error) {
+  console.error("[Startup Safety] Refusing to start with the configured database target.");
+  throw error;
+}
 
 type ResearchPaperSource = {
   title: string;
@@ -1391,9 +1406,11 @@ async function runPublicQAGenerationWorker(): Promise<void> {
 
 // Run Public QA Indexer every 30 minutes (1,800,000 ms) instead of every 30 seconds
 const QA_INDEXER_INTERVAL_MS = 30 * 60 * 1000;
-setInterval(() => {
-  void runPublicQAGenerationWorker();
-}, QA_INDEXER_INTERVAL_MS);
+if (ENABLE_BACKGROUND_JOBS) {
+  setInterval(() => {
+    void runPublicQAGenerationWorker();
+  }, QA_INDEXER_INTERVAL_MS);
+}
 
 export async function findCanonicalPage(q: string): Promise<number | null> {
   if (!dbPool) return null;
@@ -1904,9 +1921,16 @@ async function fetchWithRetry<T>(
 }
 
 const app = express();
+if (NON_PRODUCTION_APP) {
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    next();
+  });
+}
 
 // GET /sitemap-qa.xml - XML sitemap for published Q&A pages
 app.get('/sitemap-qa.xml', async (req: Request, res: Response) => {
+  if (NON_PRODUCTION_APP) return res.status(404).end();
   const escapeXml = (value: string): string => value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -1929,9 +1953,10 @@ app.get('/sitemap-qa.xml', async (req: Request, res: Response) => {
        LIMIT 50000`
     );
     const rows = result.rows;
+    const publicBaseUrl = getPublicBaseUrl(req);
     const urls = rows.map((row: any) => `
   <url>
-    <loc>https://gageai.org/q/${escapeXml(row.slug)}</loc>
+    <loc>${escapeXml(publicBaseUrl)}/q/${escapeXml(row.slug)}</loc>
     <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -1952,6 +1977,8 @@ app.get('/sitemap-qa.xml', async (req: Request, res: Response) => {
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
+    appEnv: APP_ENV,
+    commit: process.env.RAILWAY_GIT_COMMIT_SHA || null,
     commitSha: process.env.RAILWAY_GIT_COMMIT_SHA || null,
     timestamp: new Date().toISOString(),
     integrations: {
@@ -2048,8 +2075,30 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 // Security: Hardened CORS Configuration & Preflight Handling
 app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
-  const allowedOrigins = ["https://gageai.org", "https://www.gageai.org", "http://localhost:5173"];
-  if (origin && allowedOrigins.includes(origin)) {
+  const requestHost = req.get("x-forwarded-host") || req.get("host");
+  const requestOrigin = requestHost ? `${req.get("x-forwarded-proto") || req.protocol}://${requestHost}` : "";
+  const configuredOrigins = [process.env.PUBLIC_BASE_URL, process.env.APP_URL]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => {
+      try {
+        return new URL(value).origin;
+      } catch {
+        return "";
+      }
+    });
+  const allowedOrigins = new Set([requestOrigin, ...configuredOrigins, "http://localhost:5173"]);
+  for (const configuredOrigin of allowedOrigins) {
+    try {
+      const url = new URL(configuredOrigin);
+      if (url.protocol !== "https:" || url.hostname === "localhost" || url.hostname === "127.0.0.1") continue;
+      const baseHost = url.hostname.startsWith("www.") ? url.hostname.slice(4) : url.hostname;
+      allowedOrigins.add(`https://${baseHost}`);
+      allowedOrigins.add(`https://www.${baseHost}`);
+    } catch {
+      continue;
+    }
+  }
+  if (origin && allowedOrigins.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Vary", "Origin");
@@ -2263,7 +2312,7 @@ app.get("/api/explore/papers", async (req: Request, res: Response) => {
       select: "id,title,authorships,publication_year,doi,primary_location,cited_by_count,open_access",
     });
     const url = `https://api.openalex.org/works?${params.toString()}`;
-    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
+    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0" } });
     if (!response.ok) throw new Error("OpenAlex API error");
     const data = await response.json();
     const papers = data.results.map((work: any) => ({
@@ -2327,7 +2376,7 @@ app.get("/api/explore/research-news", async (req: Request, res: Response) => {
     });
     if (filters) params.set("filter", filters);
     const url = `https://api.openalex.org/works?${params.toString()}`;
-    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0 (gageai.org)" } });
+    const response = await fetch(url, { headers: { "User-Agent": "G-AGE-AI/1.0" } });
     if (!response.ok) throw new Error("OpenAlex news error");
     const data = await response.json();
     const items = (data.results || []).map((work: any) => ({
@@ -2508,6 +2557,7 @@ let backgroundJobLastRun = new Date().toISOString();
 let backgroundEntitiesRefreshedCount = 0;
 
 function startBackgroundJobRunner() {
+  if (!ENABLE_BACKGROUND_JOBS) return;
   setInterval(() => {
     try {
       // 1. Refresh stale entity popularity and freshness decay
@@ -2560,9 +2610,11 @@ async function downgradeExpiredPaidUsers(): Promise<void> {
   }
 }
 
-setInterval(() => {
-  void downgradeExpiredPaidUsers();
-}, 1000 * 60 * 60 * 24);
+if (ENABLE_BACKGROUND_JOBS) {
+  setInterval(() => {
+    void downgradeExpiredPaidUsers();
+  }, 1000 * 60 * 60 * 24);
+}
 
 // Start Background Refresh Loop
 startBackgroundJobRunner();
@@ -9030,9 +9082,14 @@ Return valid JSON with format:
 // Centralized helper for public base URL resolution (handles custom domain env var PUBLIC_BASE_URL, APP_URL, or request headers)
 function getPublicBaseUrl(req?: Request): string {
   let val = "";
-  if (process.env.PUBLIC_BASE_URL && process.env.PUBLIC_BASE_URL.trim() !== "") {
+  if (NON_PRODUCTION_APP && req) {
+    const host = req.get("x-forwarded-host") || req.get("host");
+    const proto = req.get("x-forwarded-proto") || req.protocol || "https";
+    if (host) return `${proto}://${host}`;
+  }
+  if (!NON_PRODUCTION_APP && process.env.PUBLIC_BASE_URL && process.env.PUBLIC_BASE_URL.trim() !== "") {
     val = process.env.PUBLIC_BASE_URL.trim();
-  } else if (process.env.APP_URL && process.env.APP_URL.trim() !== "") {
+  } else if (!NON_PRODUCTION_APP && process.env.APP_URL && process.env.APP_URL.trim() !== "") {
     val = process.env.APP_URL.trim();
   }
 
@@ -9057,7 +9114,7 @@ function getPublicBaseUrl(req?: Request): string {
     const proto = req.get("x-forwarded-proto") || req.protocol || "https";
     if (host) return `${proto}://${host}`;
   }
-  return "https://gageai.org";
+  return "";
 }
 
 // Helper functions for SEO Meta Injection
@@ -9320,11 +9377,15 @@ app.get("/topic/:slug", async (req: Request, res: Response) => {
 
 // Dynamic SEO Routes: robots.txt and sitemap.xml (Steps 3 & 4)
 app.get("/robots.txt", (req: Request, res: Response) => {
-  const domain = getPublicBaseUrl(req) || "https://gageai.org";
+  if (NON_PRODUCTION_APP) {
+    res.setHeader("Content-Type", "text/plain");
+    return res.send("User-agent: *\nDisallow: /\n");
+  }
+  const domain = getPublicBaseUrl(req);
   res.setHeader("Content-Type", "text/plain");
   res.send(`User-agent: *
 Allow: /
-Sitemap: https://gageai.org/sitemap-qa.xml
+Sitemap: ${domain}/sitemap-qa.xml
 `);
 });
 
@@ -9367,6 +9428,7 @@ app.get("/persona/:slug", async (req: Request, res: Response) => {
 });
 
 app.get("/sitemap.xml", (req: Request, res: Response) => {
+  if (NON_PRODUCTION_APP) return res.status(404).end();
   res.redirect(301, "/sitemap-qa.xml");
 });
 
@@ -9384,9 +9446,11 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 async function startServer() {
   await initDatabaseSchema();
   await refreshPersonaRegistry();
-  setInterval(() => {
-    void refreshPersonaRegistry();
-  }, PERSONA_REGISTRY_REFRESH_INTERVAL_MS);
+  if (ENABLE_BACKGROUND_JOBS) {
+    setInterval(() => {
+      void refreshPersonaRegistry();
+    }, PERSONA_REGISTRY_REFRESH_INTERVAL_MS);
+  }
 
   if (process.env.NODE_ENV !== "production" && !process.argv[1]?.endsWith(".cjs")) {
     const vite = await createViteServer({
@@ -9397,6 +9461,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath, {
+      index: false,
       setHeaders: (res, filePath) => {
         if (filePath.includes(`${path.sep}assets${path.sep}`)) {
           res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
@@ -9404,7 +9469,22 @@ async function startServer() {
       },
     }));
     app.get("*", (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      const shellPath = path.join(distPath, "index.html");
+      fs.readFile(shellPath, "utf8", (error, template) => {
+        if (error) return res.status(500).send("Application shell unavailable.");
+        let html = template;
+        const baseUrl = getPublicBaseUrl(req);
+        if (NON_PRODUCTION_APP) {
+          html = html.replace(/<meta name="robots" content="[^"]*"\s*\/?>/i, '<meta name="robots" content="noindex, nofollow" />');
+        }
+        html = html
+          .replace(/<link rel="canonical" href="[^"]*"\s*\/?>/i, `<link rel="canonical" href="${baseUrl}/" />`)
+          .replace(/<meta property="og:url" content="[^"]*"\s*\/?>/i, `<meta property="og:url" content="${baseUrl}/" />`)
+          .replace(/<meta name="twitter:url" content="[^"]*"\s*\/?>/i, `<meta name="twitter:url" content="${baseUrl}/" />`)
+          .replaceAll('"url": "/"', `"url": "${baseUrl}/"`)
+          .replaceAll('content="/og-image.svg"', `content="${baseUrl}/og-image.svg"`);
+        res.type("html").send(html);
+      });
     });
   }
 

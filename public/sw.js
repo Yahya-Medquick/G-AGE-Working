@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gage-ai-v1';
+const CACHE_NAME = 'gage-ai-v2';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_ASSETS = ['/', '/offline.html', '/manifest.json', '/icons/icon-192x192.png', '/icons/icon-512x512.png'];
 
@@ -16,6 +16,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(self.location.origin)) return;
   const requestUrl = new URL(event.request.url);
+  if (requestUrl.pathname.startsWith('/api/') || requestUrl.pathname.startsWith('/q/')) return;
   if (requestUrl.pathname.startsWith('/assets/')) {
     event.respondWith(
       caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
@@ -30,11 +31,17 @@ self.addEventListener('fetch', (event) => {
   }
   event.respondWith(
     fetch(event.request).then((response) => {
-      if (response && response.status === 200) {
+      if (response && response.status === 200 && requestUrl.pathname !== '/terms' && requestUrl.pathname !== '/privacy') {
         const clone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
       }
       return response;
-    }).catch(() => caches.match(event.request).then((cached) => cached || (event.request.mode === 'navigate' ? caches.match(OFFLINE_URL) : undefined)))
+    }).catch(() => caches.match(event.request).then((cached) => (
+      cached ||
+      (event.request.mode === 'navigate' && ['/terms', '/privacy'].includes(requestUrl.pathname)
+        ? caches.match('/')
+        : undefined) ||
+      (event.request.mode === 'navigate' ? caches.match(OFFLINE_URL) : undefined)
+    )))
   );
 });
