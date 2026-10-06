@@ -101,6 +101,7 @@ export default function App() {
   // Layout panel collapse states (responsive defaults: open on desktop, closed on mobile)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(() => window.innerWidth >= 1024);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(() => window.innerWidth >= 1280);
+  const [isSubjectsHomeOpen, setIsSubjectsHomeOpen] = useState(false);
   const [initialPersonaGroup, setInitialPersonaGroup] = useState<string | null>(null);
 
   // Active persona region variant ('global' | 'pk') - default to Pakistani first
@@ -352,11 +353,11 @@ export default function App() {
   // Create new chat
   const handleNewChat = useCallback(() => {
     skipReveal();
-    createSession('hamza', 'concept', 'General Discussion', 'New Chat', activeVariant);
+    setIsSubjectsHomeOpen(true);
     if (window.innerWidth < 1024) {
       setIsLeftPanelOpen(false);
     }
-  }, [createSession, activeVariant, skipReveal]);
+  }, [skipReveal]);
 
   // Keyboard shortcut: Ctrl+K or Cmd+K for New Chat
   useEffect(() => {
@@ -678,7 +679,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen w-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex overflow-hidden font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+    <div className="flex h-dvh w-full min-w-0 overflow-hidden bg-bg font-sans text-text selection:bg-accent selection:text-on-accent">
       {chatErrorToast && (
         <div role="alert" className="fixed top-4 right-4 z-[100] max-w-sm rounded-lg border border-rose-300 bg-white px-4 py-3 text-sm text-rose-700 shadow-lg dark:border-rose-900 dark:bg-slate-900 dark:text-rose-300">
           <div className="flex items-start gap-3">
@@ -697,6 +698,7 @@ export default function App() {
         activeSessionId={activeSessionId}
         onSelectSession={(id) => {
           skipReveal();
+          setIsSubjectsHomeOpen(false);
           selectSession(id);
           if (window.innerWidth < 1024) setIsLeftPanelOpen(false);
         }}
@@ -729,7 +731,7 @@ export default function App() {
           }
         }}
       >
-        {displayedSession ? (
+        {!isSubjectsHomeOpen && displayedSession ? (
           <ChatStage
             session={displayedSession}
             activePersona={activePersona}
@@ -762,6 +764,7 @@ export default function App() {
             language={language}
             onStartChat={(persona, topic, starterTopics) => {
               const variant = persona.variant || 'global';
+              setIsSubjectsHomeOpen(false);
               setExpertVariant(variant);
               createSession(persona.id, 'concept', topic, topic, variant, persona, starterTopics);
             }}
