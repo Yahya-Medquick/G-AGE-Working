@@ -9,6 +9,7 @@ export interface CatalogBook {
   title: string;
   board?: string | null;
   publisher?: string | null;
+  personaGroup?: string | null;
   status: CatalogBookStatus;
   available: boolean;
   starterTopics: string[];

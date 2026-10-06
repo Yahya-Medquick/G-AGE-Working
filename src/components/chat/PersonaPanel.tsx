@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   PanelRightClose,
   Search,
-  Globe,
   Sparkles,
   CheckCircle2,
   ExternalLink,
@@ -30,7 +29,6 @@ interface PersonaPanelProps {
   selectedPersonaId: string;
   onSelectPersona: (personaId: string, variant: 'global' | 'pk') => void;
   variant: 'global' | 'pk';
-  onToggleVariant: (variant: 'global' | 'pk') => void;
   onOpenPwaShortcut?: (persona: ExpertPersona) => void;
   onSelectPrompt?: (prompt: string) => void;
   onSelectTopic?: (topic: string) => void;
@@ -64,7 +62,6 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   selectedPersonaId,
   onSelectPersona,
   variant,
-  onToggleVariant,
   onOpenPwaShortcut,
   onSelectPrompt,
   onSelectTopic,
@@ -84,17 +81,23 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   const isPaid = user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
 
   const { globalExperts, pkExperts } = usePersonas();
-  const activeExpertSet = variant === 'pk' ? pkExperts : globalExperts;
-
   const personaList = useMemo(() => {
     const map = new Map<string, ExpertPersona>();
-    for (const p of Object.values(activeExpertSet)) {
-      map.set(p.id || (p as any).slug, p);
+    for (const [personaVariant, record] of [['global', globalExperts], ['pk', pkExperts]] as const) {
+      for (const p of Object.values(record)) {
+        const key = (p as any).slug || p.id;
+        const current = map.get(key);
+        if (!current || personaVariant === variant) {
+          map.set(key, { ...p, variant: personaVariant });
+        }
+      }
     }
     return Array.from(map.values());
-  }, [activeExpertSet]);
+  }, [globalExperts, pkExperts, variant]);
 
-  const activePersona = activeExpertSet[selectedPersonaId] || personaList[0];
+  const activePersona = personaList.find((persona) =>
+    persona.id === selectedPersonaId && persona.variant === variant
+  ) || personaList.find((persona) => persona.id === selectedPersonaId) || personaList[0];
 
   // Handle initialGroup from domain redirect
   useEffect(() => {
@@ -108,7 +111,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   // Load recent personas
   useEffect(() => {
     if (user) {
-      fetch(`/api/v1/personas/recent?variant=${variant}`, { credentials: 'include' })
+      fetch('/api/v1/personas/recent', { credentials: 'include' })
         .then(r => r.json())
         .then(data => {
           if (data.success && data.personas) {
@@ -119,7 +122,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
     } else {
       setRecentSlugs(getGuestRecent());
     }
-  }, [user, isOpen, variant]);
+  }, [user, isOpen]);
 
   // Derive groups from personas
   const groups = useMemo(() => {
@@ -208,7 +211,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
 
     // Animate then switch
     setTimeout(() => {
-      onSelectPersona(persona.id || slug, variant);
+      onSelectPersona(persona.id || slug, persona.variant || variant);
       setIsAnimating(false);
       setSelectedSlug(null);
       setView('groups');
@@ -267,31 +270,8 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
           </button>
         </div>
 
-        {/* Region Toggle + Search */}
+        {/* Search */}
         <div className="p-3 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/40 dark:bg-slate-950/40 shrink-0 space-y-2.5">
-          <div className="flex items-center p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
-            <button
-              onClick={() => onToggleVariant('pk')}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                variant === 'pk'
-                  ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-300 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <span>🇵🇰</span><span>Pakistani</span>
-            </button>
-            <button
-              onClick={() => onToggleVariant('global')}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                variant === 'global'
-                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5" /><span>Global</span>
-            </button>
-          </div>
-
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
             <input

@@ -19,6 +19,7 @@ import { usePersonas } from './hooks/usePersonas';
 import { ChatMode, ChatMessage, ChatSession } from './types/chat';
 import { PublicQAPage } from './components/PublicQAPage';
 import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
+import { SubjectsHome } from './components/home/SubjectsHome';
 
 // Lazy-loaded secondary modals for optimal performance
 const AdminDashboardModal = lazy(() =>
@@ -294,7 +295,8 @@ export default function App() {
           urlMode,
           `${matched.name} Session`,
           `${matched.name} Session`,
-          isPk ? 'pk' : 'global'
+          isPk ? 'pk' : 'global',
+          matched,
         );
         return;
       }
@@ -305,25 +307,24 @@ export default function App() {
       return;
     }
 
-    if (sessions.length === 0) {
-      const initialPersonaId = urlPersona || 'hamza';
-      createSession(initialPersonaId, urlMode, 'General Discussion', 'General Discussion', expertVariant);
-    } else if (!activeSessionId) {
+    if (sessions.length > 0 && !activeSessionId) {
       selectSession(sessions[0].id);
     }
   }, []);
 
   // Synchronize active persona with browser URL query parameter for PWA shortcut capture
   useEffect(() => {
-    if (activePersona) {
+    const currentUrl = new URL(window.location.href);
+    if (!activeSession || !activePersona) {
+      currentUrl.searchParams.delete('persona');
+      currentUrl.searchParams.delete('session');
+    } else {
       const personaKey = activePersona.slug || activePersona.id;
-      const currentUrl = new URL(window.location.href);
-      if (currentUrl.searchParams.get('persona') !== personaKey) {
-        currentUrl.searchParams.set('persona', personaKey);
-        window.history.replaceState(null, '', `${currentUrl.pathname}?${currentUrl.searchParams.toString()}`);
-      }
+      currentUrl.searchParams.set('persona', personaKey);
+      currentUrl.searchParams.set('session', activeSession.id);
     }
-  }, [activePersona?.id, activePersona?.slug]);
+    window.history.replaceState(null, '', `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+  }, [activeSession?.id, activePersona?.id, activePersona?.slug]);
 
   // Handle window resize to auto-adapt sidebars
   useEffect(() => {
@@ -719,35 +720,48 @@ export default function App() {
           }
         }}
       >
-        <ChatStage
-          session={displayedSession}
-          activePersona={activePersona}
-          variant={activeVariant}
-          globalPersonas={globalExperts}
-          pkPersonas={pkExperts}
-          language={language}
-          isStreamingReply={revealingReply?.sessionId === activeSessionId}
-          onLanguageChange={handleLanguageChange}
-          onSendMessage={handleSendMessage}
-          onRegenerateMessage={handleRegenerateMessage}
-          onEditMessage={handleEditMessage}
-          pendingReplyMessageIds={pendingReplyMessageIds}
-          isLoading={!!activeSessionId && loadingSessionIds.has(activeSessionId)}
-          onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
-          isLeftPanelOpen={isLeftPanelOpen}
-          onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
-          isRightPanelOpen={isRightPanelOpen}
-          onUpdateSessionMeta={updateSessionMeta}
-          onSaveToNotes={handleSaveToNotes}
-          onOpenPaywall={triggerPaywall}
-          onOpenPersonaGroup={handleOpenPersonaGroup}
-          onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
-          queryUsage={usage}
-        />
+        {displayedSession ? (
+          <ChatStage
+            session={displayedSession}
+            activePersona={activePersona}
+            variant={activeVariant}
+            globalPersonas={globalExperts}
+            pkPersonas={pkExperts}
+            language={language}
+            isStreamingReply={revealingReply?.sessionId === activeSessionId}
+            onLanguageChange={handleLanguageChange}
+            onSendMessage={handleSendMessage}
+            onRegenerateMessage={handleRegenerateMessage}
+            onEditMessage={handleEditMessage}
+            pendingReplyMessageIds={pendingReplyMessageIds}
+            isLoading={!!activeSessionId && loadingSessionIds.has(activeSessionId)}
+            onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+            isLeftPanelOpen={isLeftPanelOpen}
+            onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
+            isRightPanelOpen={isRightPanelOpen}
+            onUpdateSessionMeta={updateSessionMeta}
+            onSaveToNotes={handleSaveToNotes}
+            onOpenPaywall={triggerPaywall}
+            onOpenPersonaGroup={handleOpenPersonaGroup}
+            onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
+            queryUsage={usage}
+          />
+        ) : (
+          <SubjectsHome
+            globalPersonas={globalExperts}
+            pkPersonas={pkExperts}
+            language={language}
+            onStartChat={(persona, topic) => {
+              const variant = persona.variant || 'global';
+              setExpertVariant(variant);
+              createSession(persona.id, 'concept', topic, topic, variant, persona);
+            }}
+          />
+        )}
       </div>
 
       {/* 3. RIGHT PANEL: EXPERT PERSONA SELECTOR */}
-      <PersonaPanel
+      {activeSession && <PersonaPanel
         isOpen={isRightPanelOpen}
         initialGroup={initialPersonaGroup}
         onGroupConsumed={() => setInitialPersonaGroup(null)}
@@ -755,17 +769,11 @@ export default function App() {
         selectedPersonaId={currentPersonaId}
         onSelectPersona={handleSelectPersona}
         variant={activeVariant}
-        onToggleVariant={(v) => {
-          setExpertVariant(v);
-          if (activeSession) {
-            updateSessionMeta(activeSession.id, { variant: v });
-          }
-        }}
         onOpenPwaShortcut={(persona) => setPwaPersona(persona)}
         onSelectPrompt={(prompt) => handleSendMessage(prompt)}
         onSelectTopic={(topic) => createSession(currentPersonaId, 'concept', topic, topic, activeVariant)}
         onOpenPaywall={triggerPaywall}
-      />
+      />}
 
       {/* MODALS & OVERLAYS */}
       <PaywallModal

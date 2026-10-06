@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChatSession, ChatMessage, ChatMode } from '../types/chat';
 import { useUser } from '../context/UserContext';
-import { EXPERTS, EXPERTS_PK } from '../data/experts';
+import { EXPERTS, EXPERTS_PK, type ExpertPersona } from '../data/experts';
 
 const SESSIONS_STORAGE_KEY = 'bifrost_chat_sessions_v2';
 const ACTIVE_SESSION_ID_KEY = 'bifrost_active_session_id_v2';
@@ -108,10 +108,11 @@ export function useChatSessions() {
       mode: ChatMode = 'concept',
       initialTopic: string = 'General Discussion',
       customTitle?: string,
-      variant: 'global' | 'pk' = 'global'
+      variant: 'global' | 'pk' = 'global',
+      personaOverride?: ExpertPersona,
     ): ChatSession => {
       const expertSet = variant === 'pk' ? EXPERTS_PK : EXPERTS;
-      const persona = expertSet[personaId] || expertSet['hamza'] || Object.values(expertSet)[0];
+      const persona = personaOverride || expertSet[personaId] || expertSet['hamza'] || Object.values(expertSet)[0];
       const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const now = new Date().toISOString();
 
