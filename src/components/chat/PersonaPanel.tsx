@@ -24,6 +24,7 @@ import { useUser } from '../../context/UserContext';
 import { ProExpiryBadge } from '../ProExpiryBadge';
 import { getWhatsAppSupportUrl } from '../../utils/support';
 import { uiCopy, type UiLanguage } from '../../i18n/ui';
+import { VariantBadge } from '../ui/Badge';
 
 interface PersonaPanelProps {
   isOpen: boolean;
@@ -312,6 +313,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
                 <PersonaCard
                   key={persona.id}
                   persona={persona}
+                  variantLabel={uiCopy(language, persona.variant === 'pk' ? 'variantPk' : 'variantGlobal')}
                   isSelected={persona.id === selectedPersonaId}
                   isAnimating={isAnimating && selectedSlug === ((persona as any).slug || persona.id)}
                   isLastUsed={recentSlugs[0] === ((persona as any).slug || persona.id)}
@@ -338,6 +340,10 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
                       <span className="text-xs font-bold text-slate-900 dark:text-white">
                         {activePersona.name} — Active
                       </span>
+                      <VariantBadge
+                        variant={activePersona.variant === 'pk' ? 'pk' : 'global'}
+                        label={uiCopy(language, activePersona.variant === 'pk' ? 'variantPk' : 'variantGlobal')}
+                      />
                     </div>
                     <span
                       className="text-[9px] font-bold px-2 py-0.5 rounded-full border"
@@ -448,6 +454,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
                 <PersonaCard
                   key={persona.id}
                   persona={persona}
+                  variantLabel={uiCopy(language, persona.variant === 'pk' ? 'variantPk' : 'variantGlobal')}
                   isSelected={persona.id === selectedPersonaId}
                   isAnimating={isAnimating && selectedSlug === ((persona as any).slug || persona.id)}
                   isLastUsed={recentSlugs[0] === ((persona as any).slug || persona.id)}
@@ -531,6 +538,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
 // ── Persona Card Sub-component ──────────────────────────────────────────────
 interface PersonaCardProps {
   persona: ExpertPersona;
+  variantLabel: string;
   isSelected: boolean;
   isAnimating: boolean;
   isLastUsed: boolean;
@@ -538,7 +546,7 @@ interface PersonaCardProps {
 }
 
 const PersonaCard: React.FC<PersonaCardProps> = ({
-  persona, isSelected, isAnimating, isLastUsed, onClick
+  persona, variantLabel, isSelected, isAnimating, isLastUsed, onClick
 }) => (
   <div
     onClick={onClick}
@@ -579,6 +587,10 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
           )}
         </div>
         <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">{persona.role}</p>
+        <VariantBadge
+          variant={persona.variant === 'pk' ? 'pk' : 'global'}
+          label={variantLabel}
+        />
         <p className="text-[10px] text-slate-400 truncate">{persona.affiliation}</p>
       </div>
     </div>

@@ -255,7 +255,7 @@ export async function updatePreferencesMode(mode: "research" | "learning") {
 }
 
 export async function saveClassLevel(classLevel: string) {
-  const res = await fetch("/api/auth/me/class-level", {
+  const res = await fetch("/api/user/class-level", {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json", ...getAuthHeaders() },

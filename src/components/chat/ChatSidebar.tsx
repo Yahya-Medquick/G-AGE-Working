@@ -29,6 +29,8 @@ import { ChatSession } from '../../types/chat';
 import { useUser } from '../../context/UserContext';
 import { ExpertPersona } from '../../data/experts';
 import { appEnvironment } from '../../config/env';
+import { VariantBadge } from '../ui/Badge';
+import { uiCopy, type UiLanguage } from '../../i18n/ui';
 
 interface ChatSidebarProps {
   isOpen: boolean;
@@ -59,6 +61,7 @@ interface ChatSidebarProps {
   };
   theme: 'dark' | 'light';
   toggleTheme: () => void;
+  language: UiLanguage;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -84,6 +87,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   queryUsage,
   theme,
   toggleTheme,
+  language,
 }) => {
   const { user, isLoggedIn, logout, replayTour } = useUser();
   const [searchQuery, setSearchQuery] = useState('');
@@ -216,6 +220,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           ) : (
             <div className="flex flex-col">
               <span className="text-xs truncate font-medium">{session.title}</span>
+              <VariantBadge
+                variant={variant === 'pk' ? 'pk' : 'global'}
+                label={uiCopy(language, variant === 'pk' ? 'variantPk' : 'variantGlobal')}
+              />
               <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
                 <span className="capitalize">{session.mode}</span>
                 {session.isPinned && <Pin className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />}
@@ -405,6 +413,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         </div>
 
         {/* Query Limits & Upgrade Banner */}
+        {queryUsage.limit > 0 && (
         <div id="tour-quota-badge" className="p-3 border-t border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-950/70 shrink-0 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
@@ -444,6 +453,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             </button>
           )}
         </div>
+        )}
 
         {/* Bottom Quick Tools & User Profile */}
         <div className="p-2.5 border-t border-slate-200/80 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-950/60 shrink-0 space-y-1.5">

@@ -66,19 +66,19 @@ export const MarkdownRendererContent = ({ content, className = '', isStreaming =
   const containsUrdu = hasUrdu(content);
   const { markdown, pendingTable } = splitIncompleteTable(content, isStreaming);
 
-  // Load Urdu font on first render
+  // Load the fallback Urdu font on first render.
   React.useEffect(() => {
     if (!document.getElementById('urdu-font-link')) {
       const link = document.createElement('link');
       link.id = 'urdu-font-link';
       link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap';
+      link.href = 'https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;700&display=swap';
       document.head.appendChild(link);
     }
   }, []);
 
   return (
-    <div className={`prose dark:prose-invert max-w-none [overflow-wrap:anywhere] text-base leading-relaxed text-text [&_.urdu-block]:font-[Jameel_Noori_Nastaleeq,Noto_Nastaliq_Urdu,serif] [&_.urdu-block]:text-right [&_.urdu-block]:leading-loose [&_.urdu-block]:text-base
+    <div className={`prose dark:prose-invert max-w-none [overflow-wrap:anywhere] text-base leading-relaxed text-text [&_.urdu-block]:font-['Noto_Naskh_Arabic',serif] [&_.urdu-block]:text-right [&_.urdu-block]:leading-loose [&_.urdu-block]:text-base
       prose-headings:text-text prose-headings:font-semibold prose-headings:tracking-tight
       prose-p:text-text prose-p:leading-relaxed prose-p:mb-3
       prose-strong:text-text prose-strong:font-semibold
@@ -109,7 +109,7 @@ export const MarkdownRendererContent = ({ content, className = '', isStreaming =
                 }`}
                 dir={isUrdu ? 'rtl' : 'ltr'}
                 style={isUrdu ? {
-                  fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif",
+                  fontFamily: "'Noto Naskh Arabic', serif",
                   lineHeight: '2.2',
                   textAlign: 'right',
                 } : {}}
@@ -142,14 +142,14 @@ export const MarkdownRendererContent = ({ content, className = '', isStreaming =
           th: ({ node: _node, ...props }) => (
             <th
               className={`max-w-[18rem] border-r border-border px-3 py-2 font-semibold last:border-r-0 ${containsUrdu ? 'text-right' : 'text-left'}`}
-              style={containsUrdu ? { fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif", lineHeight: '2' } : undefined}
+              style={containsUrdu ? { fontFamily: "'Noto Naskh Arabic', serif", lineHeight: '2' } : undefined}
               {...props}
             />
           ),
           td: ({ node: _node, ...props }) => (
             <td
               className={`max-w-[18rem] break-words border-r border-border px-3 py-2 align-top last:border-r-0 ${containsUrdu ? 'text-right' : 'text-left'}`}
-              style={containsUrdu ? { fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif", lineHeight: '2' } : undefined}
+              style={containsUrdu ? { fontFamily: "'Noto Naskh Arabic', serif", lineHeight: '2' } : undefined}
               {...props}
             />
           ),

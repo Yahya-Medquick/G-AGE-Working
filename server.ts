@@ -5589,7 +5589,7 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`;
     const requestLanguage = typeof req.body?.language === "string" ? req.body.language : "english";
     const answerLanguage = inferPublicQALanguage(reply, requestLanguage);
     const isPublicReplacement = req.body?.isRegenerate === true || req.body?.isEdit === true;
-    if (req.body?.savePublic !== false && userMessage && urduQualityPass) {
+    if (req.body?.savePublic === true && userMessage && urduQualityPass) {
       res.once("finish", () => setImmediate(() => {
         const writeStartedAt = Date.now();
         let writeStatus = "success";
@@ -5714,6 +5714,98 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`;
   } catch (error: any) {
     console.error("Chat API Error:", error);
     return res.status(500).json({ error: error.message || "Failed to generate chat response." });
+  }
+});
+
+app.post("/api/public-qa/share", async (req: Request, res: Response) => {
+  const body = req.body || {};
+  if (body.confirmedPublic !== true) {
+    return res.status(400).json({ success: false, error: "Explicit public-sharing confirmation is required." });
+  }
+  if (body.hasImages === true) {
+    return res.status(400).json({ success: false, error: "Image answers cannot be shared publicly." });
+  }
+
+  const question = typeof body.question === "string" ? body.question.trim().slice(0, 2000) : "";
+  const answer = typeof body.answer === "string" ? body.answer.trim().slice(0, 5000) : "";
+  const requestedVariant: PersonaVariant = body.variant === "pk" ? "pk" : "global";
+  if (!question || !answer) {
+    return res.status(400).json({ success: false, error: "A question and answer are required." });
+  }
+  if (!isPublishablePublicQA(question, answer, false)) {
+    return res.status(422).json({ success: false, error: "This response does not meet public page quality requirements." });
+  }
+  if (!dbPool) {
+    return res.status(503).json({ success: false, error: "Public sharing is temporarily unavailable." });
+  }
+
+  const registeredPersona = getRegistryPersonas(requestedVariant).find(
+    (entry) => entry.slug === body.personaId || entry.id === body.personaId,
+  );
+  if (!registeredPersona) {
+    return res.status(400).json({ success: false, error: "The selected teacher is unavailable." });
+  }
+
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId.slice(0, 128) : null;
+  const messageId = typeof body.messageId === "string" ? body.messageId.slice(0, 128) : null;
+  const answerLanguage = inferPublicQALanguage(answer, typeof body.language === "string" ? body.language : "english");
+  const personaGroup = registeredPersona.group_name || null;
+
+  try {
+    const client = await dbPool.connect();
+    try {
+      await client.query("BEGIN");
+      const existing = sessionId && messageId
+        ? await client.query(
+          `SELECT id, slug FROM public_qa_pages
+           WHERE source_session_id = $1 AND source_message_id = $2
+           ORDER BY updated_at DESC LIMIT 1`,
+          [sessionId, messageId],
+        )
+        : { rows: [] as Array<{ id: number; slug: string }> };
+
+      let id: number;
+      let slug: string;
+      if (existing.rows[0]) {
+        id = existing.rows[0].id;
+        slug = existing.rows[0].slug;
+        await client.query(
+          `UPDATE public_qa_pages
+           SET question_text = $2, answer_text = $3, persona_slug = $4, persona_name = $5,
+               persona_group = $6, display_question = NULL, display_question_status = 'pending',
+               is_publishable = true, has_images = false, answer_language = $7,
+               is_published = true, canonical_id = NULL, updated_at = NOW()
+           WHERE id = $1`,
+          [id, question, answer, registeredPersona.slug, registeredPersona.name, personaGroup, answerLanguage],
+        );
+      } else {
+        const initialSlug = `qa-pending-${crypto.randomUUID()}`;
+        const inserted = await client.query(
+          `INSERT INTO public_qa_pages
+           (slug, question_text, answer_text, persona_slug, persona_name, persona_group,
+            display_question_status, is_publishable, has_images, answer_language,
+            source_session_id, source_message_id, is_published)
+           VALUES ($1, $2, $3, $4, $5, $6, 'pending', true, false, $7, $8, $9, true)
+           RETURNING id`,
+          [initialSlug, question, answer, registeredPersona.slug, registeredPersona.name, personaGroup, answerLanguage, sessionId, messageId],
+        );
+        id = inserted.rows[0].id;
+        slug = answerLanguage !== "english" || /[\u0600-\u06ff]/u.test(question) || isRomanUrduText(question)
+          ? `qa-${id}-answer`
+          : generateQASlug(question);
+        await client.query("UPDATE public_qa_pages SET slug = $2 WHERE id = $1", [id, slug]);
+      }
+      await client.query("COMMIT");
+      return res.json({ success: true, slug, path: `/q/${slug}` });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("Explicit public Q&A share failed:", error);
+    return res.status(500).json({ success: false, error: "The public link could not be created." });
   }
 });
 
@@ -6517,7 +6609,7 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
   }
 });
 
-app.patch("/api/auth/me/class-level", async (req: Request, res: Response) => {
+const updateUserClassLevel = async (req: Request, res: Response) => {
   const currentUser = getCurrentUser(req);
   if (!currentUser?.id) {
     return res.status(401).json({ success: false, error: "Sign in to save your class." });
@@ -6538,10 +6630,13 @@ app.patch("/api/auth/me/class-level", async (req: Request, res: Response) => {
     if (!result.rows.length) return res.status(404).json({ success: false, error: "Account not found." });
     return res.json({ success: true, classLevel: result.rows[0].class_level });
   } catch (error) {
-    console.error("PATCH /api/auth/me/class-level error:", error);
+    console.error(`PATCH ${req.path} error:`, error);
     return res.status(500).json({ success: false, error: "Your class could not be saved." });
   }
-});
+};
+
+app.patch("/api/auth/me/class-level", updateUserClassLevel);
+app.patch("/api/user/class-level", updateUserClassLevel);
 
 app.post("/api/catalog/:bookId/vote", async (req: Request, res: Response) => {
   const { bookId } = req.params;

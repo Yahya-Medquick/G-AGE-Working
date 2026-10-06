@@ -41,7 +41,6 @@ import {
   X,
   Plus,
   Lock,
-  LockOpen,
   Crown,
   Loader2,
 } from 'lucide-react';
@@ -60,6 +59,7 @@ import { MultiLevelDefinitionCard } from '../MultiLevelDefinitionCard';
 import { resolvePersonaIdentity } from '../../utils/resolvePersonaIdentity';
 import { uiCopy } from '../../i18n/ui';
 import { SegmentedControl } from '../ui/SegmentedControl';
+import { VariantBadge } from '../ui/Badge';
 import { getWhatsAppSupportUrl } from '../../utils/support';
 
 // Helper component for YouTube Video Guides (backend YouTube Data API integration)
@@ -447,9 +447,9 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const isPaid = queryUsage.tier === 'paid' || user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
 
   const [inputText, setInputText] = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [showImageProNotice, setShowImageProNotice] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [editImages, setEditImages] = useState<string[]>([]);
@@ -468,6 +468,9 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [savedNotesMsgId, setSavedNotesMsgId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<{ messageId: string; text: string } | null>(null);
+  const [shareConfirmationMessageId, setShareConfirmationMessageId] = useState<string | null>(null);
+  const [publicLinks, setPublicLinks] = useState<Record<string, string>>({});
+  const [sharingMessageId, setSharingMessageId] = useState<string | null>(null);
   const [revealedSolutions, setRevealedSolutions] = useState<Record<string, boolean>>({});
   const [activeLevelTabs, setActiveLevelTabs] = useState<Record<string, 'eli5' | 'highSchool' | 'undergrad' | 'phd'>>({});
   const [expandedExploreMsgIds, setExpandedExploreMsgIds] = useState<Record<string, boolean>>({});
@@ -628,9 +631,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
   const handleImageButtonClick = (source: 'files' | 'camera') => {
     if (!isPaid) {
-      onOpenPaywall();
+      setShowImageProNotice(true);
       return;
     }
+    setShowImageProNotice(false);
     (source === 'files' ? fileInputRef : cameraInputRef).current?.click();
   };
 
@@ -639,14 +643,12 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     if (editingMessageId || (!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing) return;
     const msg = inputText.trim();
     const images = attachedImages;
-    const savePublic = !isPrivate;
     setInputText('');
     setAttachedImages([]);
-    setIsPrivate(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-    await onSendMessage(msg, activeMode, images.length ? images : undefined, savePublic);
+    await onSendMessage(msg, activeMode, images.length ? images : undefined, false);
   };
 
   const startEditMessage = (message: ChatMessage, images: string[]) => {
@@ -687,20 +689,49 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     }
   };
 
-  const handleShareMessage = async (msgId: string, content: string) => {
-    setActionNotice(null);
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: session?.title || activePersona.name, text: content });
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        console.error('Could not share assistant response', error);
-        setActionNotice({ messageId: msgId, text: uiCopy(language, 'shareFailed') });
-        return;
-      }
+  const handleShareMessage = async (message: ChatMessage, content: string) => {
+    if (!session) return;
+    const msgId = message.id;
+    const assistantIndex = session.messages.findIndex((entry) => entry.id === msgId);
+    const question = session.messages.slice(0, assistantIndex).reverse()
+      .find((message) => message.role === 'user');
+    if (!question || question.images?.length || question.imageBase64) {
+      setActionNotice({ messageId: msgId, text: uiCopy(language, 'publicShareUnavailable') });
+      return;
     }
-    await handleCopyMessage(msgId, content);
+
+    setActionNotice(null);
+    setSharingMessageId(msgId);
+    try {
+      const response = await fetch('/api/public-qa/share', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confirmedPublic: true,
+          question: question.content,
+          answer: content,
+          hasImages: false,
+          personaId: message.personaId || session.personaId,
+          variant: message.personaVariant || session.variant,
+          sessionId: session.id,
+          messageId: msgId,
+          language,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success || typeof data.path !== 'string') {
+        throw new Error(data.error || `Public share request failed (${response.status})`);
+      }
+      setPublicLinks((current) => ({ ...current, [msgId]: data.path }));
+      setShareConfirmationMessageId(null);
+      setActionNotice(null);
+    } catch (error) {
+      console.error('Could not create public response link', error);
+      setActionNotice({ messageId: msgId, text: uiCopy(language, 'shareFailed') });
+    } finally {
+      setSharingMessageId(null);
+    }
   };
 
   const handleSaveNote = (msgId: string, content: string) => {
@@ -897,11 +928,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 <span className="truncate text-sm font-semibold text-text">
                   {activePersona.name}
                 </span>
-                <span
-                  className="hidden rounded-pill bg-surface-2 px-2 py-1 text-xs font-medium text-muted md:inline-block"
-                >
-                  {activePersona.variant === 'pk' ? 'PK' : 'Global'}
-                </span>
+                <VariantBadge
+                  variant={activePersona.variant === 'pk' ? 'pk' : 'global'}
+                  label={uiCopy(language, activePersona.variant === 'pk' ? 'variantPk' : 'variantGlobal')}
+                />
               </div>
               <div className="truncate text-sm text-muted">
                 {isLoading ? uiCopy(language, 'typing') : activePersona.role}
@@ -1054,6 +1084,11 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           if (isWelcomeHero && idx === 0) return null;
           const isAssistant = msg.role === 'assistant';
           const messageImages = msg.images?.length ? msg.images : msg.imageBase64 ? [msg.imageBase64] : [];
+          const sourceUserMessage = isAssistant
+            ? session.messages.slice(0, idx).reverse().find((message) => message.role === 'user')
+            : undefined;
+          const answerHasImages = messageImages.length > 0
+            || Boolean(sourceUserMessage?.images?.length || sourceUserMessage?.imageBase64);
           const latestAssistantIndex = session.messages.reduce(
             (latestIndex, message, index) => message.role === 'assistant' ? index : latestIndex,
             -1
@@ -1607,16 +1642,21 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                         {savedNotesMsgId === msg.id ? <Check className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                         <span>{savedNotesMsgId === msg.id ? uiCopy(language, 'noteSaved') : uiCopy(language, 'saveNote')}</span>
                       </button>
-                      <button
-                        type="button"
-                        aria-label={uiCopy(language, 'shareReply')}
-                        title={uiCopy(language, 'shareReply')}
-                        onClick={() => void handleShareMessage(msg.id, msg.content)}
-                        className={replyActionClass}
-                      >
-                        <Share2 className="h-4 w-4" />
-                        <span>{uiCopy(language, 'shareReply')}</span>
-                      </button>
+                      {!answerHasImages && (
+                        <button
+                          type="button"
+                          aria-label={uiCopy(language, 'shareReply')}
+                          title={uiCopy(language, 'shareReply')}
+                          onClick={() => {
+                            setActionNotice(null);
+                            setShareConfirmationMessageId((current) => current === msg.id ? null : msg.id);
+                          }}
+                          className={replyActionClass}
+                        >
+                          <Share2 className="h-4 w-4" />
+                          <span>{uiCopy(language, 'shareReply')}</span>
+                        </button>
+                      )}
                       {reportSupportUrl && (
                         <a
                           href={reportSupportUrl}
@@ -1653,6 +1693,36 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                       )}
                       {actionNotice?.messageId === msg.id && (
                         <span className="basis-full px-2 text-xs text-danger" role="status">{actionNotice.text}</span>
+                      )}
+                      {shareConfirmationMessageId === msg.id && (
+                        <div className="basis-full space-y-2 rounded-control bg-surface-2 p-3 text-sm text-text">
+                          <p>{uiCopy(language, 'publicShareNotice')}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleShareMessage(msg, msg.content)}
+                              disabled={sharingMessageId === msg.id}
+                              className={`${replyActionClass} bg-accent text-on-accent hover:bg-accent-hover`}
+                            >
+                              {sharingMessageId === msg.id ? uiCopy(language, 'typing') : uiCopy(language, 'createPublicLink')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShareConfirmationMessageId(null)}
+                              className={replyActionClass}
+                            >
+                              {uiCopy(language, 'maybeLater')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {publicLinks[msg.id] && (
+                        <div className="basis-full space-y-1 px-2 text-sm" role="status">
+                          <p className="text-muted">{uiCopy(language, 'publicLinkCreated')}</p>
+                          <a className="break-all text-accent-text underline" href={publicLinks[msg.id]} target="_blank" rel="noreferrer">
+                            {uiCopy(language, 'openPublicLink')}
+                          </a>
+                        </div>
                       )}
                   </div>
                 )}
@@ -1717,6 +1787,19 @@ export const ChatStage: React.FC<ChatStageProps> = ({
             </div>
           )}
           {imageNotice && <p role="status" className="text-sm text-danger">{imageNotice}</p>}
+          {showImageProNotice && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-tile border border-border bg-surface p-3 text-sm text-text" role="status">
+              <span>{uiCopy(language, 'proImageNotice')}</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={onOpenPaywall} className="min-h-11 rounded-control bg-accent px-3 text-on-accent hover:bg-accent-hover">
+                  {uiCopy(language, 'viewPlans')}
+                </button>
+                <button type="button" onClick={() => setShowImageProNotice(false)} className="min-h-11 rounded-control px-3 text-muted hover:bg-surface-2">
+                  {uiCopy(language, 'close')}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="flex min-w-0 items-end gap-2">
             <form
@@ -1810,20 +1893,6 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               )}
             </div>
 
-            <button
-              onClick={() => setIsPrivate((value) => !value)}
-              type="button"
-              className={`mb-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                isPrivate
-                  ? 'border-accent bg-accent-soft text-accent-text'
-                  : 'border-border bg-surface text-muted'
-              }`}
-              title={isPrivate ? uiCopy(language, 'privateQuestion') : uiCopy(language, 'publicQuestion')}
-              aria-label={isPrivate ? uiCopy(language, 'privateQuestion') : uiCopy(language, 'publicQuestion')}
-            >
-              {isPrivate ? <Lock className="w-5 h-5" /> : <LockOpen className="w-5 h-5" />}
-            </button>
-
             {/* WhatsApp Signature Circular Green Send Button */}
             <button
               onClick={handleSubmit}
@@ -1836,7 +1905,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               <Send className="h-5 w-5" />
             </button>
           </div>
-          {!(isPaid && !user?.pro_expires_at) && (
+          {queryUsage.limit > 0 && !(isPaid && !user?.pro_expires_at) && (
             <p className="px-2 text-xs text-muted" aria-live="polite">
               {isPaid
                 ? uiCopy(language, 'proQuotaLabel')

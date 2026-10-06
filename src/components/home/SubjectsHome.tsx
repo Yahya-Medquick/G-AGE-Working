@@ -10,6 +10,7 @@ import { uiCopy, type UiLanguage } from '../../i18n/ui';
 import { EmptyState } from '../ui/EmptyState';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
+import { VariantBadge } from '../ui/Badge';
 
 const RECENT_TEACHERS_KEY = 'gage_recent_personas';
 
@@ -289,6 +290,10 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
                       <span className="block truncate text-base font-medium text-text">{persona.name}</span>
                       <span className="block truncate text-sm text-muted">{persona.role}</span>
                     </span>
+                    <VariantBadge
+                      variant={persona.variant === 'pk' ? 'pk' : 'global'}
+                      label={t(persona.variant === 'pk' ? 'variantPk' : 'variantGlobal')}
+                    />
                     <span className="hidden shrink-0 rounded-pill bg-surface-2 px-2 py-1 text-xs text-muted sm:inline">
                       {persona.group_name || persona.badge}
                     </span>

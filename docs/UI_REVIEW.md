@@ -2,42 +2,58 @@
 
 ## Scope and result
 
-This is a code-level review of the redesign work currently implemented. It is
-not a visual or release sign-off: no browser automation package is installed
-in the workspace, and no Railway staging/PR environment was available for
-interactive testing.
+This is a code- and test-based review of the redesign work in the current
+worktree. No interactive browser session, Railway PR environment, staging
+credentials, or staging database was available; those checks are not claimed
+as verified.
 
-## Checklist
+## Phase 2 verification pass
+
+| # | Acceptance item | Result | Evidence and remaining verification |
+|---|---|---|---|
+| 1 | Class step | Partial | `shouldPromptForClass` and class-level validation are unit-tested; user/profile/home class selectors and the additive `PATCH /api/user/class-level` handler are wired. “Later” now persists per account. Auth-provider payloads and the prompt lifecycle still need browser/staging observation. |
+| 2 | First-run overlay | Partial | Overlay condition excludes signed-in users and guests; it traps focus and blocks Escape/backdrop dismissal. Google, username and guest flows are present. `/terms` and `/privacy` links are still missing pending the trust-pages step; live auth and mobile dismissal behavior were not exercised. |
+| 3 | New-device login | Partial | Unsupported device verification displays an explanation and configured WhatsApp support link. Completion and support configuration require staging credentials and the owner's test support number. |
+| 4 | Variant removal and identity | Partial | No variant selector was found in the mounted home, PersonaPanel or chat header; shared `VariantBadge` is used for surfaced teachers and recent chats. Existing persona identity/group tests pass. Old-browser localStorage migration and both-variant suggested-group behavior were not browser-tested. |
+| 5 | Public sharing | Partial | Chat sends default to `savePublic: false`; a reply action first shows the public-visibility notice, then calls `/api/public-qa/share`. Image-associated answers are hidden/rejected, and the public link uses `/q/:slug`. No staging database was available to test persisted/indexed public pages. |
+| 6 | Camera and attachments | Partial | Both inputs use `image/*`; selection filters image MIME types and caps each message at four; crop remains in the flow. Non-Pro users receive an inline Pro notice instead of starting an upload. Device camera, crop, and entitlement behavior need browser/API verification. |
+| 7 | Quota | Verified (code/tests) | Client quota constants were removed. `readServerUsage` requires count/limit/remaining from `/api/usage`; tests cover server-derived values and malformed responses. A repository search found no client `25`/`200` quota constants in mounted code. |
+| 8 | Empty catalog home | Partial | Catalog data remains empty by design; the home renders catalog empty/error states and teacher rows independently of catalog results. A selected class appears in the home header. Empty-catalog behavior has not been exercised in a browser against an API response. |
+| 9 | i18n | Partial | New redesign copy is routed through `uiCopy` in English, Roman Urdu and Urdu. Some legacy copy in modified, still-mounted chat/persona surfaces remains hard-coded; no claim of complete localization is made. |
+| 10 | Night mode | Partial | `npm run check:tokens` passes the shared semantic-token contrast checks. Every new/modified surface still needs visual review in night mode. |
+
+## Build and test evidence
+
+| Check | Result |
+|---|---|
+| `npm run lint` | Pass; TypeScript and design-token checks passed. |
+| `npm test` | Pass; 31 tests in 10 files. |
+| `npm run build` | Pass; the missing local Nastaleeq reference and mixed `CompiledNotesModal` import warning are fixed. Vite still reports the large main-chunk warning. |
+| Main JS gzip baseline | 306.73 kB at pre-redesign commit `3fbb4ca3b3826848505ffa2d6d377b9cd62e02d1`. |
+| Current main JS gzip | 316.06 kB; +3.04% from baseline, within the baseline +20% budget. |
+| Current main JS raw | 1,071.29 kB; still above Vite's 500 kB warning threshold. |
+| Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API and Product Tour use lazy imports; Markdown rendering is also behind `React.lazy`. Their separate chunks are present in the build output. |
+
+The baseline was built in a temporary detached worktree from the commit before
+the redesign branch's first commit. The temporary worktree was removed after
+measurement. No production URL, credentials, database, or API was used.
+
+## Viewport and release checks
 
 | Area | Result | Notes |
 |---|---|---|
-| Phone widths: 320, 375, 390, 430 | Not visually verified | The app uses a dynamic viewport, a safe-area-aware mobile tab bar, and a capped message column. Test for clipping and keyboard overlap in a browser. |
-| Tablet: 768 | Not visually verified | Responsive breakpoints compile; inspect sidebar and teacher panel behavior at tablet width. |
-| Laptop: 1024 | Not visually verified | Sidebar defaults and three-column transitions remain driven by existing breakpoints. |
-| Desktop: 1280 and 1536+ | Not visually verified | Reading column is capped; right panel behavior needs browser confirmation. |
-| Light and night themes | Partially checked | Design-token contrast script passes required text-pair checks. Visual inspection of every active surface remains outstanding. |
-| Urdu RTL | Not visually verified | Subjects home follows Urdu direction; assistant paragraphs and tables preserve direction-aware rendering. Verify mixed Latin/Urdu, inputs, menus, and tab order visually. |
-| Keyboard and screen reader | Partially checked | New mobile tabs and reply controls have labels and focus styles. No screen-reader or full keyboard audit has been run. |
-| Spacing and tokens | Checked for shared token sources | `npm run check:tokens` passes. Legacy feature-specific modules still contain pre-existing ad-hoc styling. |
-| Message/code/table overflow | Partially checked | Message text can break long words; code blocks and tables use bounded horizontal scrolling. Stress cases such as 300-character code lines and wide tables need browser testing. |
-| Core UI build and tests | Checked | `npm run lint`, `npm test` (28 tests), and `npm run build` pass. |
-| First-run 5-second test | Not verified | Requires a 390px browser session and first-run storage state. |
-| Staging-only deployment and API smoke | Not run | Requires owner-configured Railway staging/PR environment and staging credentials. |
+| 320, 375, 390, 430 px | Not visually verified | Requires browser viewport testing, including keyboard-open state. |
+| 768 and 1024 px | Not visually verified | Responsive layout compiles; panel transitions need observation. |
+| 1280 px and wider | Not visually verified | Three-column behavior needs observation. |
+| Light and night themes | Partial | Token checks pass; visual review outstanding. |
+| Urdu RTL and mixed Latin text | Not visually verified | Direction-aware code exists; inspect text, controls and tab order in a browser. |
+| Keyboard and screen reader | Partial | The first-run dialog and new controls include focus/ARIA behavior; no full audit run. |
+| Staging smoke and database startup | Not run | Blocked on owner-configured Railway PR environment and staging-only variables/database. |
+| Playwright screenshots | Not run | `@playwright/test` and browser installation are not available; no screenshot claims. |
 
-## Known build output
+## Remaining owner inputs
 
-The build still reports the existing missing Nastaleeq font asset, the
-`CompiledNotesModal` static/dynamic import split warning, and a main JavaScript
-chunk over 500 kB. No reliable clean-start bundle baseline was captured for
-this review, so a before/after percentage is not claimed.
-
-## Outstanding release checks
-
-- Run visual and accessibility QA at every requested viewport in both themes,
-  including the keyboard-open state and first-run storage state.
-- Run the staging smoke script and empty staging database boot/idempotency
-  checks in the owner-managed Railway PR environment only.
-- Complete response-shape coverage for all required client endpoints and
-  record the staging smoke results.
-- **TODO(owner):** supply verified catalog titles, board/publisher details,
-  persona-group mappings, and starter topics before adding catalog records.
+- **TODO(owner):** verified catalog rows and `data/catalog.seed.json` values.
+- **TODO(owner):** staging environment variables, staging Firebase project, and Railway PR environment.
+- **TODO(owner):** approved Terms and Privacy copy.
+- **TODO(owner):** Pro plan details, Android package ID, and staging WhatsApp support number.

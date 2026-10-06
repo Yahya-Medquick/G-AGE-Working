@@ -14,6 +14,7 @@ import { PaywallModal } from './components/chat/PaywallModal';
 import { PwaShortcutModal } from './components/chat/PwaShortcutModal';
 import { AuthModal } from './components/AuthModal';
 import { NotesSidePanel } from './components/NotesSidePanel';
+import { CompiledNotesModal } from './components/CompiledNotesModal';
 import { ExpertPersona } from './data/experts';
 import { usePersonas } from './hooks/usePersonas';
 import { ChatMode, ChatMessage, ChatSession } from './types/chat';
@@ -40,9 +41,6 @@ const TopicTimelineModal = lazy(() =>
 );
 const DeveloperApiModal = lazy(() =>
   import('./components/DeveloperApiModal').then((m) => ({ default: m.DeveloperApiModal }))
-);
-const CompiledNotesModal = lazy(() =>
-  import('./components/CompiledNotesModal').then((m) => ({ default: m.CompiledNotesModal }))
 );
 const KnowledgeGraphModal = lazy(() =>
   import('./components/KnowledgeGraphModal').then((m) => ({ default: m.KnowledgeGraphModal }))
@@ -116,8 +114,27 @@ export default function App() {
     return (localStorage.getItem('gage_language') as 'english' | 'roman-urdu' | 'urdu') || 'english';
   });
   useEffect(() => {
-    setIsClassPromptDismissed(false);
+    if (!user?.id) {
+      setIsClassPromptDismissed(false);
+      return;
+    }
+    try {
+      setIsClassPromptDismissed(localStorage.getItem(`gage_class_prompt_dismissed:${user.id}`) === 'true');
+    } catch (error) {
+      console.warn('Unable to read class prompt preference:', error);
+      setIsClassPromptDismissed(false);
+    }
   }, [user?.id]);
+
+  const dismissClassPrompt = () => {
+    setIsClassPromptDismissed(true);
+    if (!user?.id) return;
+    try {
+      localStorage.setItem(`gage_class_prompt_dismissed:${user.id}`, 'true');
+    } catch (error) {
+      console.warn('Unable to save class prompt preference:', error);
+    }
+  };
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -450,7 +467,7 @@ export default function App() {
           mode: targetMode,
           specs: requestSession.specs || {},
           variant: requestSession.variant || expertVariant,
-          savePublic: options.savePublic ?? true,
+          savePublic: options.savePublic ?? false,
           isRegenerate: options.isRegenerate ?? false,
           isEdit: options.isEdit ?? false,
           previousQuestion: options.previousQuestion,
@@ -592,7 +609,7 @@ export default function App() {
   };
 
   // Normal sends append a user message, then share the indexed request flow.
-  const handleSendMessage = async (content: string, modeOverride?: ChatMode, images?: string[], savePublic = true) => {
+  const handleSendMessage = async (content: string, modeOverride?: ChatMode, images?: string[], savePublic = false) => {
     if (!content.trim() && !images?.length) return;
     const finalizedReveal = skipReveal();
     if (!canExecuteQuery()) {
@@ -644,7 +661,7 @@ export default function App() {
     await requestReplyAt(currentSession.id, userMessageIndex, {
       session: currentSession,
       messages: currentSession.messages,
-      savePublic: true,
+      savePublic: false,
       isRegenerate: true,
     });
   };
@@ -669,7 +686,7 @@ export default function App() {
     return requestReplyAt(currentSession.id, messageIndex, {
       session: currentSession,
       messages: truncatedMessages,
-      savePublic: true,
+      savePublic: false,
       isEdit: true,
       previousQuestion: originalMessage.content,
       onEditFailure: () => updateSessionMessages(currentSession.id, previousMessages),
@@ -742,6 +759,7 @@ export default function App() {
         queryUsage={usage}
         theme={theme}
         toggleTheme={toggleTheme}
+        language={language}
       />
 
       {/* 2. CENTER PANEL: MAIN CHAT STAGE */}
@@ -909,9 +927,9 @@ export default function App() {
           language={language}
           onSave={async (classLevel) => {
             await updateClassLevel(classLevel);
-            setIsClassPromptDismissed(true);
+            dismissClassPrompt();
           }}
-          onDismiss={() => setIsClassPromptDismissed(true)}
+          onDismiss={dismissClassPrompt}
         />
       )}
 
