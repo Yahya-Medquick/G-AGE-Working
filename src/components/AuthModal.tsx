@@ -160,7 +160,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               <button onClick={() => { continueAsGuest?.(); onClose(); }}
                 className="w-full py-2 px-4 text-slate-500 dark:text-slate-400 text-xs font-medium rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
                 <Sparkles className="w-3.5 h-3.5" />
-                Continue as Guest (5 free queries)
+                {uiCopy(language, 'continueAsGuest')}
               </button>
             </>
           )}

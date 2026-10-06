@@ -3,6 +3,8 @@ import { X, User, History, Settings, Check, Shield, Search, Sparkles, Compass, S
 import { UserProfile } from "../types";
 import { useUser } from "../context/UserContext";
 import { ProExpiryBadge } from "./ProExpiryBadge";
+import { CLASS_LEVELS, isClassLevelId } from "../data/classLevels";
+import { uiCopy, type UiLanguage } from "../i18n/ui";
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -11,6 +13,7 @@ interface UserProfileModalProps {
   onSelectSearch: (query: string) => void;
   onClearHistory: () => void;
   onOpenDownload?: () => void;
+  language?: UiLanguage;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -20,9 +23,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onSelectSearch,
   onClearHistory,
   onOpenDownload,
+  language = 'english',
 }) => {
-  const { user, profile, updatePreferences, replayTour } = useUser();
+  const { user, profile, updatePreferences, updateClassLevel, replayTour } = useUser();
   const [activeTab, setActiveTab] = useState<"profile" | "history" | "preferences">("profile");
+  const [classSaveError, setClassSaveError] = useState(false);
 
   if (!isOpen) return null;
 
@@ -109,6 +114,28 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           
           {activeTab === "profile" && (
             <div className="space-y-4 text-xs">
+              {user && (
+                <label className="block space-y-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">{uiCopy(language, 'chooseClassLabel')}</span>
+                  <select
+                    value={isClassLevelId(user.class_level) ? user.class_level : ''}
+                    onChange={(event) => {
+                      if (isClassLevelId(event.target.value)) {
+                        setClassSaveError(false);
+                        void updateClassLevel(event.target.value).catch((error) => {
+                          console.error('Unable to save class from profile:', error);
+                          setClassSaveError(true);
+                        });
+                      }
+                    }}
+                    className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-base dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="">{uiCopy(language, 'selectClass')}</option>
+                    {CLASS_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
+                  </select>
+                  {classSaveError && <span role="alert" className="block text-sm text-red-600">{uiCopy(language, 'classSaveError')}</span>}
+                </label>
+              )}
               <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
                 <div className="font-bold text-slate-800 dark:text-slate-200">Account Role & Privileges</div>
                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">

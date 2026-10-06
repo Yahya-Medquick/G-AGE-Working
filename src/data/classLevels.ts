@@ -21,3 +21,14 @@ export type ClassLevelId = (typeof CLASS_LEVELS)[number]['id'];
 export function isClassLevelId(value: unknown): value is ClassLevelId {
   return typeof value === 'string' && CLASS_LEVELS.some((level) => level.id === value);
 }
+
+export function shouldPromptForClass(input: {
+  isLoading: boolean;
+  isLoggedIn: boolean;
+  isGuest: boolean;
+  classLevel: unknown;
+  dismissed: boolean;
+}): boolean {
+  return !input.isLoading && input.isLoggedIn && !input.isGuest
+    && !isClassLevelId(input.classLevel) && !input.dismissed;
+}

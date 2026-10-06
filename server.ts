@@ -3938,6 +3938,7 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
       avatar_url: user.avatar_url,
       tier: user.tier || "free",
       has_seen_onboarding: Boolean(user.has_seen_onboarding),
+      class_level: user.class_level || null,
       preferred_mode: user.preferred_mode || "research",
     };
 
@@ -4102,6 +4103,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
       created_at: new Date().toISOString(),
       last_active_at: new Date().toISOString(),
       preferred_mode: "research" as const,
+      class_level: null,
     };
 
     if (dbPool) {
@@ -4123,6 +4125,7 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
         name: userObj.name,
         avatar_url: userObj.avatar_url,
         tier: userObj.tier,
+        class_level: userObj.class_level,
         preferred_mode: userObj.preferred_mode,
       },
       SESSION_SECRET,
@@ -4216,6 +4219,7 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
       avatar_url: user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.username || user.id)}`,
       tier: user.tier || "free",
       has_seen_onboarding: Boolean(user.has_seen_onboarding),
+      class_level: user.class_level || null,
       created_at: user.created_at,
       preferred_mode: user.preferred_mode || "research",
     };
@@ -4230,6 +4234,7 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
         avatar_url: userObj.avatar_url,
         tier: userObj.tier,
         has_seen_onboarding: userObj.has_seen_onboarding,
+        class_level: userObj.class_level,
         preferred_mode: userObj.preferred_mode,
       },
       SESSION_SECRET,
@@ -4313,6 +4318,7 @@ app.post("/api/auth/verify-new-device", async (req: Request, res: Response) => {
       avatar_url: user.avatar_url,
       tier: user.tier || "free",
       has_seen_onboarding: Boolean(user.has_seen_onboarding),
+      class_level: user.class_level || null,
       created_at: user.created_at,
       preferred_mode: user.preferred_mode || "research",
     };
@@ -4326,6 +4332,7 @@ app.post("/api/auth/verify-new-device", async (req: Request, res: Response) => {
         avatar_url: userObj.avatar_url,
         tier: userObj.tier,
         has_seen_onboarding: userObj.has_seen_onboarding,
+        class_level: userObj.class_level,
         preferred_mode: userObj.preferred_mode,
       },
       SESSION_SECRET,

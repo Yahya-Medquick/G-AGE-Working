@@ -9,6 +9,7 @@ import type { CatalogBook } from '../../types/catalog';
 import { uiCopy, type UiLanguage } from '../../i18n/ui';
 import { EmptyState } from '../ui/EmptyState';
 import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
 
 const RECENT_TEACHERS_KEY = 'gage_recent_personas';
 
@@ -154,6 +155,11 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
           <div className="flex items-center gap-2 text-accent-text">
             <GraduationCap aria-hidden="true" className="h-5 w-5" />
             <span className="text-sm font-medium">{t('subjects')}</span>
+            {classLevel && (
+              <Badge className="border-accent/20 bg-accent-soft text-accent-text">
+                {CLASS_LEVELS.find((level) => level.id === classLevel)?.label}
+              </Badge>
+            )}
           </div>
           <h1 className="text-2xl font-semibold leading-tight text-text sm:text-3xl">{t('homeTitle')}</h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted">{t('homeSubtitle')}</p>

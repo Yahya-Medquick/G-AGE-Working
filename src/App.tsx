@@ -21,7 +21,9 @@ import { PublicQAPage } from './components/PublicQAPage';
 import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
 import { SubjectsHome } from './components/home/SubjectsHome';
 import { FirstRunOverlay } from './components/home/FirstRunOverlay';
+import { ClassLevelPrompt } from './components/home/ClassLevelPrompt';
 import { uiCopy } from './i18n/ui';
+import { shouldPromptForClass } from './data/classLevels';
 
 // Lazy-loaded secondary modals for optimal performance
 const AdminDashboardModal = lazy(() =>
@@ -66,6 +68,7 @@ export default function App() {
     hasSeenOnboarding,
     completeOnboarding,
     continueAsGuest,
+    updateClassLevel,
   } = useUser();
 
   // Chat sessions state manager
@@ -103,6 +106,7 @@ export default function App() {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(() => window.innerWidth >= 1024);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(() => window.innerWidth >= 1280);
   const [isSubjectsHomeOpen, setIsSubjectsHomeOpen] = useState(false);
+  const [isClassPromptDismissed, setIsClassPromptDismissed] = useState(false);
   const [isMobileKeyboardOpen, setIsMobileKeyboardOpen] = useState(false);
   const [initialPersonaGroup, setInitialPersonaGroup] = useState<string | null>(null);
 
@@ -111,6 +115,9 @@ export default function App() {
   const [language, setLanguage] = useState<'english' | 'roman-urdu' | 'urdu'>(() => {
     return (localStorage.getItem('gage_language') as 'english' | 'roman-urdu' | 'urdu') || 'english';
   });
+  useEffect(() => {
+    setIsClassPromptDismissed(false);
+  }, [user?.id]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -873,11 +880,6 @@ export default function App() {
         onOpenDownload={handleOpenDownload}
       />
 
-      <AuthModal
-        isOpen={isLoginOpen}
-        onClose={() => setIsLoginOpen(false)}
-        language={language}
-      />
       {!isLoadingAuth && !isLoggedIn && !isGuest && !hasSeenOnboarding && (
         <FirstRunOverlay
           language={language}
@@ -886,9 +888,30 @@ export default function App() {
             void completeOnboarding();
           }}
           onSignIn={() => {
-            void completeOnboarding();
             setIsLoginOpen(true);
           }}
+        />
+      )}
+      <AuthModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        language={language}
+        onSuccessLogin={() => { void completeOnboarding(); }}
+      />
+      {user && shouldPromptForClass({
+        isLoading: isLoadingAuth,
+        isLoggedIn,
+        isGuest,
+        classLevel: user.class_level,
+        dismissed: isClassPromptDismissed,
+      }) && (
+        <ClassLevelPrompt
+          language={language}
+          onSave={async (classLevel) => {
+            await updateClassLevel(classLevel);
+            setIsClassPromptDismissed(true);
+          }}
+          onDismiss={() => setIsClassPromptDismissed(true)}
         />
       )}
 
@@ -932,6 +955,7 @@ export default function App() {
         <UserProfileModal
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
+          language={language}
           recentSearches={sessions.map((s) => s.title).slice(0, 10)}
           onSelectSearch={(topic) => {
             setIsProfileOpen(false);
