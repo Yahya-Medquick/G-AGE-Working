@@ -20,6 +20,7 @@ import { ChatMode, ChatMessage, ChatSession } from './types/chat';
 import { PublicQAPage } from './components/PublicQAPage';
 import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
 import { SubjectsHome } from './components/home/SubjectsHome';
+import { FirstRunOverlay } from './components/home/FirstRunOverlay';
 
 // Lazy-loaded secondary modals for optimal performance
 const AdminDashboardModal = lazy(() =>
@@ -56,7 +57,15 @@ export default function App() {
 
   const { theme, toggleTheme } = useTheme();
   const { notes, addNote } = useNotes();
-  const { user, isLoggedIn } = useUser();
+  const {
+    user,
+    isLoggedIn,
+    isGuest,
+    isLoadingAuth,
+    hasSeenOnboarding,
+    completeOnboarding,
+    continueAsGuest,
+  } = useUser();
 
   // Chat sessions state manager
   const {
@@ -769,6 +778,7 @@ export default function App() {
         selectedPersonaId={currentPersonaId}
         onSelectPersona={handleSelectPersona}
         variant={activeVariant}
+        language={language}
         onOpenPwaShortcut={(persona) => setPwaPersona(persona)}
         onSelectPrompt={(prompt) => handleSendMessage(prompt)}
         onSelectTopic={(topic) => createSession(currentPersonaId, 'concept', topic, topic, activeVariant)}
@@ -780,6 +790,7 @@ export default function App() {
         isOpen={isPaywallOpen}
         onClose={closePaywall}
         queryUsage={usage}
+        language={language}
         onOpenLogin={() => {
           closePaywall();
           setIsLoginOpen(true);
@@ -796,7 +807,21 @@ export default function App() {
       <AuthModal
         isOpen={isLoginOpen}
         onClose={() => setIsLoginOpen(false)}
+        language={language}
       />
+      {!isLoadingAuth && !isLoggedIn && !isGuest && !hasSeenOnboarding && (
+        <FirstRunOverlay
+          language={language}
+          onContinueAsGuest={() => {
+            continueAsGuest();
+            void completeOnboarding();
+          }}
+          onSignIn={() => {
+            void completeOnboarding();
+            setIsLoginOpen(true);
+          }}
+        />
+      )}
 
       <NotesSidePanel
         isOpen={isNotesOpen}

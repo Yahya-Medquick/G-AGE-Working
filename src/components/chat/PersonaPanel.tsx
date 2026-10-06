@@ -22,6 +22,8 @@ import { ExpertPersona } from '../../data/experts';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useUser } from '../../context/UserContext';
 import { ProExpiryBadge } from '../ProExpiryBadge';
+import { getWhatsAppSupportUrl } from '../../utils/support';
+import { uiCopy, type UiLanguage } from '../../i18n/ui';
 
 interface PersonaPanelProps {
   isOpen: boolean;
@@ -29,6 +31,7 @@ interface PersonaPanelProps {
   selectedPersonaId: string;
   onSelectPersona: (personaId: string, variant: 'global' | 'pk') => void;
   variant: 'global' | 'pk';
+  language?: UiLanguage;
   onOpenPwaShortcut?: (persona: ExpertPersona) => void;
   onSelectPrompt?: (prompt: string) => void;
   onSelectTopic?: (topic: string) => void;
@@ -62,6 +65,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   selectedPersonaId,
   onSelectPersona,
   variant,
+  language = 'english',
   onOpenPwaShortcut,
   onSelectPrompt,
   onSelectTopic,
@@ -75,6 +79,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   const [recentSlugs, setRecentSlugs] = useState<string[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [supportUnavailable, setSupportUnavailable] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   const { user, profile } = useUser();
@@ -484,20 +489,23 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
             <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
               {isPaid
                 ? (variant === 'pk'
-                    ? 'Get priority 1-on-1 guidance on Pakistani university admissions (FAST, NUST, LUMS, AKU), syllabus roadblocks, or career roadmaps.'
-                    : 'Get priority 1-on-1 personalized research advice and study roadmaps with your Pro membership.')
+                    ? 'Get personalized help with studies, admissions questions, or career planning.'
+                    : 'Get personalized study guidance and research support.')
                 : (variant === 'pk'
-                    ? 'Exclusive 1-on-1 WhatsApp academic counseling for Pakistani university admissions & syllabus roadblocks.'
-                    : 'Exclusive 1-on-1 personalized academic mentorship and research roadmaps on WhatsApp for Pro subscribers.')}
+                    ? 'Personalized academic support is available to Pro learners.'
+                    : 'Personalized academic mentorship is available to Pro learners.')}
             </p>
             <button
               onClick={() => {
                 if (!isPaid) { if (onOpenPaywall) onOpenPaywall(); return; }
-                const rawPhone = import.meta.env.VITE_WHATSAPP_SUPPORT_NUMBER || "923264397102";
-                const phone = rawPhone.replace(/\D/g, "") || "923264397102";
                 const currentUsername = user?.username || profile?.username || user?.name || profile?.name || 'Pro User';
-                const message = encodeURIComponent(`Hi G-AGE AI Study Desk, I am a Pro subscriber (${currentUsername}). I need 1-on-1 academic mentorship.`);
-                window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                const url = getWhatsAppSupportUrl(`I would like academic support. My username is: ${currentUsername}`);
+                if (!url) {
+                  setSupportUnavailable(true);
+                  return;
+                }
+                setSupportUnavailable(false);
+                window.open(url, '_blank');
               }}
               className={`w-full py-2 px-3 rounded-xl ${
                 isPaid
@@ -506,17 +514,12 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
               } text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer`}
             >
               {isPaid ? (
-                <><MessageCircle className="w-3.5 h-3.5" /><span>Chat on WhatsApp Desk</span><ExternalLink className="w-3 h-3 opacity-70" /></>
+                <><MessageCircle className="w-3.5 h-3.5" /><span>{uiCopy(language, 'contactSupport')}</span><ExternalLink className="w-3 h-3 opacity-70" /></>
               ) : (
                 <><Lock className="w-3.5 h-3.5" /><span>Unlock Pro WhatsApp Desk</span><Crown className="w-3 h-3 opacity-70" /></>
               )}
             </button>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-emerald-500/10">
-              <span className="flex items-center gap-1"><HelpCircle className="w-3 h-3" /> Mon-Sat (9 AM - 9 PM PKT)</span>
-              <span className={`font-mono text-[9px] ${isPaid ? 'text-emerald-500 font-semibold' : 'text-amber-500 font-semibold'}`}>
-                {isPaid ? 'Pro 1-on-1 Desk' : 'Paid Feature'}
-              </span>
-            </div>
+            {supportUnavailable && <p role="alert" className="text-xs text-danger">{uiCopy(language, 'supportUnavailable')}</p>}
           </div>
 
         </div>

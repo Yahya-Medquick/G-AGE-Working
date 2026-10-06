@@ -4,19 +4,17 @@ import 'driver.js/dist/driver.css';
 import { useUser } from '../context/UserContext';
 
 export const ProductTour: React.FC = () => {
-  const { hasSeenOnboarding, isLoadingAuth, completeOnboarding, isTourOpen, setIsTourOpen, tourTriggerCount } = useUser();
+  const { isLoadingAuth, completeOnboarding, isTourOpen, setIsTourOpen, tourTriggerCount } = useUser();
   const driverInstanceRef = useRef<Driver | null>(null);
   const isRunningRef = useRef<boolean>(false);
 
   useEffect(() => {
-    // Only auto-trigger when auth is ready and user has not completed onboarding
-    // Or if triggered manually via tourTriggerCount
+    // The first-run welcome flow is separate; this detailed tour is opt-in only.
     if (isLoadingAuth) return;
 
-    const shouldAutoStart = !hasSeenOnboarding;
     const isManualTrigger = tourTriggerCount > 0 && isTourOpen;
 
-    if (!shouldAutoStart && !isManualTrigger) {
+    if (!isManualTrigger) {
       return;
     }
 
@@ -33,7 +31,7 @@ export const ProductTour: React.FC = () => {
         } catch (_) {}
       }
     };
-  }, [isLoadingAuth, hasSeenOnboarding, tourTriggerCount, isTourOpen]);
+  }, [isLoadingAuth, tourTriggerCount, isTourOpen]);
 
   const startTour = () => {
     if (isRunningRef.current) {

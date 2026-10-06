@@ -4,22 +4,26 @@ import {
 } from "lucide-react";
 import { useUser } from "../context/UserContext";
 import { signInWithGoogle } from "../services/firebaseAuth";
+import { getWhatsAppSupportUrl } from "../utils/support";
+import { uiCopy, type UiLanguage } from "../i18n/ui";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccessLogin?: () => void;
+  language?: UiLanguage;
 }
 
 type AuthView = "main" | "login" | "register";
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccessLogin }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccessLogin, language = 'english' }) => {
   const { loginUser, registerUser, googleLogin, continueAsGuest } = useUser();
 
   const [view, setView] = useState<AuthView>("main");
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requiresDeviceSupport, setRequiresDeviceSupport] = useState(false);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +32,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   if (!isOpen) return null;
 
   const reset = () => {
-    setUsername(""); setPassword(""); setConfirmPassword(""); setError(null);
+    setUsername(""); setPassword(""); setConfirmPassword(""); setError(null); setRequiresDeviceSupport(false);
   };
 
   const handleGoogleSignIn = async () => {
@@ -51,7 +55,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     if (!username.trim() || !password) return;
     setIsLoading(true); setError(null);
     try {
-      await loginUser(username.trim(), password);
+      const result = await loginUser(username.trim(), password);
+      if (result.requiresOtp) {
+        setRequiresDeviceSupport(true);
+        return;
+      }
       if (onSuccessLogin) onSuccessLogin();
       onClose();
     } catch (err: any) {
@@ -77,6 +85,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       setIsLoading(false);
     }
   };
+
+  const supportUrl = getWhatsAppSupportUrl('I need help verifying a new device for my account.');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
@@ -158,6 +168,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           {/* ── LOGIN VIEW ── */}
           {view === "login" && (
             <form onSubmit={handleLogin} className="space-y-3">
+              {requiresDeviceSupport && (
+                <div role="alert" className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                  <p>{uiCopy(language, 'deviceVerificationMessage')}</p>
+                  {supportUrl ? (
+                    <a href={supportUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-amber-800 px-3 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:bg-amber-200 dark:text-slate-950">
+                      {uiCopy(language, 'contactSupport')}
+                    </a>
+                  ) : (
+                    <p>{uiCopy(language, 'supportUnavailable')}</p>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

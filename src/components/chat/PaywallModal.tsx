@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, MessageCircle, Moon, UserPlus } from 'lucide-react';
 import { useUser } from '../../context/UserContext';
+import { getWhatsAppSupportUrl } from '../../utils/support';
+import { uiCopy, type UiLanguage } from '../../i18n/ui';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -13,25 +15,31 @@ interface PaywallModalProps {
     isLoggedIn: boolean;
   };
   onOpenLogin?: () => void;
+  language?: UiLanguage;
 }
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({
   isOpen,
   onClose,
+  queryUsage,
   onOpenLogin,
+  language = 'english',
 }) => {
   const { user, profile, isLoggedIn } = useUser();
+  const [supportUnavailable, setSupportUnavailable] = useState(false);
 
   if (!isOpen) return null;
 
   const isGuest = !isLoggedIn;
 
   const handleGetUnlimitedAccess = () => {
-    const rawPhone = import.meta.env.VITE_WHATSAPP_SUPPORT_NUMBER || "923264397102";
-    const phone = rawPhone.replace(/\D/g, "") || "923264397102";
+    setSupportUnavailable(false);
     const currentUsername = user?.username || profile?.username || user?.name || profile?.name || 'Guest';
-    const message = encodeURIComponent(`Hi, I want to upgrade to G-AGE Pro. My username is: ${currentUsername}`);
-    const url = `https://wa.me/${phone}?text=${message}`;
+    const url = getWhatsAppSupportUrl(`I would like to ask about available study plans. My username is: ${currentUsername}`);
+    if (!url) {
+      setSupportUnavailable(true);
+      return;
+    }
     window.open(url, '_blank');
   };
 
@@ -64,55 +72,71 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
         {isGuest ? (
           <>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Free Queries Used Up
+              {uiCopy(language, 'guestLimitTitle')}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 mb-6 leading-relaxed max-w-sm">
-              You have used your 5 free guest queries. Sign up free to get <span className="font-semibold text-indigo-500">25 queries every day</span> — no payment needed.
+              {uiCopy(language, 'guestLimitDescription')}
             </p>
+            {queryUsage && (
+              <p className="mb-4 text-sm text-slate-600 dark:text-slate-300" aria-live="polite">
+                {queryUsage.remaining} / {queryUsage.limit} {uiCopy(language, 'queriesRemaining')}
+              </p>
+            )}
             <div className="w-full space-y-2.5">
               <button
                 onClick={handleSignUp}
                 className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.99]"
               >
                 <UserPlus className="w-4 h-4" />
-                <span>Sign Up Free — 25 Queries/Day</span>
+                <span>{uiCopy(language, 'createAccount')}</span>
               </button>
               <button
                 onClick={handleGetUnlimitedAccess}
                 className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.99]"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>Get Unlimited Access</span>
+                <span>{uiCopy(language, 'askAboutPlans')}</span>
               </button>
+              {supportUnavailable && (
+                <p role="alert" className="text-sm text-danger">{uiCopy(language, 'supportUnavailable')}</p>
+              )}
               <button
                 onClick={onClose}
                 className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
-                Maybe Later
+                {uiCopy(language, 'maybeLater')}
               </button>
             </div>
           </>
         ) : (
           <>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Daily Limit Reached
+              {uiCopy(language, 'accountLimitTitle')}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 mb-6 leading-relaxed max-w-sm">
-              You have used all your queries for today. Your limit resets at midnight.
+              {uiCopy(language, 'accountLimitDescription')}
             </p>
+            {queryUsage && (
+              <p className="mb-4 text-sm text-slate-600 dark:text-slate-300" aria-live="polite">
+                {queryUsage.remaining} / {queryUsage.limit} {uiCopy(language, 'queriesRemaining')}
+              </p>
+            )}
             <div className="w-full space-y-2.5">
               <button
                 onClick={handleGetUnlimitedAccess}
                 className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.99]"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>Get Unlimited Access</span>
+                <span>{uiCopy(language, 'askAboutPlans')}</span>
               </button>
+              {supportUnavailable && (
+                <p role="alert" className="text-sm text-danger">{uiCopy(language, 'supportUnavailable')}</p>
+              )}
               <button
                 onClick={onClose}
                 className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
               >
-                Try Again Tomorrow
+                {uiCopy(language, 'tryAgainLater')}
               </button>
             </div>
           </>

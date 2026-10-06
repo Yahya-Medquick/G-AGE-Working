@@ -66,6 +66,15 @@
   --z-toast: 60;
 }
 
+@theme {
+  --z-index-base: var(--z-base);
+  --z-index-sticky: var(--z-sticky);
+  --z-index-drawer: var(--z-drawer);
+  --z-index-popover: var(--z-popover);
+  --z-index-modal: var(--z-modal);
+  --z-index-toast: var(--z-toast);
+}
+
 .dark {
   color-scheme: dark;
   --bg: #0B0F19;
