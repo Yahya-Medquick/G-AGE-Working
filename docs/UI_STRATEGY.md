@@ -40,10 +40,12 @@ debt with a repository-wide exception.
 ## Navigation and responsive behavior
 
 Desktop keeps the existing three-column shell until each feature is migrated;
-mobile uses full-screen chat and bottom-sheet/drawer patterns rather than
-shrinking desktop panels. Keep focus visible, safe-area aware and content
-within the viewport. Urdu shell direction follows the selected UI language;
-assistant paragraphs keep their current paragraph-level direction behavior.
+mobile uses full-screen chat, safe-area-aware Subjects/Chats/Notes/Me tabs, and
+drawer/sheet patterns rather than shrinking desktop panels. The mobile tab bar
+hides while the visual viewport indicates the keyboard is open. Keep focus
+visible and content within the viewport. Urdu shell direction follows the
+selected UI language; assistant paragraphs keep their current
+paragraph-level direction behavior.
 
 ## Catalog data readiness
 

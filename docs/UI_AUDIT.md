@@ -30,8 +30,8 @@ source of truth for the current routes, features and data relationships.
   colors, dimensions, radii and shadows. Dark styling is not consistently
   derived from one palette, and the stylesheet contains several overlapping
   global treatments.
-- The current shell has no student class/catalog home, first-run guest choice,
-  consolidated settings/plan surfaces, or mobile bottom-tab navigation.
+- Before the redesign, the shell had no student class/catalog home or first-run
+  guest choice; the redesign now adds those entry points and mobile bottom tabs.
 - The mounted chat contains multiple always-visible controls and large
   Explore More surfaces; on narrow screens the hierarchy is less thumb-first
   than the target.
@@ -54,6 +54,15 @@ source of truth for the current routes, features and data relationships.
   tints; preserve both light and night modes and improve focus/touch behavior.
 - Add staging protections before the product work so preview builds cannot
   reach production data, become indexable, or run unnecessary background jobs.
+
+## Implemented since the audit
+
+The mounted app now has a class-aware Subjects home, first-run guest/sign-in
+choice, mobile Subjects/Chats/Notes/Me tabs, a flat-answer chat layout, quiet
+Explore disclosure, Tune-based response settings, and accessible touch-sized
+reply actions. New Chat returns to Subjects rather than creating a generic
+conversation. These changes retain the existing chat, note, image, quota, and
+Explore integrations.
 
 ## Scope exclusions
 
