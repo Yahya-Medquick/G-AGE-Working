@@ -24,8 +24,9 @@ import { SubjectsHome } from './components/home/SubjectsHome';
 import { MeScreen } from './components/home/MeScreen';
 import { FirstRunOverlay } from './components/home/FirstRunOverlay';
 import { ClassLevelPrompt } from './components/home/ClassLevelPrompt';
-import { uiCopy } from './i18n/ui';
+import { uiCopy, type UiLanguage } from './i18n/ui';
 import { shouldPromptForClass } from './data/classLevels';
+import { SettingsScreen } from './components/SettingsScreen';
 
 // Lazy-loaded secondary modals for optimal performance
 const AdminDashboardModal = lazy(() =>
@@ -57,7 +58,7 @@ export default function App() {
   if (window.location.pathname.startsWith('/q/')) return <PublicQAPage />;
   if (/^\/persona\/[^/]+\/questions\/?$/.test(window.location.pathname)) return <PersonaQuestionsPage />;
 
-  const { theme, toggleTheme } = useTheme();
+  const { theme, preference: themePreference, setPreference: setThemePreference, toggleTheme } = useTheme();
   const { notes, addNote } = useNotes();
   const {
     user,
@@ -111,9 +112,17 @@ export default function App() {
 
   // Active persona region variant ('global' | 'pk') - default to Pakistani first
   const [expertVariant, setExpertVariant] = useState<'global' | 'pk'>('pk');
-  const [language, setLanguage] = useState<'english' | 'roman-urdu' | 'urdu'>(() => {
-    return (localStorage.getItem('gage_language') as 'english' | 'roman-urdu' | 'urdu') || 'english';
+  const [language, setLanguage] = useState<UiLanguage>(() => {
+    const saved = localStorage.getItem('gage_app_language') || localStorage.getItem('gage_language');
+    return saved === 'roman-urdu' || saved === 'urdu' || saved === 'english' ? saved : 'english';
   });
+  const [responseLanguage, setResponseLanguage] = useState<UiLanguage>(() => {
+    const saved = localStorage.getItem('gage_response_language') || localStorage.getItem('gage_language');
+    return saved === 'roman-urdu' || saved === 'urdu' || saved === 'english' ? saved : 'english';
+  });
+  const [appLanguageFollowsResponse, setAppLanguageFollowsResponse] = useState(
+    () => localStorage.getItem('gage_app_language_follows_response') !== 'false'
+  );
   useEffect(() => {
     if (!user?.id) {
       setIsClassPromptDismissed(false);
@@ -151,9 +160,22 @@ export default function App() {
   }, []);
 
   const handleLanguageChange = useCallback((lang: 'english' | 'roman-urdu' | 'urdu') => {
-    setLanguage(lang);
-    localStorage.setItem('gage_language', lang);
-  }, []);
+    setResponseLanguage(lang);
+    localStorage.setItem('gage_response_language', lang);
+    if (appLanguageFollowsResponse) {
+      setLanguage(lang);
+      localStorage.setItem('gage_app_language', lang);
+    }
+  }, [appLanguageFollowsResponse]);
+
+  const handleAppLanguageChange = (choice: UiLanguage | 'same') => {
+    const followResponse = choice === 'same';
+    const nextLanguage = followResponse ? responseLanguage : choice;
+    setAppLanguageFollowsResponse(followResponse);
+    setLanguage(nextLanguage);
+    localStorage.setItem('gage_app_language_follows_response', String(followResponse));
+    localStorage.setItem('gage_app_language', nextLanguage);
+  };
 
   // Loading state for Gemini stream
   const [loadingSessionIds, setLoadingSessionIds] = useState<Set<string>>(new Set());
@@ -184,6 +206,7 @@ export default function App() {
   const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMeOpen, setIsMeOpen] = useState(false);
   const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'history' | 'preferences'>('profile');
   const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
@@ -217,6 +240,10 @@ export default function App() {
   }, []);
 
   const handleOpenProfile = (tab: 'profile' | 'preferences' = 'profile') => {
+    if (tab === 'preferences') {
+      setIsSettingsOpen(true);
+      return;
+    }
     setProfileInitialTab(tab);
     setIsProfileOpen(true);
   };
@@ -481,7 +508,7 @@ export default function App() {
           isRegenerate: options.isRegenerate ?? false,
           isEdit: options.isEdit ?? false,
           previousQuestion: options.previousQuestion,
-          language,
+          language: responseLanguage,
           messages: history.map((message) => ({
             id: message.id,
             role: message.role,
@@ -784,6 +811,18 @@ export default function App() {
         language={language}
       />
 
+      <SettingsScreen
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        language={language}
+        responseLanguage={responseLanguage}
+        appLanguageFollowsResponse={appLanguageFollowsResponse}
+        onResponseLanguageChange={handleLanguageChange}
+        onAppLanguageChange={handleAppLanguageChange}
+        themePreference={themePreference}
+        onThemePreferenceChange={setThemePreference}
+      />
+
       {/* 2. CENTER PANEL: MAIN CHAT STAGE */}
       <div
         className="h-full min-w-0 flex-1 pb-[calc(var(--space-16)+env(safe-area-inset-bottom))] md:pb-0"
@@ -814,6 +853,7 @@ export default function App() {
             globalPersonas={globalExperts}
             pkPersonas={pkExperts}
             language={language}
+            responseLanguage={responseLanguage}
             isStreamingReply={revealingReply?.sessionId === activeSessionId}
             openExploreRequest={openExploreRequest}
             onLanguageChange={handleLanguageChange}

@@ -392,6 +392,7 @@ interface ChatStageProps {
   globalPersonas: Record<string, ExpertPersona>;
   pkPersonas: Record<string, ExpertPersona>;
   language?: 'english' | 'roman-urdu' | 'urdu';
+  responseLanguage?: 'english' | 'roman-urdu' | 'urdu';
   isStreamingReply?: boolean;
   openExploreRequest?: number;
   onLanguageChange?: (lang: 'english' | 'roman-urdu' | 'urdu') => void;
@@ -426,6 +427,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   globalPersonas,
   pkPersonas,
   language = 'english',
+  responseLanguage = language,
   isStreamingReply = false,
   openExploreRequest = 0,
   onLanguageChange,
@@ -721,7 +723,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           variant: message.personaVariant || session.variant,
           sessionId: session.id,
           messageId: msgId,
-          language,
+          language: responseLanguage,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -981,7 +983,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               aria-haspopup="menu"
               aria-expanded={showLangSwitcher}
             >
-              <span className="text-sm">{language === 'english' ? 'EN' : language === 'roman-urdu' ? 'RU' : 'اردو'}</span>
+              <span className="text-sm">{responseLanguage === 'english' ? 'EN' : responseLanguage === 'roman-urdu' ? 'RU' : 'اردو'}</span>
               <ChevronDown className="w-3 h-3 opacity-60" />
             </button>
 
@@ -1000,7 +1002,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                     }}
                     role="menuitem"
                     className={`flex min-h-11 w-full items-center gap-2 rounded-control px-3 text-start text-sm transition-colors focus-visible:outline-2 focus-visible:outline-accent
-                      ${language === lang
+                      ${responseLanguage === lang
                         ? 'bg-accent-soft text-accent-text'
                         : 'text-text hover:bg-surface-2'
                       }`}
@@ -1009,7 +1011,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                       <div className="font-bold">{label}</div>
                       <div className="text-[10px] opacity-60">{desc}</div>
                     </div>
-                    {language === lang && <CheckCircle2 className="w-3 h-3 ml-auto" />}
+                    {responseLanguage === lang && <CheckCircle2 className="w-3 h-3 ml-auto" />}
                   </button>
                 ))}
               </div>

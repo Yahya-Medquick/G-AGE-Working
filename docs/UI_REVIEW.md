@@ -26,6 +26,7 @@ as verified.
 | 13 | Desktop sidebar and profile navigation | Partial | The sidebar now groups recent chats, has per-chat pin/rename/delete actions, Subjects/Notes/Practice links, collapsible Tools, and a profile menu with class/profile/settings/theme/support/developer/admin actions. Practice, Progress, Privacy and Terms remain explicitly marked “Coming soon”; Plan & usage still opens the existing paywall rather than a dedicated usage screen. Browser, keyboard and theme behavior remain unobserved. |
 | 14 | Continue with the same teacher | Partial | The chat header menu now offers “New chat with this teacher” and opens a fresh session with the current teacher and variant. Ctrl+K still opens Subjects without focusing a search field; that search interaction remains to be implemented. |
 | 15 | Mobile Me tab | Partial | A dedicated mobile Me screen now groups account, study, settings, app, help, developer, account-safety and admin actions. Existing profile/class/settings/paywall/theme/install/tour/support/API/admin actions are wired; unfinished Practice, Progress, Privacy, Terms, export and deletion are visibly marked “Coming soon”. No viewport or device observation has been performed. |
+| 16 | Settings screen | Partial | Response and app language can be controlled independently, with app language following response language by default; preferred Learning/Research mode persists through the existing user API; class uses the existing validated update; default chat filters share `gage_specs_prefs` with Tune and can be reset; theme supports system/light/dark. Type/build/tests pass, but browser persistence, account sync and visual behavior remain unobserved. |
 
 ## Build and test evidence
 
@@ -35,8 +36,8 @@ as verified.
 | `npm test` | Pass; 36 tests in 12 files. |
 | `npm run build` | Pass; the missing local Nastaleeq reference and mixed `CompiledNotesModal` import warning are fixed. Vite still reports the large main-chunk warning. |
 | Main JS gzip baseline | 306.73 kB at pre-redesign commit `3fbb4ca3b3826848505ffa2d6d377b9cd62e02d1`. |
-| Current main JS gzip | 320.84 kB; +4.60% from baseline, within the baseline +20% budget. |
-| Current main JS raw | 1,092.53 kB; still above Vite's 500 kB warning threshold. |
+| Current main JS gzip | 324.19 kB; +5.69% from baseline, within the baseline +20% budget. |
+| Current main JS raw | 1,108.46 kB; still above Vite's 500 kB warning threshold. |
 | Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API and Product Tour use lazy imports; Markdown rendering is also behind `React.lazy`. Their separate chunks are present in the build output. |
 
 The baseline was built in a temporary detached worktree from the commit before

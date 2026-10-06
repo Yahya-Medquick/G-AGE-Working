@@ -24,22 +24,22 @@ interface SpecificationsAccordionProps {
   onToggle: () => void;
 }
 
-const STORAGE_KEY = 'gage_specs_prefs';
+export const SPECS_STORAGE_KEY = 'gage_specs_prefs';
 
 function loadSavedSpecs() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(SPECS_STORAGE_KEY);
     return saved ? JSON.parse(saved) : null;
   } catch { return null; }
 }
 
 function saveSpecs(specs: any) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(specs));
+    localStorage.setItem(SPECS_STORAGE_KEY, JSON.stringify(specs));
   } catch {}
 }
 
-const DEFAULT_SPECS = {
+export const DEFAULT_SPECS = {
   concept: { level: 'intermediate' as const },
   exam: { targetExam: '', subject: '', questionNature: 'short', className: '' },
   research: { recency: '5_years' as const, minCitations: 'any' as const, includeCode: true, includeDatasets: false },
