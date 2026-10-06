@@ -981,15 +981,6 @@ export const ChatStage: React.FC<ChatStageProps> = ({
         </div>
       </header>
 
-      {/* 2. SPECIFICATIONS ACCORDION DRAWER */}
-      <SpecificationsAccordion
-        mode={activeMode}
-        specs={session?.specs || {}}
-        onChangeSpecs={handleSpecsChange}
-        isOpen={isSpecsOpen}
-        onToggle={() => setIsSpecsOpen(!isSpecsOpen)}
-      />
-
       {/* 3. MESSAGES STREAM (WHATSAPP GROUP CHAT STYLING) */}
       <div className="relative z-base flex-1 space-y-6 overflow-y-auto px-4 py-6 sm:px-6">
         {/* Toggleable MCQ Quiz Card */}
@@ -1794,6 +1785,30 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 dir={language === 'urdu' ? 'rtl' : 'ltr'}
               />
             </form>
+
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsSpecsOpen((open) => !open)}
+                aria-label={uiCopy(language, 'tuneSettings')}
+                title={uiCopy(language, 'tuneSettings')}
+                aria-expanded={isSpecsOpen}
+                className="flex h-11 w-11 items-center justify-center rounded-pill text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                <SlidersHorizontal className="h-5 w-5" />
+              </button>
+              {isSpecsOpen && (
+                <div className="fixed inset-x-3 bottom-[calc(var(--space-12)+env(safe-area-inset-bottom))] z-modal max-h-[70dvh] overflow-y-auto rounded-sheet border border-border bg-surface shadow-modal sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:mb-2 sm:w-[min(42rem,calc(100vw-2rem))]">
+                  <SpecificationsAccordion
+                    mode={activeMode}
+                    specs={session?.specs || {}}
+                    onChangeSpecs={handleSpecsChange}
+                    isOpen={isSpecsOpen}
+                    onToggle={() => setIsSpecsOpen(false)}
+                  />
+                </div>
+              )}
+            </div>
 
             <button
               onClick={() => setIsPrivate((value) => !value)}
