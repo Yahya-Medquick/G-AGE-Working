@@ -683,7 +683,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
       setTimeout(() => setCopiedMsgId(null), 2000);
     } catch (error) {
       console.error('Could not copy assistant response', error);
-      setActionNotice({ messageId: msgId, text: uiCopy(language, 'shareFailed') });
+      setActionNotice({ messageId: msgId, text: uiCopy(language, 'copyFailed') });
     }
   };
 
