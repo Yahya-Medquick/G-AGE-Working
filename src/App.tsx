@@ -759,7 +759,7 @@ export default function App() {
   // Save to Notes callback (silent save with badge count increment and toast notification)
   const handleSaveToNotes = (content: string, title?: string) => {
     const noteTitle = title || `${activePersona.name} Note`;
-    const subject = activeSession?.mode || 'General';
+    const subject = activePersona.group_name || activePersona.specialties[0] || 'General';
     addNote(noteTitle, content, subject);
     setSavedNotesCount((prev) => prev + 1);
     setSaveNoteToast(true);
@@ -1061,6 +1061,7 @@ export default function App() {
         isOpen={isNotesOpen}
         onClose={() => setIsNotesOpen(false)}
         persona={activePersona}
+        language={language}
       />
 
       <Suspense fallback={null}>

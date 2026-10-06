@@ -12,6 +12,8 @@ export interface Note {
   updated_at: string;
 }
 
+const LOCAL_NOTE_IMPORT_TAG = "__gage_local_note:";
+
 // Global state variables for sharing note lists and loading state across components
 let globalNotes: Note[] = [];
 let globalLoading = false;
@@ -245,6 +247,86 @@ export const useNotes = () => {
     }
   };
 
+  const migrateLocalNotes = async () => {
+    if (!isLoggedIn) throw new Error("NOTES_SIGN_IN_REQUIRED");
+    const raw = localStorage.getItem("bifrost_notes");
+    if (!raw) return 0;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("NOTES_LOCAL_UNREADABLE");
+    }
+    if (!Array.isArray(parsed)) {
+      throw new Error("NOTES_LOCAL_UNREADABLE");
+    }
+    const localNotes: Note[] = parsed.map((value) => {
+      if (!value || typeof value !== "object") {
+        throw new Error("NOTES_LOCAL_INVALID");
+      }
+      const candidate = value as Record<string, unknown>;
+      if (typeof candidate.id !== "string" || typeof candidate.title !== "string" || typeof candidate.content !== "string") {
+        throw new Error("NOTES_LOCAL_INVALID");
+      }
+      return {
+        id: candidate.id,
+        title: candidate.title,
+        content: candidate.content,
+        subject_tag: typeof candidate.subject_tag === "string" ? candidate.subject_tag : "General",
+        tags: Array.isArray(candidate.tags) ? candidate.tags.filter((tag): tag is string => typeof tag === "string") : [],
+        created_at: typeof candidate.created_at === "string" ? candidate.created_at : new Date().toISOString(),
+        updated_at: typeof candidate.updated_at === "string" ? candidate.updated_at : new Date().toISOString(),
+      };
+    });
+    const remoteResponse = await fetch("/api/notes", {
+      credentials: "include",
+      headers: { ...getAuthHeaders() },
+    });
+    if (!remoteResponse.ok) throw new Error("NOTES_MIGRATION_FAILED");
+    const remoteNotes: unknown = await remoteResponse.json();
+    if (!Array.isArray(remoteNotes)) throw new Error("NOTES_MIGRATION_FAILED");
+    const importedIds = new Set(
+      remoteNotes.flatMap((value: unknown) => {
+        if (!value || typeof value !== "object" || !("tags" in value) || !Array.isArray(value.tags)) return [];
+        return value.tags.filter((tag: unknown): tag is string => typeof tag === "string");
+      })
+        .filter((tag) => tag.startsWith(LOCAL_NOTE_IMPORT_TAG))
+        .map((tag) => tag.slice(LOCAL_NOTE_IMPORT_TAG.length))
+    );
+    let migratedCount = 0;
+
+    for (let index = 0; index < localNotes.length; index += 1) {
+      const note = localNotes[index];
+      const localId = typeof note.id === "string" ? note.id : `legacy-${index}`;
+      if (!importedIds.has(localId)) {
+        const response = await fetch("/api/notes", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({
+            title: note.title,
+            content: note.content,
+            subject_tag: note.subject_tag || "General",
+            tags: [...(Array.isArray(note.tags) ? note.tags : []), `${LOCAL_NOTE_IMPORT_TAG}${localId}`],
+          }),
+        });
+        if (!response.ok) {
+          throw new Error("NOTES_MIGRATION_FAILED");
+        }
+        importedIds.add(localId);
+        migratedCount += 1;
+      }
+
+      const remaining = localNotes.slice(index + 1);
+      if (remaining.length > 0) localStorage.setItem("bifrost_notes", JSON.stringify(remaining));
+      else localStorage.removeItem("bifrost_notes");
+    }
+
+    await fetchNotesFromServerOrLocal(true);
+    return migratedCount;
+  };
+
   return {
     notes,
     loading,
@@ -253,6 +335,7 @@ export const useNotes = () => {
     deleteNote,
     fetchNotes,
     compileNotes,
-    exportNotesPDF
+    exportNotesPDF,
+    migrateLocalNotes
   };
 };
