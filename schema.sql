@@ -208,6 +208,32 @@ CREATE TABLE IF NOT EXISTS email_verifications (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_mode VARCHAR(20) DEFAULT 'research';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS class_level VARCHAR(32);
+
+CREATE TABLE IF NOT EXISTS catalog_books (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  class_level VARCHAR(32) NOT NULL,
+  subject_key VARCHAR(100) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  board VARCHAR(255),
+  publisher VARCHAR(255),
+  status VARCHAR(24) NOT NULL DEFAULT 'coming_soon',
+  persona_group VARCHAR(100),
+  starter_topics JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_catalog_books_class_subject
+  ON catalog_books(class_level, subject_key);
+
+CREATE TABLE IF NOT EXISTS catalog_votes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  book_id UUID NOT NULL REFERENCES catalog_books(id) ON DELETE CASCADE,
+  voter_key VARCHAR(128) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(book_id, voter_key)
+);
+CREATE INDEX IF NOT EXISTS idx_catalog_votes_book ON catalog_votes(book_id);
 
 -- Personas for counseling
 CREATE TABLE IF NOT EXISTS personas (

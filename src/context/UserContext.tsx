@@ -11,6 +11,7 @@ import {
   LoginResult,
   updatePreferencesMode,
   updateOnboardingStatus,
+  saveClassLevel,
 } from "../services/api";
 
 interface UserContextType {
@@ -36,6 +37,7 @@ interface UserContextType {
   logout: () => Promise<void>;
   checkUsage: (tab: CategoryType) => Promise<TabUsage | null>;
   updateProfile: (updated: Partial<UserProfile>) => Promise<void>;
+  updateClassLevel: (classLevel: string) => Promise<void>;
   updatePreferences: (prefs: Partial<UserProfile["preferences"]>) => Promise<void>;
   refreshUserSession: () => Promise<void>;
   proExpiresAt: string | null;
@@ -94,6 +96,7 @@ const UserContext = createContext<UserContextType>({
   logout: async () => {},
   checkUsage: async () => null,
   updateProfile: async () => {},
+  updateClassLevel: async () => {},
   updatePreferences: async () => {},
   refreshUserSession: async () => {},
   proExpiresAt: null,
@@ -341,6 +344,15 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(next);
   };
 
+  const updateClassLevel = async (classLevel: string) => {
+    if (user) {
+      await saveClassLevel(classLevel);
+      setUser((current) => current ? { ...current, class_level: classLevel } : current);
+      return;
+    }
+    localStorage.setItem("gage_class_level", classLevel);
+  };
+
   const updatePreferences = async (prefs: Partial<UserProfile["preferences"]>) => {
     const next = {
       ...profile,
@@ -377,6 +389,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         checkUsage,
         updateProfile,
+        updateClassLevel,
         updatePreferences,
         refreshUserSession: loadUserSession,
         proExpiresAt,

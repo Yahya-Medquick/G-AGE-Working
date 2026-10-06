@@ -25,6 +25,7 @@ import {
   resolveAppEnvironment,
   shouldEnableBackgroundJobs,
 } from "./server/env";
+import { isClassLevelId } from "./src/data/classLevels";
 
 const { Pool } = pg;
 const APP_ENV = resolveAppEnvironment(process.env.APP_ENV);
@@ -730,6 +731,33 @@ async function initDatabaseSchema() {
     } catch (colErr: any) {
       console.warn("[DB] Users table migration notice:", colErr?.message);
     }
+
+    await dbPool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS class_level VARCHAR(32);
+      CREATE TABLE IF NOT EXISTS catalog_books (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        class_level VARCHAR(32) NOT NULL,
+        subject_key VARCHAR(100) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        board VARCHAR(255),
+        publisher VARCHAR(255),
+        status VARCHAR(24) NOT NULL DEFAULT 'coming_soon',
+        persona_group VARCHAR(100),
+        starter_topics JSONB NOT NULL DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_catalog_books_class_subject
+        ON catalog_books(class_level, subject_key);
+      CREATE TABLE IF NOT EXISTS catalog_votes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        book_id UUID NOT NULL REFERENCES catalog_books(id) ON DELETE CASCADE,
+        voter_key VARCHAR(128) NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(book_id, voter_key)
+      );
+      CREATE INDEX IF NOT EXISTS idx_catalog_votes_book ON catalog_votes(book_id);
+    `);
 
     // Phone OTP Rate Limiting Table (Max 3 OTP attempts per phone per 24 hours)
     await dbPool.query(`
@@ -4334,12 +4362,13 @@ app.get("/api/auth/me", async (req: Request, res: Response) => {
   let fullUser = userPayload;
   if (dbPool && userPayload.id) {
     try {
-      const resDb = await dbPool.query("SELECT id, username, name, phone, avatar_url, tier, pro_expires_at, has_seen_onboarding, created_at, preferred_mode FROM users WHERE id = $1", [userPayload.id]);
+      const resDb = await dbPool.query("SELECT id, username, name, phone, avatar_url, tier, pro_expires_at, has_seen_onboarding, created_at, preferred_mode, class_level FROM users WHERE id = $1", [userPayload.id]);
       if (resDb.rows.length > 0) {
         fullUser = {
           ...userPayload,
           ...resDb.rows[0],
           has_seen_onboarding: Boolean(resDb.rows[0].has_seen_onboarding),
+          class_level: resDb.rows[0].class_level || null,
         };
       }
     } catch (e) {
@@ -6414,6 +6443,139 @@ app.get("/api/usage", async (req: Request, res: Response) => {
     remaining: effectiveRemaining,
     resetInSeconds,
   });
+});
+
+app.get("/api/catalog", async (req: Request, res: Response) => {
+  const classLevel = req.query.classLevel;
+  if (!isClassLevelId(classLevel)) {
+    return res.status(400).json({ success: false, error: "A supported classLevel is required." });
+  }
+  if (!dbPool) {
+    return res.status(503).json({ success: false, error: "The subject catalog is temporarily unavailable." });
+  }
+
+  try {
+    const result = await dbPool.query(`
+      SELECT
+        book.id,
+        book.class_level,
+        book.subject_key,
+        book.title,
+        book.board,
+        book.publisher,
+        book.status,
+        book.persona_group,
+        book.starter_topics,
+        COUNT(vote.id)::int AS vote_count,
+        (
+          book.status = 'available'
+          AND book.persona_group IS NOT NULL
+          AND EXISTS (
+            SELECT 1 FROM expert_personas persona
+            WHERE persona.is_active = true AND persona.group_name = book.persona_group
+          )
+        ) AS available
+      FROM catalog_books book
+      LEFT JOIN catalog_votes vote ON vote.book_id = book.id
+      WHERE book.class_level = $1
+      GROUP BY book.id
+      ORDER BY book.subject_key, book.title
+    `, [classLevel]);
+    const grouped = new Map<string, Array<Record<string, unknown>>>();
+    for (const row of result.rows) {
+      const books = grouped.get(row.subject_key) || [];
+      books.push({
+        id: row.id,
+        classLevel: row.class_level,
+        subjectKey: row.subject_key,
+        title: row.title,
+        board: row.board,
+        publisher: row.publisher,
+        status: row.status === "available" ? "available" : "coming_soon",
+        available: row.available === true,
+        personaGroup: row.persona_group,
+        starterTopics: Array.isArray(row.starter_topics) ? row.starter_topics : [],
+        voteCount: Number(row.vote_count) || 0,
+      });
+      grouped.set(row.subject_key, books);
+    }
+    return res.json({
+      success: true,
+      classLevel,
+      subjects: Array.from(grouped, ([key, books]) => ({ key, books })),
+    });
+  } catch (error) {
+    console.error("GET /api/catalog error:", error);
+    return res.status(500).json({ success: false, error: "Failed to load the subject catalog." });
+  }
+});
+
+app.patch("/api/auth/me/class-level", async (req: Request, res: Response) => {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser?.id) {
+    return res.status(401).json({ success: false, error: "Sign in to save your class." });
+  }
+  const classLevel = req.body?.classLevel;
+  if (!isClassLevelId(classLevel)) {
+    return res.status(400).json({ success: false, error: "Choose a supported class level." });
+  }
+  if (!dbPool) {
+    return res.status(503).json({ success: false, error: "Your class could not be saved right now." });
+  }
+
+  try {
+    const result = await dbPool.query(
+      "UPDATE users SET class_level = $1 WHERE id = $2 RETURNING class_level",
+      [classLevel, currentUser.id],
+    );
+    if (!result.rows.length) return res.status(404).json({ success: false, error: "Account not found." });
+    return res.json({ success: true, classLevel: result.rows[0].class_level });
+  } catch (error) {
+    console.error("PATCH /api/auth/me/class-level error:", error);
+    return res.status(500).json({ success: false, error: "Your class could not be saved." });
+  }
+});
+
+app.post("/api/catalog/:bookId/vote", async (req: Request, res: Response) => {
+  const { bookId } = req.params;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId)) {
+    return res.status(400).json({ success: false, error: "Invalid catalog item." });
+  }
+  if (!dbPool) {
+    return res.status(503).json({ success: false, error: "Voting is temporarily unavailable." });
+  }
+
+  const currentUser = getCurrentUser(req);
+  const voterId = currentUser?.id ? `user:${currentUser.id}` : `device:${getTrustedGuestDeviceId(req)}`;
+  const voterKey = crypto.createHmac("sha256", SESSION_SECRET).update(voterId).digest("hex");
+  try {
+    const book = await dbPool.query(
+      "SELECT status FROM catalog_books WHERE id = $1",
+      [bookId],
+    );
+    if (!book.rows.length) return res.status(404).json({ success: false, error: "Catalog item not found." });
+    if (book.rows[0].status !== "coming_soon") {
+      return res.status(409).json({ success: false, error: "This item is already available." });
+    }
+    const vote = await dbPool.query(`
+      INSERT INTO catalog_votes (book_id, voter_key)
+      VALUES ($1, $2)
+      ON CONFLICT (book_id, voter_key) DO NOTHING
+      RETURNING id
+    `, [bookId, voterKey]);
+    const count = await dbPool.query(
+      "SELECT COUNT(*)::int AS vote_count FROM catalog_votes WHERE book_id = $1",
+      [bookId],
+    );
+    return res.json({
+      success: true,
+      voted: vote.rows.length > 0,
+      voteCount: Number(count.rows[0]?.vote_count) || 0,
+    });
+  } catch (error) {
+    console.error("POST /api/catalog/:bookId/vote error:", error);
+    return res.status(500).json({ success: false, error: "Your vote could not be saved." });
+  }
 });
 
 // POST /api/query/track - Track query execution on backend PostgreSQL device_limits

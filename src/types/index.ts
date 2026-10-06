@@ -24,6 +24,7 @@ export interface UserAuth {
   avatar_url?: string;
   tier: 'free' | 'logged_out' | 'paid' | 'pro' | 'unlimited';
   has_seen_onboarding?: boolean;
+  class_level?: string | null;
   created_at?: string;
   pro_expires_at?: string | null;
   preferred_mode?: 'research' | 'learning';
@@ -411,5 +412,4 @@ export interface ExpertPersona {
   created_at?: string;
   updated_at?: string;
 }
-
 

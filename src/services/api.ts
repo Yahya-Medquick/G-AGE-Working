@@ -254,6 +254,18 @@ export async function updatePreferencesMode(mode: "research" | "learning") {
   }
 }
 
+export async function saveClassLevel(classLevel: string) {
+  const res = await fetch("/api/auth/me/class-level", {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    body: JSON.stringify({ classLevel }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to save class level");
+  return data as { success: boolean; classLevel: string };
+}
+
 export async function updateOnboardingStatus(hasSeenOnboarding = true) {
   try {
     const res = await fetch("/api/user/onboarding", {
@@ -451,4 +463,3 @@ export async function fetchCategoryData<T = any>(
     inFlightCategoryRequests.delete(cacheKey);
   });
 }
-

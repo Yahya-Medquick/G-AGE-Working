@@ -44,3 +44,12 @@ mobile uses full-screen chat and bottom-sheet/drawer patterns rather than
 shrinking desktop panels. Keep focus visible, safe-area aware and content
 within the viewport. Urdu shell direction follows the selected UI language;
 assistant paragraphs keep their current paragraph-level direction behavior.
+
+## Catalog data readiness
+
+Class levels and the additive catalog API are shared by the subject-home UI.
+The catalog intentionally has no seeded book records: **TODO(owner):** provide
+verified class/subject titles, board and publisher details, persona-group
+mapping, and starter topics before enabling the corresponding catalog entries.
+Until that data exists, the client must show a useful empty state and teacher
+discovery rather than invented books or publishers.
