@@ -760,10 +760,10 @@ export default function App() {
             globalPersonas={globalExperts}
             pkPersonas={pkExperts}
             language={language}
-            onStartChat={(persona, topic) => {
+            onStartChat={(persona, topic, starterTopics) => {
               const variant = persona.variant || 'global';
               setExpertVariant(variant);
-              createSession(persona.id, 'concept', topic, topic, variant, persona);
+              createSession(persona.id, 'concept', topic, topic, variant, persona, starterTopics);
             }}
           />
         )}

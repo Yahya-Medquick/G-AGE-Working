@@ -57,6 +57,7 @@ import { VideoCard } from '../cards/VideoCard';
 import { NewsCard } from '../cards/NewsCard';
 import { MultiLevelDefinitionCard } from '../MultiLevelDefinitionCard';
 import { resolvePersonaIdentity } from '../../utils/resolvePersonaIdentity';
+import { uiCopy } from '../../i18n/ui';
 
 // Helper component for YouTube Video Guides (backend YouTube Data API integration)
 const ExploreVideosSection: React.FC<{ topic: string; query?: string }> = ({ topic, query }) => {
@@ -826,6 +827,18 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   };
 
   const currentTopic = session?.title && session.title !== 'New Consultation' ? session.title : 'this topic';
+  const isWelcomeHero = session?.messages.length === 1 && session.messages[0].role === 'assistant';
+  const welcomeSuggestions = session?.starterTopics?.filter((topic) => topic.trim()).slice(0, 4) || [
+    uiCopy(language, 'explainSomething'),
+    uiCopy(language, 'helpMeStudy'),
+    uiCopy(language, 'writeSomething'),
+    uiCopy(language, 'analyzeSomething'),
+  ];
+  const activeModeLabel = activeMode === 'concept'
+    ? uiCopy(language, 'modeConcept')
+    : activeMode === 'exam'
+      ? uiCopy(language, 'modeExam')
+      : uiCopy(language, 'modeResearch');
 
   return (
     <div className="flex-1 flex flex-col h-full min-w-0 bg-[#efeae2] dark:bg-[#0b141a] overflow-hidden relative selection:bg-[#00a884]/20 selection:text-[#005c4b] dark:selection:text-[#00a884]">
@@ -1054,31 +1067,49 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           </div>
         )}
 
-        {/* WhatsApp Centered Date Separator Pill */}
-        <div className="flex justify-center my-2">
-          <div className="bg-white/90 dark:bg-[#182229]/95 text-slate-600 dark:text-slate-400 text-[11px] font-semibold px-3 py-1 rounded-lg shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] dark:shadow-[0_1px_0.5px_rgba(11,20,26,0.3)] uppercase tracking-wider">
-            TODAY • {activePersona.name} Group
-          </div>
-        </div>
-
-        {/* Initial Group Welcome Card if brand new chat */}
-        {(!session || session.messages.length <= 1) && (
-          <div className="max-w-xl mx-auto py-4 space-y-4 animate-in fade-in duration-300">
-            {/* WhatsApp System Encryption / Encryption Style Banner */}
-            <div className="bg-[#ffeecd] dark:bg-[#182229] border border-[#f5c369]/40 dark:border-[#2a3942] rounded-xl p-3 text-center text-xs text-[#54656f] dark:text-[#8696a0] shadow-xs space-y-1">
-              <div className="font-bold text-[#111b21] dark:text-[#e9edef] flex items-center justify-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Bilingual Conversational & Academic Mentorship</span>
-              </div>
-              <p className="text-[11px] leading-relaxed">
-                Messages with <strong>{activePersona.name}</strong> support instant queries in English or Roman Urdu / Hinglish. Ask study concepts, exam questions, or everyday problems.
-              </p>
+        {!isWelcomeHero && (
+          <div className="flex justify-center my-2">
+            <div className="rounded-pill bg-surface px-3 py-1 text-xs font-medium text-muted shadow-lift">
+              {activePersona.name} · {activeModeLabel}
             </div>
           </div>
         )}
 
-        {/* Render WhatsApp Message Bubbles */}
+        {isWelcomeHero && (
+          <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5 py-8 text-center sm:py-12">
+            <div className="flex items-center gap-2 text-sm text-muted">
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-pill bg-accent-soft text-xs font-semibold text-accent-text"
+                aria-hidden="true"
+              >
+                {activePersona.initials || 'GA'}
+              </span>
+              <span>{activePersona.name} · {activeModeLabel}</span>
+            </div>
+            <h1 className="text-2xl font-semibold leading-tight text-text sm:text-3xl">
+              {uiCopy(language, 'welcomeHeroTitle')}
+            </h1>
+            <div className="flex max-w-2xl flex-wrap justify-center gap-2">
+              {welcomeSuggestions.map((suggestion, index) => (
+                <button
+                  key={`${suggestion}-${index}`}
+                  type="button"
+                  onClick={() => {
+                    setInputText(suggestion);
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                  }}
+                  className="min-h-11 max-w-full break-words rounded-pill border border-border bg-surface px-4 py-2 text-sm text-text transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Render messages, omitting the persona opener while the welcome hero is active */}
         {session?.messages.map((msg, idx) => {
+          if (isWelcomeHero && idx === 0) return null;
           const isAssistant = msg.role === 'assistant';
           const messageImages = msg.images?.length ? msg.images : msg.imageBase64 ? [msg.imageBase64] : [];
           const latestAssistantIndex = session.messages.reduce(

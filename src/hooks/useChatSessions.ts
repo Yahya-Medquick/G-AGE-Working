@@ -110,6 +110,7 @@ export function useChatSessions() {
       customTitle?: string,
       variant: 'global' | 'pk' = 'global',
       personaOverride?: ExpertPersona,
+      starterTopics?: string[],
     ): ChatSession => {
       const expertSet = variant === 'pk' ? EXPERTS_PK : EXPERTS;
       const persona = personaOverride || expertSet[personaId] || expertSet['hamza'] || Object.values(expertSet)[0];
@@ -140,6 +141,7 @@ export function useChatSessions() {
         createdAt: now,
         updatedAt: now,
         messages: [initialMessage],
+        ...(starterTopics?.length ? { starterTopics } : {}),
         specs: {
           concept: { level: 'intermediate', mathRigor: 'standard', explanationStyle: 'socratic' },
           exam: { targetExam: 'University / AP', difficulty: 'standard', questionFormat: 'step_by_step' },

@@ -99,6 +99,7 @@ export interface ChatSession {
   createdAt: string;
   updatedAt: string;
   messages: ChatMessage[];
+  starterTopics?: string[];
   specs?: {
     concept?: Partial<ConceptSpecs>;
     exam?: Partial<ExamSpecs>;

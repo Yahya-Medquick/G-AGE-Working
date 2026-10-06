@@ -16,7 +16,7 @@ interface SubjectsHomeProps {
   globalPersonas: Record<string, ExpertPersona>;
   pkPersonas: Record<string, ExpertPersona>;
   language: UiLanguage;
-  onStartChat: (persona: ExpertPersona, topic: string) => void;
+  onStartChat: (persona: ExpertPersona, topic: string, starterTopics?: string[]) => void;
 }
 
 function readRecentSlugs(): string[] {
@@ -124,7 +124,7 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
     }
   };
 
-  const handleStartTeacher = async (persona: ExpertPersona, topic: string) => {
+  const handleStartTeacher = (persona: ExpertPersona, topic: string, starterTopics?: string[]) => {
     const slug = persona.slug || persona.id;
     const nextRecent = [slug, ...recentSlugs.filter((entry) => entry !== slug)].slice(0, 3);
     setRecentSlugs(nextRecent);
@@ -138,7 +138,7 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
       credentials: 'include',
       headers: getAuthHeaders(),
     }).catch((usageError) => console.warn('Unable to record teacher usage:', usageError));
-    onStartChat(persona, topic);
+    onStartChat(persona, topic, starterTopics);
   };
 
   const findTeacher = (groupName?: string | null) => personas.find((persona) => {
@@ -218,7 +218,7 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                onClick={() => void handleStartTeacher(teacher, book.starterTopics[0] || book.title)}
+                                onClick={() => handleStartTeacher(teacher, book.starterTopics[0] || book.title, book.starterTopics)}
                               >
                                 {t('startLearning')}
                               </Button>
@@ -270,7 +270,7 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
                 <li key={`${persona.variant}:${persona.slug || persona.id}`}>
                   <button
                     type="button"
-                    onClick={() => void handleStartTeacher(persona, persona.specialties?.[0] || persona.name)}
+                    onClick={() => handleStartTeacher(persona, persona.specialties?.[0] || persona.name)}
                     className="flex min-h-16 w-full min-w-0 items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
                   >
                     <span
