@@ -217,6 +217,8 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPlanUsageOpen, setIsPlanUsageOpen] = useState(false);
   const [isMeOpen, setIsMeOpen] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(() => window.location.pathname === '/terms');
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(() => window.location.pathname === '/privacy');
   const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'history' | 'preferences'>('profile');
   const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState<boolean>(false);
@@ -249,6 +251,34 @@ export default function App() {
     }
   }, []);
 
+  const handleOpenTerms = useCallback(() => {
+    setIsTermsOpen(true);
+    if (window.location.pathname !== '/terms') {
+      window.history.pushState({}, '', '/terms');
+    }
+  }, []);
+
+  const handleOpenPrivacy = useCallback(() => {
+    setIsPrivacyOpen(true);
+    if (window.location.pathname !== '/privacy') {
+      window.history.pushState({}, '', '/privacy');
+    }
+  }, []);
+
+  const handleCloseTerms = useCallback(() => {
+    setIsTermsOpen(false);
+    if (window.location.pathname === '/terms') {
+      window.history.pushState({}, '', '/');
+    }
+  }, []);
+
+  const handleClosePrivacy = useCallback(() => {
+    setIsPrivacyOpen(false);
+    if (window.location.pathname === '/privacy') {
+      window.history.pushState({}, '', '/');
+    }
+  }, []);
+
   const handleOpenProfile = (tab: 'profile' | 'preferences' = 'profile') => {
     if (tab === 'preferences') {
       setIsSettingsOpen(true);
@@ -270,17 +300,13 @@ export default function App() {
     }
   }, []);
 
-  // Listen to popstate for /download browser back/forward buttons
+  // Listen to popstate for /download, /terms, /privacy browser back/forward buttons
   useEffect(() => {
     const handlePopState = () => {
-      if (
-        window.location.pathname.startsWith('/download') ||
-        window.location.search.includes('view=download')
-      ) {
-        setIsDownloadOpen(true);
-      } else {
-        setIsDownloadOpen(false);
-      }
+      const path = window.location.pathname;
+      setIsDownloadOpen(path.startsWith('/download') || window.location.search.includes('view=download'));
+      setIsTermsOpen(path === '/terms');
+      setIsPrivacyOpen(path === '/privacy');
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
