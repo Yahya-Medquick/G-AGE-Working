@@ -15,6 +15,7 @@ interface Props {
   onClose: () => void;
   persona?: ExpertPersona | null;
   language: UiLanguage;
+  onOpenPractice?: (tab: 'practice' | 'progress') => void;
 }
 
 const escapeHtml = (value: string) => value
@@ -24,7 +25,7 @@ const escapeHtml = (value: string) => value
   .replace(/"/g, "&quot;")
   .replace(/'/g, "&#39;");
 
-export const NotesSidePanel = ({ isOpen, onClose, persona, language }: Props) => {
+export const NotesSidePanel = ({ isOpen, onClose, persona, language, onOpenPractice }: Props) => {
   const { notes, loading, error, deleteNote, compileNotes, exportNotesPDF, migrateLocalNotes } = useNotes();
   const { isLoggedIn } = useUser();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -247,6 +248,35 @@ export const NotesSidePanel = ({ isOpen, onClose, persona, language }: Props) =>
             className="flex h-11 w-11 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
           >
             <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div role="tablist" aria-label={t("practiceNavigation")} className="flex gap-1 border-b border-border bg-surface p-2">
+          <button
+            type="button"
+            role="tab"
+            aria-selected="true"
+            className="min-h-11 flex-1 rounded-control bg-accent px-2 text-xs font-semibold text-on-accent"
+          >
+            {t("notesTitle")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            onClick={() => onOpenPractice?.('practice')}
+            className="min-h-11 flex-1 rounded-control px-2 text-xs font-medium text-muted hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            {t("practiceTab")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            onClick={() => onOpenPractice?.('progress')}
+            className="min-h-11 flex-1 rounded-control px-2 text-xs font-medium text-muted hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            {t("practiceProgressTab")}
           </button>
         </div>
 

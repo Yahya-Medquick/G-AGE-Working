@@ -50,6 +50,7 @@ interface ChatSidebarProps {
   onDeleteSession: (id: string) => void;
   onPinSession: (id: string) => void;
   onOpenNotes: () => void;
+  onOpenPractice: (tab: 'practice' | 'progress') => void;
   notesCount: number;
   onOpenAdmin: () => void;
   onOpenApiDocs: () => void;
@@ -86,6 +87,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onDeleteSession,
   onPinSession,
   onOpenNotes,
+  onOpenPractice,
   notesCount,
   onOpenAdmin,
   onOpenApiDocs,
@@ -440,8 +442,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               <FileText className="h-4 w-4" />{uiCopy(language, 'navNotes')}
               {notesCount > 0 && <span className="ml-auto rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-on-accent">{notesCount}</span>}
             </button>
-            <button type="button" disabled title={uiCopy(language, 'sidebarNotReady')} className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-slate-400">
-              <Check className="h-4 w-4" />{uiCopy(language, 'sidebarPractice')}<span className="ml-auto text-[10px]">{uiCopy(language, 'sidebarNotReady')}</span>
+            <button type="button" onClick={() => onOpenPractice('practice')} className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent">
+              <Check className="h-4 w-4" />{uiCopy(language, 'sidebarPractice')}
             </button>
             <button
               type="button"
@@ -511,7 +513,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenPlanUsage(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Crown className="h-4 w-4" />{uiCopy(language, 'sidebarPlanUsage')}</button>
                 <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenProfile('preferences'); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Settings className="h-4 w-4" />{uiCopy(language, 'sidebarSettings')}</button>
                 <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); toggleTheme(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2">{theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}{uiCopy(language, 'sidebarNightMode')}</button>
-                <button type="button" role="menuitem" disabled title={uiCopy(language, 'sidebarNotReady')} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-muted"><BarChart3 className="h-4 w-4" />{uiCopy(language, 'sidebarProgress')}<span className="ml-auto text-[10px]">{uiCopy(language, 'sidebarNotReady')}</span></button>
+                <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenPractice('progress'); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent"><BarChart3 className="h-4 w-4" />{uiCopy(language, 'sidebarProgress')}</button>
                 {onOpenDownload && <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); onOpenDownload(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Smartphone className="h-4 w-4" />{uiCopy(language, 'sidebarInstallApp')}</button>}
                 <button type="button" role="menuitem" onClick={() => { setIsProfileMenuOpen(false); replayTour(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm text-text hover:bg-surface-2"><Compass className="h-4 w-4" />{uiCopy(language, 'sidebarTour')}</button>
                 {supportUrl ? (

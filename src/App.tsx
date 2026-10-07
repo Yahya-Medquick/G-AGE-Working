@@ -56,6 +56,9 @@ const AndroidDownloadPage = lazy(() =>
 const ProductTour = lazy(() =>
   import('./components/ProductTour').then((m) => ({ default: m.ProductTour }))
 );
+const PracticeScreen = lazy(() =>
+  import('./components/PracticeScreen').then((m) => ({ default: m.PracticeScreen }))
+);
 
 export default function App() {
   if (window.location.pathname.startsWith('/q/')) return <PublicQAPage />;
@@ -220,6 +223,9 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPlanUsageOpen, setIsPlanUsageOpen] = useState(false);
   const [isMeOpen, setIsMeOpen] = useState(false);
+  const [isPracticeOpen, setIsPracticeOpen] = useState(false);
+  const [practiceInitialTab, setPracticeInitialTab] = useState<'practice' | 'progress'>('practice');
+  const [practiceInitialTopic, setPracticeInitialTopic] = useState('');
   const [isTermsOpen, setIsTermsOpen] = useState(() => window.location.pathname === '/terms');
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(() => window.location.pathname === '/privacy');
   const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'history' | 'preferences'>('profile');
@@ -468,6 +474,7 @@ export default function App() {
   const handleNewChat = useCallback((focusSearch = false) => {
     skipReveal();
     setIsMeOpen(false);
+    setIsPracticeOpen(false);
     setIsSubjectsHomeOpen(true);
     if (focusSearch) setSubjectsSearchFocusRequest((request) => request + 1);
     if (window.innerWidth < 1024) {
@@ -794,6 +801,14 @@ export default function App() {
     setSaveNoteToast(true);
   };
 
+  const handleOpenPractice = (tab: 'practice' | 'progress' = 'practice', topic = '') => {
+    skipReveal();
+    setPracticeInitialTab(tab);
+    setPracticeInitialTopic(topic);
+    setIsPracticeOpen(true);
+    setIsNotesOpen(false);
+  };
+
   return (
     <div className="flex h-dvh w-full min-w-0 overflow-hidden bg-bg font-sans text-text selection:bg-accent selection:text-on-accent">
       {chatErrorToast && (
@@ -815,6 +830,7 @@ export default function App() {
         onSelectSession={(id) => {
           skipReveal();
           setIsMeOpen(false);
+          setIsPracticeOpen(false);
           setIsSubjectsHomeOpen(false);
           selectSession(id);
           if (window.innerWidth < 1024) setIsLeftPanelOpen(false);
@@ -827,6 +843,10 @@ export default function App() {
           setIsNotesOpen(true);
           setSavedNotesCount(0);
         }}
+        onOpenPractice={(tab) => {
+          setIsLeftPanelOpen(false);
+          handleOpenPractice(tab);
+        }}
         notesCount={savedNotesCount}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenApiDocs={() => setIsApiDocsOpen(true)}
@@ -836,6 +856,7 @@ export default function App() {
             handleNewChat();
             return;
           }
+          setIsPracticeOpen(false);
           setIsSubjectsHomeOpen(false);
           setOpenExploreRequest((request) => request + 1);
         }}
@@ -883,7 +904,18 @@ export default function App() {
           }
         }}
       >
-        {isMeOpen ? (
+        {isPracticeOpen ? (
+          <Suspense fallback={<div role="status" className="p-6 text-sm text-muted">{uiCopy(language, 'practiceLoading')}</div>}>
+            <PracticeScreen
+              language={language}
+              initialTopic={practiceInitialTopic}
+              initialTab={practiceInitialTab}
+              onClose={() => setIsPracticeOpen(false)}
+              onOpenLogin={() => setIsLoginOpen(true)}
+              onOpenPaywall={triggerPaywall}
+            />
+          </Suspense>
+        ) : isMeOpen ? (
           <MeScreen
             language={language}
             theme={theme}
@@ -893,11 +925,13 @@ export default function App() {
             onOpenSettings={() => handleOpenProfile('preferences')}
             onToggleTheme={toggleTheme}
             onOpenDownload={handleOpenDownload}
+            onOpenPractice={(tab) => handleOpenPractice(tab)}
             onOpenApiDocs={() => setIsApiDocsOpen(true)}
             onOpenAdmin={() => setIsAdminOpen(true)}
             onDeleteAccount={deleteAccount}
             onAccountDeleted={(localDataCleared) => {
               setIsMeOpen(false);
+              setIsPracticeOpen(false);
               setIsSubjectsHomeOpen(true);
               setIsLeftPanelOpen(false);
               const params = new URLSearchParams(window.location.search);
@@ -931,6 +965,7 @@ export default function App() {
             onBackToSubjects={() => {
               skipReveal();
               setIsMeOpen(false);
+              setIsPracticeOpen(false);
               setIsSubjectsHomeOpen(true);
               setIsLeftPanelOpen(false);
             }}
@@ -938,8 +973,10 @@ export default function App() {
             onSaveToNotes={handleSaveToNotes}
             onOpenPaywall={triggerPaywall}
             onOpenPlanUsage={handleOpenPlanUsage}
+            onOpenPractice={(topic) => handleOpenPractice('practice', topic)}
             onNewChatWithTeacher={() => {
               skipReveal();
+              setIsPracticeOpen(false);
               setIsSubjectsHomeOpen(false);
               createSession(currentPersonaId, 'concept', 'General Discussion', undefined, activeVariant, activePersona);
             }}
@@ -953,9 +990,11 @@ export default function App() {
             pkPersonas={pkExperts}
             language={language}
             focusSearchRequest={subjectsSearchFocusRequest}
+            onOpenPractice={() => handleOpenPractice()}
             onStartChat={(persona, topic, starterTopics) => {
               const variant = persona.variant || 'global';
               setIsMeOpen(false);
+              setIsPracticeOpen(false);
               setIsSubjectsHomeOpen(false);
               setExpertVariant(variant);
               createSession(persona.id, 'concept', topic, topic, variant, persona, starterTopics);
@@ -965,7 +1004,7 @@ export default function App() {
       </div>
 
       {/* 3. RIGHT PANEL: EXPERT PERSONA SELECTOR */}
-      {activeSession && <PersonaPanel
+      {activeSession && !isPracticeOpen && <PersonaPanel
         isOpen={isRightPanelOpen}
         initialGroup={initialPersonaGroup}
         onGroupConsumed={() => setInitialPersonaGroup(null)}
@@ -989,11 +1028,12 @@ export default function App() {
             type="button"
             onClick={() => {
               setIsMeOpen(false);
+              setIsPracticeOpen(false);
               setIsSubjectsHomeOpen(true);
               setIsLeftPanelOpen(false);
             }}
-            aria-current={!isMeOpen && (isSubjectsHomeOpen || !displayedSession) ? 'page' : undefined}
-            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${!isMeOpen && (isSubjectsHomeOpen || !displayedSession) ? 'text-accent-text' : ''}`}
+            aria-current={!isMeOpen && !isPracticeOpen && (isSubjectsHomeOpen || !displayedSession) ? 'page' : undefined}
+            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${!isMeOpen && !isPracticeOpen && (isSubjectsHomeOpen || !displayedSession) ? 'text-accent-text' : ''}`}
           >
             <BookOpen aria-hidden="true" className="h-5 w-5" />
             <span>{uiCopy(language, 'navSubjects')}</span>
@@ -1002,11 +1042,12 @@ export default function App() {
             type="button"
             onClick={() => {
               setIsMeOpen(false);
+              setIsPracticeOpen(false);
               setIsSubjectsHomeOpen(false);
               setIsLeftPanelOpen(true);
             }}
-            aria-current={!isMeOpen && !isSubjectsHomeOpen && displayedSession ? 'page' : undefined}
-            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${!isMeOpen && !isSubjectsHomeOpen && displayedSession ? 'text-accent-text' : ''}`}
+            aria-current={!isMeOpen && !isPracticeOpen && !isSubjectsHomeOpen && displayedSession ? 'page' : undefined}
+            className={`flex min-h-14 flex-col items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-accent ${!isMeOpen && !isPracticeOpen && !isSubjectsHomeOpen && displayedSession ? 'text-accent-text' : ''}`}
           >
             <MessageSquare aria-hidden="true" className="h-5 w-5" />
             <span>{uiCopy(language, 'navChats')}</span>
@@ -1015,6 +1056,7 @@ export default function App() {
             type="button"
             onClick={() => {
               setIsMeOpen(false);
+              setIsPracticeOpen(false);
               setIsNotesOpen(true);
               setSavedNotesCount(0);
             }}
@@ -1027,6 +1069,7 @@ export default function App() {
             type="button"
             onClick={() => {
               if (isLoggedIn) {
+                setIsPracticeOpen(false);
                 setIsMeOpen(true);
                 setIsSubjectsHomeOpen(false);
                 setIsLeftPanelOpen(false);
@@ -1102,6 +1145,7 @@ export default function App() {
         onClose={() => setIsNotesOpen(false)}
         persona={activePersona}
         language={language}
+        onOpenPractice={(tab) => handleOpenPractice(tab)}
       />
 
       <Suspense fallback={null}>

@@ -1,6 +1,13 @@
 import { CategoryApiResponse, CategoryType, UserAuth } from "../types";
 import { getOrCreateDeviceId } from "./firebaseAuth";
 import { clearAccountLocalData } from "../utils/accountLocalData";
+import {
+  parsePracticeAttempts,
+  parsePracticeProgress,
+  type PracticeAttempt,
+  type PracticeAttemptInput,
+  type PracticeProgress,
+} from "../utils/practice";
 
 // In-Memory Caches
 const clientMemoryCache = new Map<string, { data: CategoryApiResponse; expiresAt: number }>();
@@ -240,6 +247,47 @@ export async function deleteAccountUser(userId: string): Promise<{ localDataClea
     console.error("Account was deleted but browser data could not be cleared:", error);
     return { localDataCleared: false };
   }
+}
+
+export async function savePracticeAttempt(input: PracticeAttemptInput): Promise<PracticeAttempt> {
+  const response = await fetch("/api/practice/attempts", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    body: JSON.stringify(input),
+  });
+  const data: unknown = await response.json().catch(() => null);
+  if (
+    !response.ok ||
+    !data ||
+    typeof data !== "object" ||
+    !("success" in data) ||
+    data.success !== true ||
+    !("attempt" in data)
+  ) {
+    const message = data && typeof data === "object" && "error" in data && typeof data.error === "string"
+      ? data.error
+      : "Practice result could not be saved.";
+    throw new Error(message);
+  }
+
+  return parsePracticeAttempts([data.attempt])[0];
+}
+
+export async function fetchPracticeProgress(): Promise<PracticeProgress> {
+  const response = await fetch("/api/practice/attempts", {
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const data: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message = data && typeof data === "object" && "error" in data && typeof data.error === "string"
+      ? data.error
+      : "Practice history could not be loaded.";
+    throw new Error(message);
+  }
+
+  return parsePracticeProgress(data);
 }
 
 export async function fetchCurrentUser(): Promise<UserAuth | null> {

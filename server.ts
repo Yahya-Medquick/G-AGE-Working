@@ -29,6 +29,7 @@ import { isClassLevelId } from "./src/data/classLevels";
 import { isCatalogBookAvailable, parseCatalogWriteInput } from "./src/utils/catalog";
 import { createAdminAuthMiddleware, createAdminSessionVerifier } from "./src/utils/adminSession";
 import { deleteAccountRecords } from "./src/utils/accountDeletion";
+import { parsePracticeAttemptInput, type PracticeAttempt } from "./src/utils/practice";
 
 const { Pool } = pg;
 const APP_ENV = resolveAppEnvironment(process.env.APP_ENV);
@@ -991,6 +992,19 @@ async function initDatabaseSchema() {
       );
     `);
 
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS practice_attempts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        topic VARCHAR(255) NOT NULL,
+        correct_count INTEGER NOT NULL CHECK (correct_count >= 0),
+        total_count INTEGER NOT NULL CHECK (total_count > 0 AND correct_count <= total_count),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_practice_attempts_user_created
+        ON practice_attempts(user_id, created_at DESC);
+    `);
+
     // 16b. Persona Q&A Log (public, no user reference) — for per-persona SEO sitemap pages
     await dbPool.query(`
       CREATE TABLE IF NOT EXISTS persona_qa_log (
@@ -1743,6 +1757,7 @@ STRICT BEHAVIOR RULES:
 
 let inMemoryCounselingSessions: any[] = [];
 let inMemoryNotes: any[] = [];
+let inMemoryPracticeAttempts: Array<PracticeAttempt & { user_id: string }> = [];
 
 // Configurable Tier Daily Search Limits per Tab (Guest limit = 5/day)
 export const TIER_CONFIG: Record<string, Record<string, number>> = {
@@ -4368,6 +4383,7 @@ app.delete("/api/auth/account", authenticateToken, async (req: Request, res: Res
     inMemoryHistory.delete(userId);
     inMemoryCounselingSessions = inMemoryCounselingSessions.filter((session) => session.user_id !== userId);
     inMemoryNotes = inMemoryNotes.filter((note) => note.user_id !== userId);
+    inMemoryPracticeAttempts = inMemoryPracticeAttempts.filter((attempt) => attempt.user_id !== userId);
     res.clearCookie("session_token");
     return res.json({ success: true });
   } catch (error) {
@@ -7695,6 +7711,95 @@ Return valid JSON matching this schema:
   };
 
   return res.json(fallback);
+});
+
+app.get("/api/practice/attempts", authenticateToken, async (req: Request, res: Response) => {
+  const userId = (req as any).user.id as string;
+  if (!dbPool && !inMemoryUsers.has(userId)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    if (dbPool) {
+      const [attemptsResult, summaryResult] = await Promise.all([
+        dbPool.query(
+          `SELECT id, topic, correct_count, total_count, created_at
+           FROM practice_attempts
+           WHERE user_id = $1
+           ORDER BY created_at DESC
+           LIMIT 50`,
+          [userId],
+        ),
+        dbPool.query(
+          `SELECT COUNT(*)::int AS attempts,
+                  COALESCE(SUM(total_count), 0)::int AS questions,
+                  COALESCE(SUM(correct_count), 0)::int AS "correctAnswers"
+           FROM practice_attempts
+           WHERE user_id = $1`,
+          [userId],
+        ),
+      ]);
+      return res.json({ attempts: attemptsResult.rows, summary: summaryResult.rows[0] });
+    }
+
+    const userAttempts = inMemoryPracticeAttempts.filter((attempt) => attempt.user_id === userId);
+    const attempts = userAttempts
+      .slice(0, 50)
+      .map((attempt) => ({
+        id: attempt.id,
+        topic: attempt.topic,
+        correct_count: attempt.correct_count,
+        total_count: attempt.total_count,
+        created_at: attempt.created_at,
+      }));
+    const summary = userAttempts.reduce((totals, attempt) => ({
+      attempts: totals.attempts + 1,
+      questions: totals.questions + attempt.total_count,
+      correctAnswers: totals.correctAnswers + attempt.correct_count,
+    }), { attempts: 0, questions: 0, correctAnswers: 0 });
+    return res.json({ attempts, summary });
+  } catch (error) {
+    console.error("GET /api/practice/attempts error:", error);
+    return res.status(500).json({ error: "Practice history could not be loaded." });
+  }
+});
+
+app.post("/api/practice/attempts", authenticateToken, async (req: Request, res: Response) => {
+  const input = parsePracticeAttemptInput(req.body);
+  if (!input) {
+    return res.status(400).json({ error: "A valid topic and quiz score are required." });
+  }
+
+  const userId = (req as any).user.id as string;
+  if (!dbPool && !inMemoryUsers.has(userId)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    if (dbPool) {
+      const result = await dbPool.query(
+        `INSERT INTO practice_attempts (user_id, topic, correct_count, total_count)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, topic, correct_count, total_count, created_at`,
+        [userId, input.topic, input.correctCount, input.totalCount],
+      );
+      const attempt = result.rows[0] as PracticeAttempt | undefined;
+      if (!attempt) throw new Error("Practice attempt insert returned no record.");
+      return res.status(201).json({ success: true, attempt });
+    }
+
+    const attempt: PracticeAttempt & { user_id: string } = {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      topic: input.topic,
+      correct_count: input.correctCount,
+      total_count: input.totalCount,
+      created_at: new Date().toISOString(),
+    };
+    inMemoryPracticeAttempts.unshift(attempt);
+    return res.status(201).json({ success: true, attempt });
+  } catch (error) {
+    console.error("POST /api/practice/attempts error:", error);
+    return res.status(500).json({ error: "Practice result could not be saved." });
+  }
 });
 
 // Endpoint for generating additional MCQs dynamically for a topic

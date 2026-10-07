@@ -34,6 +34,7 @@ export async function deleteAccountRecords(pool: AccountDeletionPool, userId: st
     await client.query('DELETE FROM user_search_history WHERE user_id = $1', [userId]);
     await client.query('DELETE FROM counseling_sessions WHERE user_id = $1', [userId]);
     await client.query('DELETE FROM notes WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM practice_attempts WHERE user_id = $1', [userId]);
     await client.query('DELETE FROM user_persona_usage WHERE user_id::text = $1', [userId]);
     const phone = account.rows[0].phone;
     if (phone) {

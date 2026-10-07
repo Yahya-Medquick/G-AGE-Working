@@ -18,6 +18,7 @@ interface SubjectsHomeProps {
   globalPersonas: Record<string, ExpertPersona>;
   pkPersonas: Record<string, ExpertPersona>;
   language: UiLanguage;
+  onOpenPractice?: () => void;
   onStartChat: (persona: ExpertPersona, topic: string, starterTopics?: string[]) => void;
   focusSearchRequest?: number;
 }
@@ -41,7 +42,7 @@ function subjectTint(subjectKey: string) {
   return 'bg-surface-2 text-text';
 }
 
-export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat, focusSearchRequest = 0 }: SubjectsHomeProps) {
+export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat, onOpenPractice, focusSearchRequest = 0 }: SubjectsHomeProps) {
   const { user, updateClassLevel } = useUser();
   const [classLevel, setClassLevel] = useState<ClassLevelId | null>(() => {
     const saved = user?.class_level || localStorage.getItem('gage_class_level');
@@ -232,6 +233,19 @@ export function SubjectsHome({ globalPersonas, pkPersonas, language, onStartChat
           </select>
           {classError && <p role="alert" className="mt-2 text-sm text-danger">{classError}</p>}
         </div>
+
+        {onOpenPractice && (
+          <button
+            type="button"
+            onClick={onOpenPractice}
+            className="flex min-h-12 w-full max-w-sm items-center justify-between gap-3 rounded-tile border border-border bg-surface px-4 text-start text-sm font-semibold text-text shadow-lift hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <span className="flex items-center gap-2">
+              <GraduationCap aria-hidden="true" className="h-5 w-5 text-accent-text" />
+              {t('practiceOpen')}
+            </span>
+          </button>
+        )}
 
         {classLevel && (
           <section aria-labelledby="catalog-heading" className="space-y-4">

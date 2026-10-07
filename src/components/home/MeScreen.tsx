@@ -29,6 +29,7 @@ interface MeScreenProps {
   onOpenSettings: () => void;
   onToggleTheme: () => void;
   onOpenDownload: () => void;
+  onOpenPractice: (tab: 'practice' | 'progress') => void;
   onOpenApiDocs: () => void;
   onOpenAdmin: () => void;
   onDeleteAccount: () => Promise<boolean>;
@@ -44,6 +45,7 @@ export function MeScreen({
   onOpenSettings,
   onToggleTheme,
   onOpenDownload,
+  onOpenPractice,
   onOpenApiDocs,
   onOpenAdmin,
   onDeleteAccount,
@@ -128,8 +130,8 @@ export function MeScreen({
         </>)}
 
         {group(t('meStudy'), <>
-          {item(t('sidebarPractice'), FileText, undefined, true, t('sidebarNotReady'))}
-          {item(t('sidebarProgress'), BarChart3, undefined, true, t('sidebarNotReady'))}
+          {item(t('sidebarPractice'), FileText, () => onOpenPractice('practice'))}
+          {item(t('sidebarProgress'), BarChart3, () => onOpenPractice('progress'))}
         </>)}
 
         {group(t('meSettings'), <>

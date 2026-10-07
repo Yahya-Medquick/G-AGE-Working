@@ -41,6 +41,7 @@ describe('account deletion transaction', () => {
       'DELETE FROM user_search_history WHERE user_id = $1',
       'DELETE FROM counseling_sessions WHERE user_id = $1',
       'DELETE FROM notes WHERE user_id = $1',
+      'DELETE FROM practice_attempts WHERE user_id = $1',
       'DELETE FROM user_persona_usage WHERE user_id::text = $1',
       'DELETE FROM phone_otp_logs WHERE phone = $1',
       'DELETE FROM users WHERE id = $1',

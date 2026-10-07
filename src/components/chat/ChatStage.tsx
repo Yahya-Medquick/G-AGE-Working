@@ -411,6 +411,7 @@ interface ChatStageProps {
   onSaveToNotes: (content: string, title?: string) => void;
   onOpenPaywall: () => void;
   onOpenPlanUsage: () => void;
+  onOpenPractice?: (topic: string) => void;
   onNewChatWithTeacher: () => void;
   onOpenPersonaGroup?: (groupName: string) => void;
   onOpenKnowledgeGraph?: () => void;
@@ -448,6 +449,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   onSaveToNotes,
   onOpenPaywall,
   onOpenPlanUsage,
+  onOpenPractice,
   onNewChatWithTeacher,
   onOpenPersonaGroup,
   onOpenKnowledgeGraph,
@@ -1638,15 +1640,26 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                                         <ExploreNewsSection topic={targetTopic} query={targetNewsQuery} />
                                       )}
                                       {activeExploreTab === 'mcqs' && (
-                                        <MCQCard
-                                          topic={targetMcqTopic}
-                                          onSaveToNotes={onSaveToNotes}
-                                          onClose={() => {
-                                            setActiveExploreMsgId(null);
-                                            setActiveExploreTab(null);
-                                          }}
-                                          onOpenPaywall={onOpenPaywall}
-                                        />
+                                        <div className="space-y-2">
+                                          {onOpenPractice && (
+                                            <button
+                                              type="button"
+                                              onClick={() => onOpenPractice(targetMcqTopic)}
+                                              className="min-h-11 rounded-control border border-border bg-accent-soft px-3 text-sm font-semibold text-accent-text hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent"
+                                            >
+                                              {uiCopy(language, 'practiceOpen')}
+                                            </button>
+                                          )}
+                                          <MCQCard
+                                            topic={targetMcqTopic}
+                                            onSaveToNotes={onSaveToNotes}
+                                            onClose={() => {
+                                              setActiveExploreMsgId(null);
+                                              setActiveExploreTab(null);
+                                            }}
+                                            onOpenPaywall={onOpenPaywall}
+                                          />
+                                        </div>
                                       )}
                                     </>
                                   )}
