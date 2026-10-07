@@ -2,10 +2,10 @@
 
 ## Scope and result
 
-This is a code- and test-based review of the redesign work in the current
-worktree. No interactive browser session, Railway PR environment, staging
-credentials, or staging database was available; those checks are not claimed
-as verified.
+This is a code-, test-, and automated-browser review of the redesign work in
+the current worktree. Playwright exercised a local staging build; no manual
+visual review, Railway PR environment, staging credentials, or staging database
+was available, so those checks are not claimed as verified.
 
 ## Initial runtime verification
 
@@ -60,11 +60,11 @@ parameter rather than failing with an invalid-request 400.
 | Check | Result |
 |---|---|
 | `npm run lint` | Pass; TypeScript and design-token checks passed. |
-| `npm test` | Pass; 62 tests in 15 files. |
-| `npm run build` | Pass; no Nastaleeq asset-resolution or mixed `CompiledNotesModal` import warning. Vite still reports the large main-chunk warning. |
+| `npm test` | Pass; 67 tests in 16 files. |
+| `APP_ENV=staging npm run build` | Pass; no Nastaleeq asset-resolution or mixed `CompiledNotesModal` import warning. Vite still reports the large main-chunk warning. |
 | Main JS gzip baseline | 306.73 kB at pre-redesign commit `3fbb4ca3b3826848505ffa2d6d377b9cd62e02d1`. |
-| Current main JS gzip | 334.64 kB; +9.10% from baseline, within the baseline +20% budget of 368.08 kB. |
-| Current main JS raw | 1,146.43 kB; still above Vite's 500 kB warning threshold, which was also exceeded by the pre-redesign baseline. |
+| Current main JS gzip | 334.65 kB; +9.11% from baseline, within the baseline +20% budget of 368.08 kB. |
+| Current main JS raw | 1,146.46 kB; still above Vite's 500 kB warning threshold, which was also exceeded by the pre-redesign baseline. |
 | Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API, Product Tour, and Compiled Notes use lazy imports. Markdown rendering is also behind `React.lazy`; their separate chunks are present in the build output. |
 
 The baseline was built in a temporary detached worktree from the commit before
@@ -75,14 +75,30 @@ measurement. No production URL, credentials, database, or API was used.
 
 | Area | Result | Notes |
 |---|---|---|
-| 320, 375, 390, 430 px | Not visually verified | Requires browser viewport testing, including keyboard-open state. |
-| 768 and 1024 px | Not visually verified | Responsive layout compiles; panel transitions need observation. |
-| 1280 px and wider | Not visually verified | Three-column behavior needs observation. |
-| Light and night themes | Partial | Token checks pass; visual review outstanding. |
+| 320, 375, 390, 430 px | Verified (automated) | Playwright captured light and dark screenshots and found no horizontal page overflow at each width. Keyboard-open behavior and manual visual review remain outstanding. |
+| 768 and 1024 px | Verified (automated) | Playwright captured both themes and found no horizontal page overflow; panel transitions need manual observation. |
+| 1280 px | Verified (automated) | Playwright captured both themes and found no horizontal page overflow; three-column behavior needs manual observation. |
+| Light and night themes | Partial | Playwright applied and asserted both theme preferences at every viewport; visual design review remains outstanding. |
 | Urdu RTL and mixed Latin text | Not visually verified | Direction-aware code exists; inspect text, controls and tab order in a browser. |
 | Keyboard and screen reader | Partial | The first-run dialog and new controls include focus/ARIA behavior; no full audit run. |
 | Staging smoke and database startup | Not run | Blocked on owner-configured Railway PR environment and staging-only variables/database. |
-| Playwright screenshots | Not run | `@playwright/test` and browser installation are not available; no screenshot claims. |
+| Playwright screenshots | Verified (local) | `npm run qa:screens` passed all 14 viewport/theme combinations; screenshots are written under the ignored `test-results/screens/` directory. This is a local static staging build, not the Railway PR environment. |
+
+## Handoff checklist status
+
+| # | Handoff item | Result | Evidence and remaining verification |
+|---|---|---|---|
+| 1 | Runtime checks: trust pages, export, install, share, mobile tabs | Partial | See Initial runtime verification. Account data export remains not done; interactive browser and staging flows remain unverified. |
+| 2 | Build warnings and bundle budget | Partial | Heavy surfaces are split and gzip is within the +20% budget. Vite still emits the >500 kB raw main-chunk warning. |
+| 3 | Pro-locked camera card | Partial | Inline non-Pro gate and server paywall behavior are covered in code/tests; entitlement and camera behavior still need a staging/device run. |
+| 4 | Confirmed account deletion | Partial | Confirmation flow and deletion/local-data tests pass; cascade behavior has not been exercised against a staging database. |
+| 5 | Practice quiz and progress | Partial | Quiz/progress implementation and tests are present; database-backed persistence and browser flows remain unverified. |
+| 6 | Equation/exam-tip callouts and follow-up chips | Verified (code/tests) | Directive parsing, fallback behavior, and localized follow-up behavior are covered by the test suite; visual rendering still needs review. |
+| 7 | Admin controls | Partial | Admin controls and session-protected moderation are implemented and tested; staging CRUD and moderation remain unverified without the staging database. |
+| 8 | AI quotas and admin diagnostics hardening | Partial | Route, quota, and admin-session tests pass; production deployment behavior has not been exercised. |
+| 9 | API response-shape tests | Partial | Real in-memory Express routes cover personas, usage, `/auth/me`, Notes, and chat/Google validation envelopes. Successful AI chat and accepted Google-token responses remain unverified without external services/credentials. |
+| 10 | Playwright screenshot QA | Verified (local) | `npm run qa:screens` built with `APP_ENV=staging` and passed all 14 requested width/theme combinations with no horizontal page overflow. |
+| 11 | Review update and draft PR | Partial | This review is updated. Draft PR creation and the final push are pending GitHub authentication. |
 
 ## Remaining owner inputs
 
