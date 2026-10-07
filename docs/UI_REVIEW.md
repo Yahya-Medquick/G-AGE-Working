@@ -56,11 +56,11 @@ parameter rather than failing with an invalid-request 400.
 |---|---|
 | `npm run lint` | Pass; TypeScript and design-token checks passed. |
 | `npm test` | Pass; 37 tests in 12 files. |
-| `npm run build` | Pass; the missing local Nastaleeq reference and mixed `CompiledNotesModal` import warning are fixed. Vite still reports the large main-chunk warning. |
+| `npm run build` | Pass; no Nastaleeq asset-resolution or mixed `CompiledNotesModal` import warning. Vite still reports the large main-chunk warning. |
 | Main JS gzip baseline | 306.73 kB at pre-redesign commit `3fbb4ca3b3826848505ffa2d6d377b9cd62e02d1`. |
-| Current main JS gzip | 327.11 kB; +6.64% from baseline, within the baseline +20% budget. |
-| Current main JS raw | 1,120.29 kB; still above Vite's 500 kB warning threshold. |
-| Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API and Product Tour use lazy imports; Markdown rendering is also behind `React.lazy`. Their separate chunks are present in the build output. |
+| Current main JS gzip | 328.52 kB; +7.1% from baseline, within the baseline +20% budget of 368.08 kB. |
+| Current main JS raw | 1,119.25 kB; still above Vite's 500 kB warning threshold, which was also exceeded by the pre-redesign baseline. |
+| Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API, Product Tour, and Compiled Notes use lazy imports. Markdown rendering is also behind `React.lazy`; their separate chunks are present in the build output. |
 
 The baseline was built in a temporary detached worktree from the commit before
 the redesign branch's first commit. The temporary worktree was removed after

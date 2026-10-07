@@ -1,11 +1,14 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { lazy, Suspense, useEffect, useState, useMemo } from "react";
 import { X, Trash2, Sparkles, CheckSquare, Square, AlertCircle, FileText, Download, Search, Printer } from "lucide-react";
 import { useNotes, Note } from "../hooks/useNotes";
-import { CompiledNotesModal } from "./CompiledNotesModal";
 import { ExportNotesModal } from "./ExportNotesModal";
 import { ExpertPersona } from "../types";
 import { useUser } from "../context/UserContext";
 import { uiCopy, type UiLanguage } from "../i18n/ui";
+
+const CompiledNotesModal = lazy(() =>
+  import("./CompiledNotesModal").then((module) => ({ default: module.CompiledNotesModal }))
+);
 
 interface Props {
   isOpen: boolean;
@@ -442,13 +445,15 @@ export const NotesSidePanel = ({ isOpen, onClose, persona, language }: Props) =>
       </div>
 
       {/* Existing AI Compile Modal */}
-      <CompiledNotesModal 
-        isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-        compiledText={compiledText} 
-        subjectTags={subjectTags} 
-        persona={persona}
-      />
+      <Suspense fallback={null}>
+        <CompiledNotesModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          compiledText={compiledText}
+          subjectTags={subjectTags}
+          persona={persona}
+        />
+      </Suspense>
 
       {/* New Export PDF Modal */}
       <ExportNotesModal

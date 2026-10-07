@@ -14,7 +14,6 @@ import { PaywallModal } from './components/chat/PaywallModal';
 import { PwaShortcutModal } from './components/chat/PwaShortcutModal';
 import { AuthModal } from './components/AuthModal';
 import { NotesSidePanel } from './components/NotesSidePanel';
-import { CompiledNotesModal } from './components/CompiledNotesModal';
 import { ExpertPersona } from './data/experts';
 import { usePersonas } from './hooks/usePersonas';
 import { ChatMode, ChatMessage, ChatSession } from './types/chat';
@@ -30,6 +29,9 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { PlanUsageScreen } from './components/PlanUsageScreen';
 
 // Lazy-loaded secondary modals for optimal performance
+const CompiledNotesModal = lazy(() =>
+  import('./components/CompiledNotesModal').then((m) => ({ default: m.CompiledNotesModal }))
+);
 const AdminDashboardModal = lazy(() =>
   import('./components/AdminDashboardModal').then((m) => ({ default: m.AdminDashboardModal }))
 );
