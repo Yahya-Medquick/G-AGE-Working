@@ -51,17 +51,18 @@ parameter rather than failing with an invalid-request 400.
 | 19 | Notes | Partial | The Notes panel now has subject chips and text search, existing AI compile and question-generation flows, `.md` download and print, and an explicit local-to-account migration with per-note progress and retry-safe import markers. Saved chat notes use the active teacher's subject tag. Browser interaction and authenticated migration/API behavior still need staging verification. |
 | 20 | Account deletion | Partial | The Me screen requires a two-step confirmation and typed `DELETE`; the authenticated endpoint deletes dependent account rows in a transaction, removes in-memory accounts when no database is configured, clears the session cookie and account-scoped browser data, then resets the UI to guest state. Transaction ordering, rollback, and targeted local-storage cleanup have unit coverage. A disposable local in-memory staging run verified the confirmation guard, account deletion and post-deletion denial. The database cascade and complete UX still require a staging database and browser verification. |
 | 21 | Practice quiz and progress | Partial | Subjects, Notes, sidebar/Me and the Explore MCQ drawer open a localized practice workspace that requests questions from `GET /api/mcqs`, requires an answer for each question, shows a result screen, and can save missed questions and explanations to Notes. Authenticated results are written to the additive `practice_attempts` table and shown in a progress screen with all-time totals and recent attempts; guests can practice and save local notes but must sign in for progress history. Payload/question/history validation has unit coverage. A disposable local in-memory staging run verified authenticated attempt save/history and account-deletion cleanup; no staging-database or browser interaction was performed. |
+| 22 | Equation/exam-tip callouts and follow-up chips | Partial | Markdown recognizes `:::equation` and `:::examtip` blocks outside fenced code, renders them as labeled callouts, and preserves unknown or unclosed markers as plain Markdown. Localized follow-up chips under the latest completed answer send example, quiz, and simpler-explanation prompts in the selected language. Parser tests cover fenced code and fallback behavior; visual, RTL, and streaming behavior still need browser verification. |
 
 ## Build and test evidence
 
 | Check | Result |
 |---|---|
 | `npm run lint` | Pass; TypeScript and design-token checks passed. |
-| `npm test` | Pass; 37 tests in 12 files. |
+| `npm test` | Pass; 60 tests in 15 files. |
 | `npm run build` | Pass; no Nastaleeq asset-resolution or mixed `CompiledNotesModal` import warning. Vite still reports the large main-chunk warning. |
 | Main JS gzip baseline | 306.73 kB at pre-redesign commit `3fbb4ca3b3826848505ffa2d6d377b9cd62e02d1`. |
-| Current main JS gzip | 332.76 kB; +8.49% from baseline, within the baseline +20% budget of 368.08 kB. |
-| Current main JS raw | 1,137.75 kB; still above Vite's 500 kB warning threshold, which was also exceeded by the pre-redesign baseline. |
+| Current main JS gzip | 333.30 kB; +8.66% from baseline, within the baseline +20% budget of 368.08 kB. |
+| Current main JS raw | 1,139.89 kB; still above Vite's 500 kB warning threshold, which was also exceeded by the pre-redesign baseline. |
 | Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API, Product Tour, and Compiled Notes use lazy imports. Markdown rendering is also behind `React.lazy`; their separate chunks are present in the build output. |
 
 The baseline was built in a temporary detached worktree from the commit before

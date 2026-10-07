@@ -266,7 +266,7 @@ export function PracticeScreen({
                 </div>
                 <div className="space-y-4">
                   <div className="text-base font-medium leading-relaxed text-text">
-                    <MarkdownRenderer content={questions[currentIndex].question} />
+                    <MarkdownRenderer content={questions[currentIndex].question} language={language} />
                   </div>
                   <div className="grid gap-2">
                     {questions[currentIndex].options.map((option, optionIndex) => {
@@ -287,7 +287,7 @@ export function PracticeScreen({
                           className={`flex min-h-12 items-start gap-3 rounded-control border p-3 text-left text-sm focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-default ${statusClass}`}
                         >
                           <span className="font-semibold">{String.fromCharCode(65 + optionIndex)}.</span>
-                          <span className="min-w-0 flex-1"><MarkdownRenderer content={option} /></span>
+                          <span className="min-w-0 flex-1"><MarkdownRenderer content={option} language={language} /></span>
                           {answered && isCorrect && <CheckCircle2 aria-hidden="true" className="h-5 w-5 shrink-0" />}
                           {answered && selected && !isCorrect && <XCircle aria-hidden="true" className="h-5 w-5 shrink-0" />}
                         </button>
@@ -297,7 +297,7 @@ export function PracticeScreen({
                   {answers[currentIndex] !== undefined && (
                     <div className="rounded-control border border-border bg-surface-2 p-3 text-sm leading-relaxed text-text">
                       <p className="mb-1 font-semibold">{t('practiceExplanation')}</p>
-                      <MarkdownRenderer content={questions[currentIndex].explanation} />
+                      <MarkdownRenderer content={questions[currentIndex].explanation} language={language} />
                     </div>
                   )}
                 </div>
@@ -347,10 +347,10 @@ export function PracticeScreen({
                       <h3 className="font-semibold text-text">{t('practiceMistakesTitle')}</h3>
                       {mistakes.map(({ question, selected }, index) => (
                         <article key={question.id} className="space-y-2 rounded-control border border-border bg-bg p-3 text-sm">
-                          <h4 className="font-medium text-text">{index + 1}. <MarkdownRenderer content={question.question} /></h4>
+                          <h4 className="font-medium text-text">{index + 1}. <MarkdownRenderer content={question.question} language={language} /></h4>
                           <p className="text-danger">{t('practiceYourAnswer')}: {question.options[selected]}</p>
                           <p className="text-accent-text">{t('practiceCorrectAnswer')}: {question.options[question.answerIndex]}</p>
-                          <div className="text-muted"><MarkdownRenderer content={question.explanation} /></div>
+                          <div className="text-muted"><MarkdownRenderer content={question.explanation} language={language} /></div>
                         </article>
                       ))}
                     </div>

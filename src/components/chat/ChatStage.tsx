@@ -1264,7 +1264,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                         === msgPersona?.group_name.trim().toLocaleLowerCase();
                       return (
                         <>
-                          <MarkdownRenderer content={cleanContent} isStreaming={isStreamingReply && idx === session?.messages.length - 1} />
+                          <MarkdownRenderer content={cleanContent} isStreaming={isStreamingReply && idx === session?.messages.length - 1} language={language} />
                           {suggestedGroup && !isActiveGroup && onOpenPersonaGroup && (
                             <div className="mt-3 flex flex-wrap items-center gap-2 p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40">
                               <span className="text-sm" aria-hidden="true">🎯</span>
@@ -1304,7 +1304,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                         </div>
                         {msg.metadata.multiLevel[activeLevelTabs[msg.id] || 'undergrad'] && (
                           <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#111b21]/70 border border-slate-200/80 dark:border-[#2a3942] text-xs">
-                            <MarkdownRenderer content={msg.metadata.multiLevel[activeLevelTabs[msg.id] || 'undergrad']!} />
+                            <MarkdownRenderer content={msg.metadata.multiLevel[activeLevelTabs[msg.id] || 'undergrad']!} language={language} />
                           </div>
                         )}
                       </div>
@@ -1345,7 +1345,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                               <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-1 uppercase">
                                 Model Answer & Derivation
                               </div>
-                              <MarkdownRenderer content={msg.metadata.examQuestion.solution} />
+                              <MarkdownRenderer content={msg.metadata.examQuestion.solution} language={language} />
                             </div>
                           )}
                         </div>
@@ -1846,6 +1846,27 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                           <a className="break-all text-accent-text underline" href={publicLinks[msg.id]} target="_blank" rel="noreferrer">
                             {uiCopy(language, 'openPublicLink')}
                           </a>
+                        </div>
+                      )}
+                      {idx === latestAssistantIndex && !isLoading && !isStreamingReply && !pendingReplyMessageIds.has(msg.id) && (
+                        <div className="basis-full space-y-2 pt-2">
+                          <p className="px-2 text-xs font-medium text-muted">{uiCopy(language, 'followUpGroup')}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {([
+                              { label: 'followUpExampleLabel', prompt: 'followUpExamplePrompt' },
+                              { label: 'followUpQuizLabel', prompt: 'followUpQuizPrompt' },
+                              { label: 'followUpSimplifyLabel', prompt: 'followUpSimplifyPrompt' },
+                            ] as const).map(({ label, prompt }) => (
+                              <button
+                                key={label}
+                                type="button"
+                                onClick={() => void onSendMessage(uiCopy(language, prompt), activeMode, undefined, false)}
+                                className="min-h-10 rounded-pill border border-border bg-surface px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                              >
+                                {uiCopy(language, label)}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                   </div>

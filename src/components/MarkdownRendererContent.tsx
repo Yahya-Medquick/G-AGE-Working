@@ -3,12 +3,16 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { Lightbulb, Sigma } from 'lucide-react';
+import { uiCopy, type UiLanguage } from '../i18n/ui';
+import { splitMarkdownCallouts } from '../utils/markdownCallouts';
 import 'katex/dist/katex.min.css';
 
 interface Props {
   content: string;
   className?: string;
   isStreaming?: boolean;
+  language?: UiLanguage;
 }
 
 // Detect if text contains significant Urdu/Arabic script
@@ -62,9 +66,83 @@ function splitIncompleteTable(content: string, isStreaming: boolean) {
   return { markdown: content, pendingTable: '' };
 }
 
-export const MarkdownRendererContent = ({ content, className = '', isStreaming = false }: Props) => {
+function MarkdownBody({ content, containsUrdu }: { content: string; containsUrdu: boolean }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      components={{
+        h1: ({ ...props }) => <h1 className="mb-2 mt-4 text-lg font-semibold text-text sm:text-xl" {...props} />,
+        h2: ({ ...props }) => <h2 className="mb-1.5 mt-3 text-base font-semibold text-text sm:text-lg" {...props} />,
+        h3: ({ ...props }) => <h3 className="mb-1 mt-2.5 text-base font-semibold text-text" {...props} />,
+        p: ({ children, ...props }) => {
+          const text = typeof children === 'string' ? children :
+            (Array.isArray(children) ? children.join('') : '');
+          const isUrdu = hasUrdu(text);
+          return (
+            <p
+              className={`mb-2.5 last:mb-0 leading-relaxed ${
+                isUrdu
+                  ? 'urdu-block text-right text-base leading-loose'
+                  : 'text-text'
+              }`}
+              dir={isUrdu ? 'rtl' : 'ltr'}
+              style={isUrdu ? {
+                fontFamily: "'Noto Naskh Arabic', serif",
+                lineHeight: '2.2',
+                textAlign: 'right',
+              } : {}}
+              {...props}
+            >
+              {isUrdu ? processUrduText(text) : children}
+            </p>
+          );
+        },
+        ul: ({ ...props }) => <ul className="mb-2.5 list-disc space-y-1 pl-5 text-text" {...props} />,
+        ol: ({ ...props }) => <ol className="mb-2.5 list-decimal space-y-1 pl-5 text-text" {...props} />,
+        li: ({ ...props }) => <li className="mb-1 text-text" {...props} />,
+        strong: ({ ...props }) => <strong className="font-semibold text-text" {...props} />,
+        pre: ({ ...props }) => <pre className="my-3 max-w-full overflow-x-auto rounded-tile bg-surface-2 p-3 text-sm" {...props} />,
+        code: ({ ...props }) => <code className="break-words rounded-control bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-accent-text" {...props} />,
+        table: ({ children, node: _node, ...props }) => (
+          <div className="my-3 max-w-full overflow-x-auto rounded-control border border-border">
+            <table
+              dir={containsUrdu ? 'rtl' : 'ltr'}
+              className={`w-max min-w-full border-collapse text-sm ${containsUrdu ? 'text-right' : 'text-left'}`}
+              {...props}
+            >
+              {children}
+            </table>
+          </div>
+        ),
+        thead: ({ node: _node, ...props }) => <thead className="sticky top-0 bg-surface-2 text-text" {...props} />,
+        tbody: ({ node: _node, ...props }) => <tbody className="[&_tr:nth-child(even)]:bg-surface-2" {...props} />,
+        tr: ({ node: _node, ...props }) => <tr className="border-b border-border last:border-b-0" {...props} />,
+        th: ({ node: _node, ...props }) => (
+          <th
+            className={`max-w-[18rem] border-r border-border px-3 py-2 font-semibold last:border-r-0 ${containsUrdu ? 'text-right' : 'text-left'}`}
+            style={containsUrdu ? { fontFamily: "'Noto Naskh Arabic', serif", lineHeight: '2' } : undefined}
+            {...props}
+          />
+        ),
+        td: ({ node: _node, ...props }) => (
+          <td
+            className={`max-w-[18rem] break-words border-r border-border px-3 py-2 align-top last:border-r-0 ${containsUrdu ? 'text-right' : 'text-left'}`}
+            style={containsUrdu ? { fontFamily: "'Noto Naskh Arabic', serif", lineHeight: '2' } : undefined}
+            {...props}
+          />
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
+export const MarkdownRendererContent = ({ content, className = '', isStreaming = false, language = 'english' }: Props) => {
   const containsUrdu = hasUrdu(content);
   const { markdown, pendingTable } = splitIncompleteTable(content, isStreaming);
+  const segments = splitMarkdownCallouts(markdown);
 
   // Load the fallback Urdu font on first render.
   React.useEffect(() => {
@@ -89,74 +167,24 @@ export const MarkdownRendererContent = ({ content, className = '', isStreaming =
       prose-blockquote:border-l-4 prose-blockquote:border-accent prose-blockquote:text-muted prose-blockquote:italic prose-blockquote:pl-4
       prose-hr:border-border
       ${className}`}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        components={{
-          h1: ({ ...props }) => <h1 className="mb-2 mt-4 text-lg font-semibold text-text sm:text-xl" {...props} />,
-          h2: ({ ...props }) => <h2 className="mb-1.5 mt-3 text-base font-semibold text-text sm:text-lg" {...props} />,
-          h3: ({ ...props }) => <h3 className="mb-1 mt-2.5 text-base font-semibold text-text" {...props} />,
-          p: ({ children, ...props }) => {
-            const text = typeof children === 'string' ? children :
-              (Array.isArray(children) ? children.join('') : '');
-            const isUrdu = hasUrdu(text);
-            return (
-              <p
-                className={`mb-2.5 last:mb-0 leading-relaxed ${
-                  isUrdu
-                    ? 'urdu-block text-right text-base leading-loose'
-                    : 'text-text'
-                }`}
-                dir={isUrdu ? 'rtl' : 'ltr'}
-                style={isUrdu ? {
-                  fontFamily: "'Noto Naskh Arabic', serif",
-                  lineHeight: '2.2',
-                  textAlign: 'right',
-                } : {}}
-                {...props}
-              >
-                {isUrdu ? processUrduText(text) : children}
-              </p>
-            );
-          },
-          ul: ({ ...props }) => <ul className="mb-2.5 list-disc space-y-1 pl-5 text-text" {...props} />,
-          ol: ({ ...props }) => <ol className="mb-2.5 list-decimal space-y-1 pl-5 text-text" {...props} />,
-          li: ({ ...props }) => <li className="mb-1 text-text" {...props} />,
-          strong: ({ ...props }) => <strong className="font-semibold text-text" {...props} />,
-          pre: ({ ...props }) => <pre className="my-3 max-w-full overflow-x-auto rounded-tile bg-surface-2 p-3 text-sm" {...props} />,
-          code: ({ ...props }) => <code className="break-words rounded-control bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-accent-text" {...props} />,
-          table: ({ children, node: _node, ...props }) => (
-            <div className="my-3 max-w-full overflow-x-auto rounded-control border border-border">
-              <table
-                dir={containsUrdu ? 'rtl' : 'ltr'}
-                className={`w-max min-w-full border-collapse text-sm ${containsUrdu ? 'text-right' : 'text-left'}`}
-                {...props}
-              >
-                {children}
-              </table>
+      {segments.map((segment, index) => segment.type === 'markdown'
+        ? <MarkdownBody key={`markdown-${index}`} content={segment.content} containsUrdu={containsUrdu} />
+        : (
+          <section
+            key={`${segment.type}-${index}`}
+            role="note"
+            aria-label={uiCopy(language, segment.type === 'equation' ? 'equationCalloutTitle' : 'examTipCalloutTitle')}
+            className={`my-3 rounded-tile border p-4 ${segment.type === 'equation' ? 'border-accent/30 bg-accent-soft' : 'border-border bg-surface-2'}`}
+          >
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent-text">
+              {segment.type === 'equation'
+                ? <Sigma aria-hidden="true" className="h-4 w-4 shrink-0" />
+                : <Lightbulb aria-hidden="true" className="h-4 w-4 shrink-0" />}
+              <span>{uiCopy(language, segment.type === 'equation' ? 'equationCalloutTitle' : 'examTipCalloutTitle')}</span>
             </div>
-          ),
-          thead: ({ node: _node, ...props }) => <thead className="sticky top-0 bg-surface-2 text-text" {...props} />,
-          tbody: ({ node: _node, ...props }) => <tbody className="[&_tr:nth-child(even)]:bg-surface-2" {...props} />,
-          tr: ({ node: _node, ...props }) => <tr className="border-b border-border last:border-b-0" {...props} />,
-          th: ({ node: _node, ...props }) => (
-            <th
-              className={`max-w-[18rem] border-r border-border px-3 py-2 font-semibold last:border-r-0 ${containsUrdu ? 'text-right' : 'text-left'}`}
-              style={containsUrdu ? { fontFamily: "'Noto Naskh Arabic', serif", lineHeight: '2' } : undefined}
-              {...props}
-            />
-          ),
-          td: ({ node: _node, ...props }) => (
-            <td
-              className={`max-w-[18rem] break-words border-r border-border px-3 py-2 align-top last:border-r-0 ${containsUrdu ? 'text-right' : 'text-left'}`}
-              style={containsUrdu ? { fontFamily: "'Noto Naskh Arabic', serif", lineHeight: '2' } : undefined}
-              {...props}
-            />
-          ),
-        }}
-      >
-        {markdown}
-      </ReactMarkdown>
+            <MarkdownBody content={segment.content} containsUrdu={containsUrdu} />
+          </section>
+        ))}
       {pendingTable && (
         <div
           className={`whitespace-pre-wrap ${containsUrdu ? 'urdu-block text-right' : ''}`}
