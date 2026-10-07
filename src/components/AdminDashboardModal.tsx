@@ -66,6 +66,16 @@ interface CatalogFormState {
   starterTopicsText: string;
 }
 
+interface QaModerationPage {
+  id: number;
+  slug: string;
+  question_text: string;
+  persona_slug: string;
+  persona_name: string;
+  view_count: number;
+  created_at: string;
+}
+
 const emptyCatalogForm = (): CatalogFormState => ({
   classLevel: "",
   subjectKey: "",
@@ -76,6 +86,24 @@ const emptyCatalogForm = (): CatalogFormState => ({
   status: "coming_soon",
   starterTopicsText: "",
 });
+
+function dateInputValue(value: unknown): string {
+  if (typeof value !== "string" || !value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+}
+
+function isQaModerationPage(value: unknown): value is QaModerationPage {
+  if (typeof value !== "object" || value === null) return false;
+  const page = value as Record<string, unknown>;
+  return typeof page.id === "number"
+    && typeof page.slug === "string"
+    && typeof page.question_text === "string"
+    && typeof page.persona_slug === "string"
+    && typeof page.persona_name === "string"
+    && typeof page.view_count === "number"
+    && typeof page.created_at === "string";
+}
 
 export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   isOpen,
@@ -93,12 +121,19 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [isSavingCatalog, setIsSavingCatalog] = useState(false);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [proExpiryDrafts, setProExpiryDrafts] = useState<Record<string, string>>({});
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userTierFilter, setUserTierFilter] = useState<"all" | "free" | "paid">("all");
   const [updatingUserTierId, setUpdatingUserTierId] = useState<string | null>(null);
+  const [updatingProExpiryId, setUpdatingProExpiryId] = useState<string | null>(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [qaPages, setQaPages] = useState<QaModerationPage[]>([]);
+  const [qaError, setQaError] = useState<string | null>(null);
+  const [isLoadingQaPages, setIsLoadingQaPages] = useState(false);
+  const [updatingQaPage, setUpdatingQaPage] = useState<string | null>(null);
+  const [maintenanceResult, setMaintenanceResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "entities" | "cache" | "apikeys" | "personas" | "catalog" | "users">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "entities" | "cache" | "apikeys" | "personas" | "catalog" | "users" | "qa" | "maintenance">("overview");
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
 
   // New Expert Persona form state
@@ -212,7 +247,11 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
         const usersRes = await fetch("/api/admin/users", { headers: authHeaders });
         if (usersRes.ok) {
           const usersData = await usersRes.json();
-          setUsersList(usersData.users || []);
+          const users = Array.isArray(usersData.users) ? usersData.users : [];
+          setUsersList(users);
+          setProExpiryDrafts(Object.fromEntries(
+            users.map((user: any) => [String(user.id), dateInputValue(user.pro_expires_at)]),
+          ));
         }
       } catch (uErr) {
         console.warn("Failed to fetch users for admin:", uErr);
@@ -254,6 +293,91 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     }
   };
 
+  const handleUpdateProExpiry = async (userId: string, expiryDate: string | null) => {
+    if (expiryDate === null && !window.confirm(uiCopy(language, "proExpiryClearConfirm"))) return;
+    setUpdatingProExpiryId(userId);
+    try {
+      const proExpiresAt = expiryDate ? `${expiryDate}T23:59:59.999Z` : null;
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/pro-expiry`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Token": adminToken,
+        },
+        body: JSON.stringify({ proExpiresAt }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || uiCopy(language, "proExpiryUpdateError"));
+        return;
+      }
+      setUsersList((current) => current.map((user) => (
+        String(user.id) === userId ? { ...user, pro_expires_at: data.pro_expires_at } : user
+      )));
+      setProExpiryDrafts((current) => ({ ...current, [userId]: dateInputValue(data.pro_expires_at) }));
+      setRefreshMessage(uiCopy(language, "proExpirySaved"));
+      setTimeout(() => setRefreshMessage(null), 3500);
+    } catch (error) {
+      console.error("Failed to update Pro expiry:", error);
+      alert(uiCopy(language, "proExpiryUpdateError"));
+    } finally {
+      setUpdatingProExpiryId(null);
+    }
+  };
+
+  const fetchQaModerationPages = async () => {
+    setIsLoadingQaPages(true);
+    setQaError(null);
+    try {
+      const res = await fetch("/api/admin/qa/flagged", {
+        headers: { "X-Admin-Token": adminToken },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : uiCopy(language, "adminQaLoadError"));
+      }
+      if (!Array.isArray(data.pages) || !data.pages.every(isQaModerationPage)) {
+        throw new Error(uiCopy(language, "adminQaLoadError"));
+      }
+      setQaPages(data.pages);
+    } catch (error) {
+      console.error("Failed to load flagged Q&A pages:", error);
+      setQaError(error instanceof Error ? error.message : uiCopy(language, "adminQaLoadError"));
+    } finally {
+      setIsLoadingQaPages(false);
+    }
+  };
+
+  const handleQaModerationAction = async (page: QaModerationPage, action: "resolve" | "unpublish") => {
+    const confirmKey = action === "unpublish" ? "adminQaUnpublishConfirm" : "adminQaResolveConfirm";
+    if (!window.confirm(uiCopy(language, confirmKey))) return;
+    setUpdatingQaPage(`${page.id}:${action}`);
+    setQaError(null);
+    try {
+      const res = await fetch(`/api/admin/qa/${page.id}/${action}`, {
+        method: "PATCH",
+        headers: { "X-Admin-Token": adminToken },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : uiCopy(language, "adminQaUpdateError"));
+      }
+      setQaPages((current) => current.filter((candidate) => candidate.id !== page.id));
+      setRefreshMessage(uiCopy(language, action === "unpublish" ? "adminQaUnpublished" : "adminQaResolved"));
+      setTimeout(() => setRefreshMessage(null), 3500);
+    } catch (error) {
+      console.error(`Failed to ${action} Q&A page ${page.id}:`, error);
+      setQaError(error instanceof Error ? error.message : uiCopy(language, "adminQaUpdateError"));
+    } finally {
+      setUpdatingQaPage(null);
+    }
+  };
+
+  const handleMaintenanceSimulation = (resultKey: "maintenanceCacheSimulationDone" | "maintenanceTopicsSimulationDone") => {
+    if (!window.confirm(uiCopy(language, "maintenanceSimulationConfirm"))) return;
+    setMaintenanceResult(uiCopy(language, resultKey));
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (adminToken) {
@@ -263,6 +387,12 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
       }
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && isUnlocked && activeTab === "qa") {
+      void fetchQaModerationPages();
+    }
+  }, [isOpen, isUnlocked, activeTab, adminToken]);
 
   const handleUnlockAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -305,18 +435,23 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   };
 
   const handleClearCache = async () => {
+    if (!window.confirm(uiCopy(language, "adminCacheClearConfirm"))) return;
     try {
       const res = await fetch("/api/admin/cache/clear", {
         method: "POST",
         headers: { "X-Admin-Token": adminToken },
       });
-      if (res.ok) {
-        setRefreshMessage("Cache cleared successfully!");
-        fetchAdminData();
-        setTimeout(() => setRefreshMessage(null), 3000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || uiCopy(language, "adminCacheClearError"));
+        return;
       }
+      setRefreshMessage("Cache cleared successfully!");
+      fetchAdminData();
+      setTimeout(() => setRefreshMessage(null), 3000);
     } catch (err) {
       console.warn("Failed to clear cache:", err);
+      alert(uiCopy(language, "adminCacheClearError"));
     }
   };
 
@@ -841,7 +976,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
         </div>
 
         {/* Sub-Header Navigation */}
-        <div className="px-6 pt-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-6 text-sm font-medium bg-white dark:bg-slate-900">
+        <div className="overflow-x-auto whitespace-nowrap px-6 pt-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-6 text-sm font-medium bg-white dark:bg-slate-900">
           <button
             onClick={() => setActiveTab("overview")}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
@@ -918,6 +1053,31 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           >
             <Users className="w-4 h-4 text-blue-500" />
             <span>User Management ({usersList.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("qa")}
+            className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === "qa"
+                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold"
+                : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>{uiCopy(language, "adminQaTab")} ({qaPages.length})</span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("maintenance");
+              setMaintenanceResult(null);
+            }}
+            className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === "maintenance"
+                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold"
+                : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            <span>{uiCopy(language, "maintenanceTab")}</span>
           </button>
         </div>
 
@@ -2239,6 +2399,101 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             </div>
           )}
 
+          {activeTab === "qa" && (
+            <section className="space-y-4" aria-labelledby="admin-qa-title">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <h2 id="admin-qa-title" className="text-lg font-semibold text-text">{uiCopy(language, "adminQaTitle")}</h2>
+                  <p className="text-sm text-muted">{uiCopy(language, "adminQaDescription")}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void fetchQaModerationPages()}
+                  disabled={isLoadingQaPages}
+                  className="min-h-10 rounded-control border border-border px-3 text-sm font-medium text-text hover:bg-surface-2 disabled:opacity-50"
+                >
+                  {isLoadingQaPages ? uiCopy(language, "catalogSaving") : uiCopy(language, "adminQaRefresh")}
+                </button>
+              </div>
+              {qaError && <p className="rounded-control border border-danger/30 bg-danger/10 p-3 text-sm text-danger" role="alert">{qaError}</p>}
+              {isLoadingQaPages && <p className="text-sm text-muted" role="status">{uiCopy(language, "adminQaLoading")}</p>}
+              {!isLoadingQaPages && !qaError && qaPages.length === 0 && (
+                <p className="rounded-tile border border-border bg-surface p-5 text-sm text-muted">{uiCopy(language, "adminQaEmpty")}</p>
+              )}
+              <div className="space-y-3">
+                {qaPages.map((page) => (
+                  <article key={page.id} className="space-y-3 rounded-tile border border-border bg-surface p-4">
+                    <div className="space-y-1">
+                      <h3 className="font-medium text-text">{page.question_text}</h3>
+                      <p className="text-xs text-muted">
+                        {uiCopy(language, "adminQaPersona")}: {page.persona_name} · {page.view_count} {uiCopy(language, "adminQaViews")} · {uiCopy(language, "adminQaCreated")}: {page.created_at.slice(0, 10)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleQaModerationAction(page, "resolve")}
+                        disabled={updatingQaPage !== null}
+                        className="min-h-10 rounded-control border border-border px-3 text-sm font-medium text-text hover:bg-surface-2 disabled:opacity-50"
+                      >
+                        {updatingQaPage === `${page.id}:resolve` ? uiCopy(language, "catalogSaving") : uiCopy(language, "adminQaResolve")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleQaModerationAction(page, "unpublish")}
+                        disabled={updatingQaPage !== null}
+                        className="min-h-10 rounded-control border border-danger/30 px-3 text-sm font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                      >
+                        {updatingQaPage === `${page.id}:unpublish` ? uiCopy(language, "catalogSaving") : uiCopy(language, "adminQaUnpublish")}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {activeTab === "maintenance" && (
+            <section className="space-y-4" aria-labelledby="maintenance-title">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 id="maintenance-title" className="text-lg font-semibold text-text">{uiCopy(language, "maintenanceTitle")}</h2>
+                <span className="rounded-pill bg-accent-soft px-3 py-1 text-xs font-bold text-accent-text">
+                  {uiCopy(language, "maintenanceBadge")}
+                </span>
+              </div>
+              <p className="rounded-control border border-border bg-surface p-3 text-sm text-muted">
+                {uiCopy(language, "maintenanceDescription")}
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <article className="space-y-3 rounded-tile border border-border bg-surface p-4">
+                  <h3 className="font-medium text-text">{uiCopy(language, "maintenanceCacheAction")}</h3>
+                  <button
+                    type="button"
+                    onClick={() => handleMaintenanceSimulation("maintenanceCacheSimulationDone")}
+                    className="min-h-10 rounded-control border border-border px-3 text-sm font-medium text-text hover:bg-surface-2"
+                  >
+                    {uiCopy(language, "maintenanceSimulate")}
+                  </button>
+                </article>
+                <article className="space-y-3 rounded-tile border border-border bg-surface p-4">
+                  <h3 className="font-medium text-text">{uiCopy(language, "maintenanceTopicsAction")}</h3>
+                  <button
+                    type="button"
+                    onClick={() => handleMaintenanceSimulation("maintenanceTopicsSimulationDone")}
+                    className="min-h-10 rounded-control border border-border px-3 text-sm font-medium text-text hover:bg-surface-2"
+                  >
+                    {uiCopy(language, "maintenanceSimulate")}
+                  </button>
+                </article>
+              </div>
+              {maintenanceResult && (
+                <p className="rounded-control border border-border bg-surface p-3 text-sm text-text" role="status">
+                  {maintenanceResult}
+                </p>
+              )}
+            </section>
+          )}
+
           {/* TAB 7: USERS MANAGEMENT (BUG 9: Manual Tier Upgrade for Paid Users) */}
           {activeTab === "users" && (
             <div className="space-y-6 animate-in fade-in">
@@ -2324,6 +2579,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                         <th className="py-3 px-4">Phone / Contact</th>
                         <th className="py-3 px-4">Queries Today</th>
                         <th className="py-3 px-4">Current Tier</th>
+                        <th className="py-3 px-4">{uiCopy(language, "proExpiryLabel")}</th>
                         <th className="py-3 px-4 text-right">Manual Tier Upgrade / Downgrade</th>
                       </tr>
                     </thead>
@@ -2348,6 +2604,9 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                         .map((u) => {
                           const isPaid = u.tier === "paid" || u.tier === "pro" || u.tier === "unlimited";
                           const isUpdating = updatingUserTierId === u.id;
+                          const userId = String(u.id);
+                          const expiryDraft = proExpiryDrafts[userId] ?? dateInputValue(u.pro_expires_at);
+                          const isUpdatingExpiry = updatingProExpiryId === userId;
 
                           return (
                             <tr key={u.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
@@ -2406,6 +2665,36 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                                 )}
                               </td>
 
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-2">
+                                  <input
+                                    type="date"
+                                    aria-label={`${uiCopy(language, "proExpiryLabel")} ${u.username || userId}`}
+                                    value={expiryDraft}
+                                    onChange={(event) => setProExpiryDrafts((current) => ({ ...current, [userId]: event.target.value }))}
+                                    className="min-h-10 rounded-control border border-border bg-bg px-2 text-xs text-text"
+                                  />
+                                  <div className="flex flex-wrap gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleUpdateProExpiry(userId, expiryDraft)}
+                                      disabled={!expiryDraft || isUpdatingExpiry}
+                                      className="min-h-9 rounded-control border border-border px-2 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-50"
+                                    >
+                                      {isUpdatingExpiry ? uiCopy(language, "catalogSaving") : uiCopy(language, "proExpirySave")}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleUpdateProExpiry(userId, null)}
+                                      disabled={!u.pro_expires_at || isUpdatingExpiry}
+                                      className="min-h-9 rounded-control border border-border px-2 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-50"
+                                    >
+                                      {uiCopy(language, "proExpiryClear")}
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+
                               <td className="py-3.5 px-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   {isPaid ? (
@@ -2443,7 +2732,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
                       {usersList.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="py-8 text-center text-slate-400">
+                          <td colSpan={6} className="py-8 text-center text-slate-400">
                             No registered users found.
                           </td>
                         </tr>

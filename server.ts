@@ -5919,6 +5919,69 @@ function requireQaAdminToken(req: Request, res: Response): boolean {
   return true;
 }
 
+app.get("/api/admin/qa/flagged", async (_req: Request, res: Response) => {
+  if (!dbPool) return res.status(503).json({ error: "Database unavailable." });
+  try {
+    const result = await dbPool.query(
+      `SELECT id, slug,
+              CASE
+                WHEN display_question_status = 'complete' AND display_question IS NOT NULL THEN display_question
+                ELSE question_text
+              END AS question_text,
+              persona_slug, persona_name, COALESCE(view_count, 0)::int AS view_count,
+              COALESCE(TO_CHAR(created_at, 'YYYY-MM-DD'), '') AS created_at
+       FROM public_qa_pages
+       WHERE flagged_for_review IS TRUE AND is_published IS TRUE
+       ORDER BY created_at DESC
+       LIMIT 100`
+    );
+    return res.json({ pages: result.rows });
+  } catch (error) {
+    console.error("GET /api/admin/qa/flagged error:", error);
+    return res.status(500).json({ error: "Failed to load flagged Q&A pages." });
+  }
+});
+
+async function updateQaModerationStatus(
+  req: Request,
+  res: Response,
+  action: "resolve" | "unpublish",
+) {
+  if (!/^[1-9]\d*$/.test(req.params.id)) {
+    return res.status(400).json({ error: "Q&A page ID must be a positive integer." });
+  }
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id)) {
+    return res.status(400).json({ error: "Q&A page ID must be a positive integer." });
+  }
+  if (!dbPool) return res.status(503).json({ error: "Database unavailable." });
+
+  try {
+    const result = action === "resolve"
+      ? await dbPool.query(
+        "UPDATE public_qa_pages SET flagged_for_review = false, updated_at = NOW() WHERE id = $1 AND is_published IS TRUE",
+        [id],
+      )
+      : await dbPool.query(
+        "UPDATE public_qa_pages SET is_published = false, updated_at = NOW() WHERE id = $1 AND is_published IS TRUE",
+        [id],
+      );
+    if (!result.rowCount) return res.status(404).json({ error: "Published Q&A page not found." });
+    return res.json({ success: true, id });
+  } catch (error) {
+    console.error(`PATCH /api/admin/qa/${id}/${action} error:`, error);
+    return res.status(500).json({ error: `Failed to ${action} Q&A page.` });
+  }
+}
+
+app.patch("/api/admin/qa/:id/resolve", async (req: Request, res: Response) => {
+  return updateQaModerationStatus(req, res, "resolve");
+});
+
+app.patch("/api/admin/qa/:id/unpublish", async (req: Request, res: Response) => {
+  return updateQaModerationStatus(req, res, "unpublish");
+});
+
 // PATCH /api/v1/qa/admin/:id/unpublish
 app.patch("/api/v1/qa/admin/:id/unpublish", async (req: Request, res: Response) => {
   if (!requireQaAdminToken(req, res)) return;
@@ -7360,6 +7423,7 @@ app.get("/api/admin/users", async (_req: Request, res: Response) => {
         tier: u.tier || "free",
         created_at: u.created_at,
         last_active_at: u.last_active_at,
+        pro_expires_at: u.pro_expires_at || null,
         queries_today: 0,
       }));
     }

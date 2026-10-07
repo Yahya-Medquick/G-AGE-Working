@@ -33,4 +33,17 @@ describe('route contract', () => {
     expect(middlewareIndex).toBeGreaterThanOrEqual(0);
     expect(catalogRouteIndex).toBeGreaterThan(middlewareIndex);
   });
+
+  it('registers Q&A moderation routes behind admin-session authorization', () => {
+    const middlewareIndex = serverSource.indexOf('app.use("/api/admin", adminAuthMiddleware)');
+    const moderationRoutes = [
+      'app.get("/api/admin/qa/flagged"',
+      'app.patch("/api/admin/qa/:id/resolve"',
+      'app.patch("/api/admin/qa/:id/unpublish"',
+    ];
+    expect(middlewareIndex).toBeGreaterThanOrEqual(0);
+    moderationRoutes.forEach((route) => {
+      expect(serverSource.indexOf(route)).toBeGreaterThan(middlewareIndex);
+    });
+  });
 });

@@ -10,6 +10,7 @@ describe('admin session protection', () => {
     const app = express();
     app.use('/api/admin', createAdminAuthMiddleware(verify));
     app.get('/api/admin/catalog', (_request, response) => response.json({ success: true }));
+    app.get('/api/admin/qa/flagged', (_request, response) => response.json({ pages: [] }));
     app.post('/api/admin/verify', (_request, response) => response.json({ success: true }));
 
     const server = app.listen(0, '127.0.0.1');
@@ -30,6 +31,10 @@ describe('admin session protection', () => {
       })).status).toBe(401);
       expect((await fetch(`${baseUrl}/api/admin/catalog`, {
         headers: { Authorization: `Bearer ${adminToken}` },
+      })).status).toBe(200);
+      expect((await fetch(`${baseUrl}/api/admin/qa/flagged`)).status).toBe(401);
+      expect((await fetch(`${baseUrl}/api/admin/qa/flagged`, {
+        headers: { 'X-Admin-Token': adminToken },
       })).status).toBe(200);
       expect((await fetch(`${baseUrl}/api/admin/verify`, { method: 'POST' })).status).toBe(200);
     } finally {

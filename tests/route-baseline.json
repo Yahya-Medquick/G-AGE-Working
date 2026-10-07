@@ -45,6 +45,10 @@
   },
   {
     "method": "GET",
+    "path": "/api/admin/qa/flagged"
+  },
+  {
+    "method": "GET",
     "path": "/api/admin/stats"
   },
   {
@@ -250,6 +254,14 @@
   {
     "method": "PATCH",
     "path": "/api/admin/catalog/reorder"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/qa/:id/resolve"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/admin/qa/:id/unpublish"
   },
   {
     "method": "PATCH",
