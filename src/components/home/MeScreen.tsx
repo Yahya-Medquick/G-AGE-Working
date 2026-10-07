@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import {
   BarChart3,
   BookOpen,
@@ -30,6 +31,8 @@ interface MeScreenProps {
   onOpenDownload: () => void;
   onOpenApiDocs: () => void;
   onOpenAdmin: () => void;
+  onDeleteAccount: () => Promise<boolean>;
+  onAccountDeleted: (localDataCleared: boolean) => void;
 }
 
 export function MeScreen({
@@ -43,11 +46,31 @@ export function MeScreen({
   onOpenDownload,
   onOpenApiDocs,
   onOpenAdmin,
+  onDeleteAccount,
+  onAccountDeleted,
 }: MeScreenProps) {
   const { user, logout, replayTour } = useUser();
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
+  const [deletePhrase, setDeletePhrase] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const isPaid = user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
   const supportUrl = getWhatsAppSupportUrl(uiCopy(language, 'sidebarSupportMessage'));
   const t = (key: Parameters<typeof uiCopy>[1]) => uiCopy(language, key);
+
+  const confirmAccountDeletion = async () => {
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      const localDataCleared = await onDeleteAccount();
+      onAccountDeleted(localDataCleared);
+    } catch (error) {
+      console.error('Account deletion failed:', error);
+      setDeleteError(error instanceof Error ? error.message : t('meDeleteAccountFailed'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const group = (title: string, children: ReactNode) => (
     <section aria-label={title} className="overflow-hidden rounded-tile border border-border bg-surface">
@@ -134,7 +157,60 @@ export function MeScreen({
 
         {group(t('meSafety'), <>
           {item(t('meExportData'), FileText, undefined, true, t('sidebarNotReady'))}
-          {item(t('meDeleteAccount'), Shield, undefined, true, t('sidebarNotReady'))}
+          {deleteStep === 0 ? item(t('meDeleteAccount'), Shield, () => {
+            setDeleteError('');
+            setDeleteStep(1);
+          }) : (
+            <div role="group" aria-label={t('meDeleteAccount')} className="space-y-3 p-4">
+              {deleteStep === 1 ? (
+                <>
+                  <p className="text-sm text-danger">{t('meDeleteAccountWarning')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setDeleteStep(2)} className="min-h-11 rounded-control bg-danger px-3 text-on-accent">
+                      {t('meDeleteAccountContinue')}
+                    </button>
+                    <button type="button" onClick={() => setDeleteStep(0)} className="min-h-11 rounded-control px-3 text-muted hover:bg-surface-2">
+                      {t('meDeleteAccountCancel')}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label htmlFor="delete-account-confirmation" className="block text-sm text-text">{t('meDeleteAccountPrompt')}</label>
+                  <input
+                    id="delete-account-confirmation"
+                    type="text"
+                    autoComplete="off"
+                    value={deletePhrase}
+                    onChange={(event) => setDeletePhrase(event.target.value)}
+                    className="min-h-11 w-full rounded-control border border-border bg-surface px-3 text-base text-text focus-visible:outline-2 focus-visible:outline-accent"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void confirmAccountDeletion()}
+                      disabled={deletePhrase !== 'DELETE' || isDeleting}
+                      className="min-h-11 rounded-control bg-danger px-3 text-on-accent disabled:opacity-50"
+                    >
+                      {isDeleting ? t('meDeleteAccountWorking') : t('meDeleteAccountConfirm')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteStep(0);
+                        setDeletePhrase('');
+                      }}
+                      disabled={isDeleting}
+                      className="min-h-11 rounded-control px-3 text-muted hover:bg-surface-2"
+                    >
+                      {t('meDeleteAccountCancel')}
+                    </button>
+                  </div>
+                </>
+              )}
+              {deleteError && <p role="alert" className="text-sm text-danger">{deleteError}</p>}
+            </div>
+          )}
           {item(t('sidebarSignOut'), LogOut, () => void logout())}
         </>)}
 

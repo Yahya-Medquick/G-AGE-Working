@@ -12,6 +12,7 @@ import {
   updatePreferencesMode,
   updateOnboardingStatus,
   saveClassLevel,
+  deleteAccountUser,
 } from "../services/api";
 
 interface UserContextType {
@@ -35,6 +36,7 @@ interface UserContextType {
   verifyNewDeviceUser: (payload: { username: string; password: string; phone: string }) => Promise<UserAuth>;
   continueAsGuest: () => void;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<boolean>;
   checkUsage: (tab: CategoryType) => Promise<TabUsage | null>;
   updateProfile: (updated: Partial<UserProfile>) => Promise<void>;
   updateClassLevel: (classLevel: string) => Promise<void>;
@@ -94,6 +96,7 @@ const UserContext = createContext<UserContextType>({
   verifyNewDeviceUser: async () => ({} as UserAuth),
   continueAsGuest: () => {},
   logout: async () => {},
+  deleteAccount: async () => false,
   checkUsage: async () => null,
   updateProfile: async () => {},
   updateClassLevel: async () => {},
@@ -335,6 +338,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteAccount = async (): Promise<boolean> => {
+    if (!user?.id) throw new Error("Sign in to delete your account.");
+    const { localDataCleared } = await deleteAccountUser(user.id);
+    setUser(null);
+    setIsGuest(false);
+    setMode("research");
+    setProfile(defaultProfile);
+    setHasSeenOnboarding(false);
+    setIsTourOpen(false);
+    return localDataCleared;
+  };
+
   const checkUsage = async (tab: CategoryType): Promise<TabUsage | null> => {
     return await fetchTabUsage(tab);
   };
@@ -387,6 +402,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         verifyNewDeviceUser: handleVerifyNewDeviceUser,
         continueAsGuest,
         logout,
+        deleteAccount,
         checkUsage,
         updateProfile,
         updateClassLevel,

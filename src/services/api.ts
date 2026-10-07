@@ -1,5 +1,6 @@
 import { CategoryApiResponse, CategoryType, UserAuth } from "../types";
 import { getOrCreateDeviceId } from "./firebaseAuth";
+import { clearAccountLocalData } from "../utils/accountLocalData";
 
 // In-Memory Caches
 const clientMemoryCache = new Map<string, { data: CategoryApiResponse; expiresAt: number }>();
@@ -218,6 +219,27 @@ export async function logoutUser() {
     headers: { ...getAuthHeaders() },
   });
   return res.ok;
+}
+
+export async function deleteAccountUser(userId: string): Promise<{ localDataCleared: boolean }> {
+  const res = await fetch("/api/auth/account", {
+    method: "DELETE",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    body: JSON.stringify({ confirmation: "DELETE" }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || "Unable to delete account.");
+  }
+
+  try {
+    clearAccountLocalData(userId, localStorage);
+    return { localDataCleared: true };
+  } catch (error) {
+    console.error("Account was deleted but browser data could not be cleared:", error);
+    return { localDataCleared: false };
+  }
 }
 
 export async function fetchCurrentUser(): Promise<UserAuth | null> {

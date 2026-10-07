@@ -28,6 +28,7 @@ import {
 import { isClassLevelId } from "./src/data/classLevels";
 import { isCatalogBookAvailable, parseCatalogWriteInput } from "./src/utils/catalog";
 import { createAdminAuthMiddleware, createAdminSessionVerifier } from "./src/utils/adminSession";
+import { deleteAccountRecords } from "./src/utils/accountDeletion";
 
 const { Pool } = pg;
 const APP_ENV = resolveAppEnvironment(process.env.APP_ENV);
@@ -4344,6 +4345,35 @@ app.post("/api/auth/verify-new-device", async (req: Request, res: Response) => {
 app.post("/api/auth/logout", (_req: Request, res: Response) => {
   res.clearCookie("session_token");
   res.json({ success: true, message: "Logged out successfully" });
+});
+
+app.delete("/api/auth/account", authenticateToken, async (req: Request, res: Response) => {
+  if (req.body?.confirmation !== "DELETE") {
+    return res.status(400).json({ success: false, error: 'Type "DELETE" to confirm account deletion.' });
+  }
+
+  const userId = (req as any).user.id as string;
+  try {
+    if (dbPool) {
+      const deleted = await deleteAccountRecords(dbPool, userId);
+      if (!deleted) return res.status(404).json({ success: false, error: "Account not found." });
+    } else {
+      if (!inMemoryUsers.delete(userId)) {
+        return res.status(404).json({ success: false, error: "Account not found." });
+      }
+    }
+    inMemoryTabUsage.forEach((_usage, key) => {
+      if (key.startsWith(`${userId}:`)) inMemoryTabUsage.delete(key);
+    });
+    inMemoryHistory.delete(userId);
+    inMemoryCounselingSessions = inMemoryCounselingSessions.filter((session) => session.user_id !== userId);
+    inMemoryNotes = inMemoryNotes.filter((note) => note.user_id !== userId);
+    res.clearCookie("session_token");
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("DELETE /api/auth/account error:", error);
+    return res.status(500).json({ success: false, error: "Unable to delete account." });
+  }
 });
 
 app.get("/api/auth/me", async (req: Request, res: Response) => {

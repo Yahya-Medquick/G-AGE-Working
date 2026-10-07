@@ -72,6 +72,7 @@ export default function App() {
     completeOnboarding,
     continueAsGuest,
     updateClassLevel,
+    deleteAccount,
   } = useUser();
 
   // Chat sessions state manager
@@ -894,6 +895,17 @@ export default function App() {
             onOpenDownload={handleOpenDownload}
             onOpenApiDocs={() => setIsApiDocsOpen(true)}
             onOpenAdmin={() => setIsAdminOpen(true)}
+            onDeleteAccount={deleteAccount}
+            onAccountDeleted={(localDataCleared) => {
+              setIsMeOpen(false);
+              setIsSubjectsHomeOpen(true);
+              setIsLeftPanelOpen(false);
+              const params = new URLSearchParams(window.location.search);
+              params.delete('session');
+              const query = params.toString();
+              window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+              if (!localDataCleared) setChatErrorToast(uiCopy(language, 'meDeleteAccountLocalDataWarning'));
+            }}
           />
         ) : !isSubjectsHomeOpen && displayedSession ? (
           <ChatStage
