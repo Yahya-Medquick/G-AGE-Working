@@ -52,7 +52,7 @@ for (const path of ['/sitemap.xml', '/sitemap-qa.xml']) {
   const response = await fetch(new URL(path, baseUrl));
   if (response.status !== 404) throw new Error(`${path} should return 404 in staging (got ${response.status}).`);
 }
-for (const path of ['/api/v1/personas', '/api/catalog', '/api/usage']) {
+for (const path of ['/api/v1/personas', '/api/catalog?classLevel=1', '/api/usage']) {
   const response = await request(path);
   if (!/application\/json/i.test(response.headers.get('content-type') || '')) {
     throw new Error(`${path} did not return JSON.`);

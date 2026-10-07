@@ -7,6 +7,25 @@ worktree. No interactive browser session, Railway PR environment, staging
 credentials, or staging database was available; those checks are not claimed
 as verified.
 
+## Initial runtime verification
+
+A local production build was served with `APP_ENV=staging`, empty database
+URLs, and disposable local-only credentials. No production URL, credential, or
+database was used.
+
+| Surface | Result | Evidence and remaining verification |
+|---|---|---|
+| `/terms`, `/privacy`, `/download` | Partial | Each route returned the SPA shell with HTTP 200. Modal content, browser back/forward behavior, and install prompts were not exercised in a browser. Approved Terms/Privacy text is still an owner input. |
+| Export my data | Not done | The Me screen still renders this action disabled as “Coming soon”; the separate Notes export does not export account data. |
+| Install app | Partial | APK metadata returned HTTP 200 and the APK path returned HTTP 200 with the expected attachment MIME type and `X-Robots-Tag: noindex, nofollow`. PWA prompt and on-device install remain untested. |
+| Share answer | Partial | Source inspection confirms a separate confirmation tap before posting to `/api/public-qa/share`, and the action is hidden for image answers. A persisted public-link round trip was not attempted without a staging database. |
+| Mobile tab bar | Partial | Source inspection confirms four mobile tabs and keyboard-aware hiding; viewport layout and tab interaction remain untested in a browser. |
+
+The local health endpoint reported `appEnv: staging`. The staging smoke test
+reached its catalog check but could not complete because this local run has no
+database; the check now supplies the required supported `classLevel=1`
+parameter rather than failing with an invalid-request 400.
+
 ## Phase 2 verification pass
 
 | # | Acceptance item | Result | Evidence and remaining verification |
