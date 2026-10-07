@@ -46,4 +46,15 @@ describe('route contract', () => {
       expect(serverSource.indexOf(route)).toBeGreaterThan(middlewareIndex);
     });
   });
+
+  it('protects production diagnostics and applies the required AI and Explore limiters', () => {
+    expect(serverSource).toContain('app.get("/api/debug/sources", productionAdminAuthMiddleware');
+    expect(serverSource).toContain('app.get("/api/v1/metrics", productionAdminAuthMiddleware');
+    expect(serverSource).toContain('app.get("/api/explore/papers", generalRateLimiter');
+    expect(serverSource).toContain('app.get("/api/explore/repos", generalRateLimiter');
+    expect(serverSource).toContain('app.get("/api/explore/research-news", generalRateLimiter');
+    expect(serverSource).toContain('app.post("/api/notes/generate-questions", aiRateLimiter');
+    expect(serverSource).toContain('app.post("/api/notes/compile", aiRateLimiter');
+    expect(serverSource.match(/recordAndVerifyTabUsage\(req, "learn"\)/g)).toHaveLength(2);
+  });
 });

@@ -5,6 +5,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { UserProvider } from "./context/UserContext";
 import "./index.css";
 
+localStorage.removeItem("admin_token");
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
@@ -14,4 +16,3 @@ createRoot(document.getElementById("root")!).render(
     </ErrorBoundary>
   </StrictMode>
 );
-

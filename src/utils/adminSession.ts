@@ -27,3 +27,13 @@ export function createAdminAuthMiddleware(isValidAdminSession: (token: string) =
     return next();
   };
 }
+
+export function createProductionAdminAuthMiddleware(
+  isProduction: boolean,
+  isValidAdminSession: (token: string) => boolean,
+): RequestHandler {
+  const adminAuth = createAdminAuthMiddleware(isValidAdminSession);
+  return (req: Request, res: Response, next: NextFunction) => (
+    isProduction ? adminAuth(req, res, next) : next()
+  );
+}

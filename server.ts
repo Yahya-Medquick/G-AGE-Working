@@ -27,7 +27,11 @@ import {
 } from "./server/env";
 import { isClassLevelId } from "./src/data/classLevels";
 import { isCatalogBookAvailable, parseCatalogWriteInput } from "./src/utils/catalog";
-import { createAdminAuthMiddleware, createAdminSessionVerifier } from "./src/utils/adminSession";
+import {
+  createAdminAuthMiddleware,
+  createAdminSessionVerifier,
+  createProductionAdminAuthMiddleware,
+} from "./src/utils/adminSession";
 import { deleteAccountRecords } from "./src/utils/accountDeletion";
 import { parsePracticeAttemptInput, type PracticeAttempt } from "./src/utils/practice";
 
@@ -1495,6 +1499,11 @@ export async function findCanonicalPage(q: string): Promise<number | null> {
 // Session tokens use the required JWT signing secret.
 const SESSION_SECRET = JWT_SECRET;
 const isValidAdminSession = createAdminSessionVerifier(SESSION_SECRET);
+const adminAuthMiddleware = createAdminAuthMiddleware(isValidAdminSession);
+const productionAdminAuthMiddleware = createProductionAdminAuthMiddleware(
+  APP_ENV === "production",
+  isValidAdminSession,
+);
 
 function tokensMatch(candidate: string, expected: string): boolean {
   const candidateBuffer = Buffer.from(candidate);
@@ -2042,7 +2051,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
   });
 });
 
-app.get("/api/debug/sources", async (req: Request, res: Response) => {
+app.get("/api/debug/sources", productionAdminAuthMiddleware, async (req: Request, res: Response) => {
   const query = (req.query.q as string) || "Pakistan news";
   const [gnews, arxiv, pubmed] = await Promise.allSettled([
     fetchResearchNews(query),
@@ -2338,8 +2347,10 @@ app.get("/downloads/:filename", (req: Request, res: Response, next: NextFunction
   return res.redirect("/api/download/apk");
 });
 
+const generalRateLimiter = createRateLimiter(150, "gen");
+
 // ─── EXPLORE MORE: Research Papers (OpenAlex) ────────────────────────────────
-app.get("/api/explore/papers", async (req: Request, res: Response) => {
+app.get("/api/explore/papers", generalRateLimiter, async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
     if (!query) return res.status(400).json({ error: "Query required" });
@@ -2376,7 +2387,7 @@ app.get("/api/explore/papers", async (req: Request, res: Response) => {
 });
 
 // ─── EXPLORE MORE: GitHub Repos ──────────────────────────────────────────────
-app.get("/api/explore/repos", async (req: Request, res: Response) => {
+app.get("/api/explore/repos", generalRateLimiter, async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
     if (!query) return res.status(400).json({ error: "Query required" });
@@ -2404,7 +2415,7 @@ app.get("/api/explore/repos", async (req: Request, res: Response) => {
 });
 
 // ─── EXPLORE MORE: Research News (reuses existing news endpoint logic) ────────
-app.get("/api/explore/research-news", async (req: Request, res: Response) => {
+app.get("/api/explore/research-news", generalRateLimiter, async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
     if (!query) return res.status(400).json({ error: "Query required" });
@@ -3317,7 +3328,6 @@ function createRateLimiter(maxRequests: number, prefix: string) {
 }
 
 
-const generalRateLimiter = createRateLimiter(150, "gen");
 const aiRateLimiter = createRateLimiter(25, "ai");
 const adminRateLimiter = createRateLimiter(30, "adm");
 const authRateLimiter = createRateLimiter(25, "ath");
@@ -3330,8 +3340,6 @@ app.use(["/api/ask", "/api/internal/ask", "/api/v1/ask"], aiRateLimiter);
 app.use("/api/admin/", adminRateLimiter);
 
 // Security: Admin Route Authorization Middleware
-const adminAuthMiddleware = createAdminAuthMiddleware(isValidAdminSession);
-
 app.use("/api/admin", adminAuthMiddleware);
 
 // Admin Password Verification Endpoint
@@ -3569,7 +3577,7 @@ app.get("/api/v1/health", (_req: Request, res: Response) => {
 });
 
 // PUBLIC REST API V1: Metrics & Telemetry (Prometheus / JSON format)
-app.get("/api/v1/metrics", (_req: Request, res: Response) => {
+app.get("/api/v1/metrics", productionAdminAuthMiddleware, (_req: Request, res: Response) => {
   const mem = process.memoryUsage();
   const totalCalls = apiCallStats.openAlex + apiCallStats.wikipedia + apiCallStats.github + apiCallStats.reddit;
   const hitRatio = cacheHits + cacheMisses > 0 ? ((cacheHits / (cacheHits + cacheMisses)) * 100).toFixed(1) + "%" : "0%";
@@ -6194,11 +6202,16 @@ app.delete("/api/notes/:id", authenticateToken, async (req: any, res: Response) 
 });
 
 // POST /api/notes/generate-questions — batch generates a question per note in one AI call
-app.post("/api/notes/generate-questions", async (req: Request, res: Response) => {
+app.post("/api/notes/generate-questions", aiRateLimiter, async (req: Request, res: Response) => {
   const { notes } = req.body || {};
 
   if (!Array.isArray(notes) || notes.length < 1) {
     return res.status(400).json({ error: "At least 1 note is required." });
+  }
+
+  const usageCheck = await recordAndVerifyTabUsage(req, "learn");
+  if (!usageCheck.allowed) {
+    return res.status(usageCheck.status || 429).json(usageCheck.errorPayload);
   }
 
   const notesBlock = notes.map((n: any, i: number) =>
@@ -6243,7 +6256,7 @@ ${notesBlock}`;
 });
 
 // POST /api/notes/compile — compiles student notes faithfully into structured study notes
-app.post("/api/notes/compile", async (req: Request, res: Response) => {
+app.post("/api/notes/compile", aiRateLimiter, async (req: Request, res: Response) => {
   const user = getCurrentUser(req);
   const { noteIds, notes: directNotes } = req.body || {};
 
@@ -6290,6 +6303,11 @@ app.post("/api/notes/compile", async (req: Request, res: Response) => {
 
     if (notes.length < 1) {
       return res.status(400).json({ error: "At least 1 valid note is required for compilation." });
+    }
+
+    const usageCheck = await recordAndVerifyTabUsage(req, "learn");
+    if (!usageCheck.allowed) {
+      return res.status(usageCheck.status || 429).json(usageCheck.errorPayload);
     }
 
     // Combine notes title and content cleanly

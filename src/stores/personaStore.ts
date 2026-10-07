@@ -118,11 +118,11 @@ export function invalidatePersonaCache(): void {
 // ─── Admin API (used by Admin tab only) ───────────────────────
 
 function getAdminHeaders(adminToken?: string): HeadersInit {
-  const token = adminToken || localStorage.getItem("admin_token") || "";
-  return {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-Admin-Token": token,
   };
+  if (adminToken) headers["X-Admin-Token"] = adminToken;
+  return headers;
 }
 
 /**

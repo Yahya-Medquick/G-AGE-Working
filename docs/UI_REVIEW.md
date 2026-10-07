@@ -53,17 +53,18 @@ parameter rather than failing with an invalid-request 400.
 | 21 | Practice quiz and progress | Partial | Subjects, Notes, sidebar/Me and the Explore MCQ drawer open a localized practice workspace that requests questions from `GET /api/mcqs`, requires an answer for each question, shows a result screen, and can save missed questions and explanations to Notes. Authenticated results are written to the additive `practice_attempts` table and shown in a progress screen with all-time totals and recent attempts; guests can practice and save local notes but must sign in for progress history. Payload/question/history validation has unit coverage. A disposable local in-memory staging run verified authenticated attempt save/history and account-deletion cleanup; no staging-database or browser interaction was performed. |
 | 22 | Equation/exam-tip callouts and follow-up chips | Partial | Markdown recognizes `:::equation` and `:::examtip` blocks outside fenced code, renders them as labeled callouts, and preserves unknown or unclosed markers as plain Markdown. Localized follow-up chips under the latest completed answer send example, quiz, and simpler-explanation prompts in the selected language. Parser tests cover fenced code and fallback behavior; visual, RTL, and streaming behavior still need browser verification. |
 | 23 | Admin Pro expiry, Q&A moderation, and maintenance | Partial | User Management can set or clear a Pro expiry date using the existing authenticated endpoint. Flagged public Q&A is listed through admin-session-protected `/api/admin/qa/*` routes and can be resolved or unpublished, with confirmation before changes. The Maintenance tab displays `SIMULATION ON`, requires confirmation, and only changes local UI state; the existing real cache-clear action also requires confirmation. Admin route protection and route registration are tested. No database-backed moderation or browser verification was performed. |
+| 24 | Production diagnostics, AI quotas, Explore limiting, and admin token storage | Partial | `/api/debug/sources` and `/api/v1/metrics` require an admin session when `APP_ENV=production` and remain accessible in staging. Notes question generation and compilation now use the existing AI limiter and account/trusted-guest query quota; pre-global-middleware Explore adapters use the general limiter. Admin tokens are held in component memory; the app clears the legacy localStorage key and persona admin requests no longer read it. Middleware and route-contract tests pass; no production or browser session was used. |
 
 ## Build and test evidence
 
 | Check | Result |
 |---|---|
 | `npm run lint` | Pass; TypeScript and design-token checks passed. |
-| `npm test` | Pass; 61 tests in 15 files. |
+| `npm test` | Pass; 62 tests in 15 files. |
 | `npm run build` | Pass; no Nastaleeq asset-resolution or mixed `CompiledNotesModal` import warning. Vite still reports the large main-chunk warning. |
 | Main JS gzip baseline | 306.73 kB at pre-redesign commit `3fbb4ca3b3826848505ffa2d6d377b9cd62e02d1`. |
-| Current main JS gzip | 334.63 kB; +9.10% from baseline, within the baseline +20% budget of 368.08 kB. |
-| Current main JS raw | 1,146.42 kB; still above Vite's 500 kB warning threshold, which was also exceeded by the pre-redesign baseline. |
+| Current main JS gzip | 334.64 kB; +9.10% from baseline, within the baseline +20% budget of 368.08 kB. |
+| Current main JS raw | 1,146.43 kB; still above Vite's 500 kB warning threshold, which was also exceeded by the pre-redesign baseline. |
 | Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API, Product Tour, and Compiled Notes use lazy imports. Markdown rendering is also behind `React.lazy`; their separate chunks are present in the build output. |
 
 The baseline was built in a temporary detached worktree from the commit before

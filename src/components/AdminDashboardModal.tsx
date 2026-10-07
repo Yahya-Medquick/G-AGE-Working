@@ -180,9 +180,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [newAliases, setNewAliases] = useState("");
   const [newPopularity, setNewPopularity] = useState(85);
 
-  const [adminToken, setAdminToken] = useState<string>(() => {
-    return localStorage.getItem("admin_token") || "";
-  });
+  const [adminToken, setAdminToken] = useState("");
 
   const fetchAdminData = async (tokenToUse?: string) => {
     const activeAdminToken = tokenToUse !== undefined ? tokenToUse : adminToken;
@@ -379,6 +377,10 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   };
 
   useEffect(() => {
+    localStorage.removeItem("admin_token");
+  }, []);
+
+  useEffect(() => {
     if (isOpen) {
       if (adminToken) {
         fetchAdminData(adminToken);
@@ -411,7 +413,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
         const data = await res.json();
         const validToken = data.token;
         setAdminToken(validToken);
-        localStorage.setItem("admin_token", validToken);
+        localStorage.removeItem("admin_token");
         setIsUnlocked(true);
         setPasswordInput("");
         fetchAdminData(validToken);
