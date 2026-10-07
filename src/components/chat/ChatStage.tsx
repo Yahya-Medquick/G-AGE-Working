@@ -456,6 +456,9 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const replyActionClass = 'inline-flex min-h-11 items-center gap-2 rounded-control px-2.5 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
   const { user } = useUser();
   const isPaid = queryUsage.tier === 'paid' || queryUsage.tier === 'pro' || queryUsage.tier === 'unlimited' || user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
+  const sessionHasImages = session?.messages.some((message) =>
+    message.images?.some((image) => image.length > 50) || (message.imageBase64?.length || 0) > 50
+  ) ?? false;
 
   const [inputText, setInputText] = useState('');
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
@@ -672,6 +675,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (editingMessageId || (!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing) return;
+    if (!isPaid && (attachedImages.length > 0 || sessionHasImages)) {
+      setShowImageProNotice(true);
+      return;
+    }
     const msg = inputText.trim();
     const images = attachedImages;
     setInputText('');
@@ -701,6 +708,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const saveEditMessage = async (messageId: string) => {
     if (!editText.trim() && editImages.length === 0) return;
     if (isLoading || isImageProcessing) return;
+    if (!isPaid && (editImages.length > 0 || sessionHasImages)) {
+      setShowImageProNotice(true);
+      return;
+    }
     await onEditMessage(messageId, editText, editImages);
     setEditingMessageId(null);
     setEditText('');
@@ -1771,6 +1782,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                           aria-label={uiCopy(language, 'regenerateReply')}
                           title={uiCopy(language, 'regenerateReply')}
                           onClick={() => {
+                            if (!isPaid && sessionHasImages) {
+                              setShowImageProNotice(true);
+                              return;
+                            }
                             let userMessageIndex = -1;
                             for (let messageIndex = idx - 1; messageIndex >= 0; messageIndex -= 1) {
                               if (session?.messages[messageIndex]?.role === 'user') {

@@ -35,7 +35,7 @@ parameter rather than failing with an invalid-request 400.
 | 3 | New-device login | Partial | Unsupported device verification displays an explanation and configured WhatsApp support link. Completion and support configuration require staging credentials and the owner's test support number. |
 | 4 | Variant removal and identity | Partial | No variant selector was found in the mounted home, PersonaPanel or chat header; shared `VariantBadge` is used for surfaced teachers and recent chats. Existing persona identity/group tests pass. Old-browser localStorage migration and both-variant suggested-group behavior were not browser-tested. |
 | 5 | Public sharing | Partial | Chat sends default to `savePublic: false`; a reply action first shows the public-visibility notice, then calls `/api/public-qa/share`. Image-associated answers are hidden/rejected, and the public link uses `/q/:slug`. No staging database was available to test persisted/indexed public pages. |
-| 6 | Camera and attachments | Partial | Both inputs use `image/*`; selection filters image MIME types and caps each message at four; crop remains in the flow. Non-Pro users receive an inline Pro notice instead of starting an upload. Device camera, crop, and entitlement behavior need browser/API verification. |
+| 6 | Camera and attachments | Partial | Both inputs use `image/*`; selection filters image MIME types and caps each message at four; crop remains in the flow. Non-Pro users receive an inline Pro notice without opening the picker; composer, edit, and regenerate paths now block image-bearing sessions from reaching the server. The API independently returns an explicit Pro-paywall response. Device camera, crop, and entitlement behavior need browser verification. |
 | 7 | Quota | Verified (code/tests) | Client quota constants were removed. `readServerUsage` requires count/limit/remaining from `/api/usage`; tests cover server-derived values and malformed responses. A repository search found no client `25`/`200` quota constants in mounted code. |
 | 8 | Empty catalog home | Partial | Catalog data remains empty by design; the home renders catalog empty/error states and teacher rows independently of catalog results. A selected class appears in the home header. Empty-catalog behavior has not been exercised in a browser against an API response. |
 | 9 | i18n | Partial | New redesign copy is routed through `uiCopy` in English, Roman Urdu and Urdu. Some legacy copy in modified, still-mounted chat/persona surfaces remains hard-coded; no claim of complete localization is made. |
@@ -58,8 +58,8 @@ parameter rather than failing with an invalid-request 400.
 | `npm test` | Pass; 37 tests in 12 files. |
 | `npm run build` | Pass; no Nastaleeq asset-resolution or mixed `CompiledNotesModal` import warning. Vite still reports the large main-chunk warning. |
 | Main JS gzip baseline | 306.73 kB at pre-redesign commit `3fbb4ca3b3826848505ffa2d6d377b9cd62e02d1`. |
-| Current main JS gzip | 328.52 kB; +7.1% from baseline, within the baseline +20% budget of 368.08 kB. |
-| Current main JS raw | 1,119.25 kB; still above Vite's 500 kB warning threshold, which was also exceeded by the pre-redesign baseline. |
+| Current main JS gzip | 328.67 kB; +7.15% from baseline, within the baseline +20% budget of 368.08 kB. |
+| Current main JS raw | 1,119.46 kB; still above Vite's 500 kB warning threshold, which was also exceeded by the pre-redesign baseline. |
 | Heavy surfaces | Admin, Knowledge Graph, Compare, Timeline, Developer API, Product Tour, and Compiled Notes use lazy imports. Markdown rendering is also behind `React.lazy`; their separate chunks are present in the build output. |
 
 The baseline was built in a temporary detached worktree from the commit before
