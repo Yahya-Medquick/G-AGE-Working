@@ -11,6 +11,8 @@ build/
 # Testing & Coverage
 coverage/
 *.lcov
+/playwright-report/
+/test-results/
 
 # Environment variables
 .env*

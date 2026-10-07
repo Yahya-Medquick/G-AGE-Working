@@ -16,6 +16,7 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit && npm run check:tokens",
     "test": "vitest run",
+    "qa:screens": "APP_ENV=staging npm run build && playwright test --config=playwright.screens.config.ts",
     "smoke": "node scripts/smoke.mjs",
     "seed:catalog": "node scripts/seed-catalog.mjs",
     "check:tokens": "node scripts/check-design-tokens.mjs"
@@ -52,6 +53,7 @@
     "resend": "^6.20.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^4.17.21",
