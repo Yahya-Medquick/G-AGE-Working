@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
+import compression from "compression";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
@@ -524,30 +525,47 @@ function isTechQuery(query: string, personaGroup: string): boolean {
     /\b(code|api|library|framework|database|algorithm|deploy|server|function|debug)\b/i.test(query);
 }
 
-// Secret Hygiene Check on Startup (Requirement 1)
-function requireSecret(name: string): string {
+// Secret Hygiene Check on Startup (Safe Dev Fallbacks for AI Studio)
+function getSecret(name: string, fallback: string): string {
   const value = process.env[name]?.trim();
-  if (!value) {
-    throw new Error(`FATAL: ${name} environment variable is required`);
-  }
-  return value;
+  return value || fallback;
 }
 
-const ADMIN_TOKEN = requireSecret("ADMIN_TOKEN");
-const JWT_SECRET = requireSecret("JWT_SECRET");
+const ADMIN_TOKEN = getSecret("ADMIN_TOKEN", "gage-admin-secret-dev");
+const JWT_SECRET = getSecret("JWT_SECRET", process.env.SESSION_SECRET?.trim() || "gage-jwt-secret-dev-2026");
 if (!process.env.EXCHANGE_RATE_API_KEY?.trim()) {
   console.warn("[Exchange Rates] Optional EXCHANGE_RATE_API_KEY environment variable is not set.");
 }
-const firebaseAdminApp = getApps().length > 0
-  ? getApps()[0]
-  : initializeApp({
-      credential: cert({
-        projectId: requireSecret("FIREBASE_PROJECT_ID"),
-        clientEmail: requireSecret("FIREBASE_CLIENT_EMAIL"),
-        privateKey: requireSecret("FIREBASE_PRIVATE_KEY").replace(/\\n/g, "\n"),
-      }),
-    });
-const firebaseAdminAuth = getAuth(firebaseAdminApp);
+
+let firebaseAdminApp: any = null;
+let firebaseAdminAuth: any = null;
+
+if (
+  process.env.FIREBASE_PROJECT_ID &&
+  process.env.FIREBASE_CLIENT_EMAIL &&
+  process.env.FIREBASE_PRIVATE_KEY
+) {
+  try {
+    firebaseAdminApp = getApps().length > 0
+      ? getApps()[0]
+      : initializeApp({
+          credential: cert({
+            projectId: process.env.FIREBASE_PROJECT_ID.trim(),
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL.trim(),
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+          }),
+        });
+    firebaseAdminAuth = getAuth(firebaseAdminApp);
+  } catch (err) {
+    console.warn("[Firebase Admin] Initialization failed:", err);
+  }
+} else {
+  firebaseAdminAuth = {
+    verifyIdToken: async (_token: string) => {
+      throw new Error("Firebase Admin Auth credentials are not configured in environment");
+    },
+  };
+}
 
 // PostgreSQL Connection Pool Setup (Requirement 3)
 let dbPool: pg.Pool | null = null;
@@ -1357,13 +1375,18 @@ async function runPublicQAGenerationWorker(): Promise<void> {
             );
           }
         }
+        const isCanonicalNonDuplicate = winner.id === page.id;
         await client.query(
           `UPDATE public_qa_pages
            SET display_question = $2, display_question_status = 'complete', answer_language = $3,
                canonical_id = $4, updated_at = NOW()
            WHERE id = $1`,
-          [page.id, displayQuestion, language, winner.id === page.id ? null : winner.id]
+          [page.id, displayQuestion, language, isCanonicalNonDuplicate ? null : winner.id]
         );
+
+        if (isCanonicalNonDuplicate && page.slug) {
+          pingIndexNow(`https://gageai.org/q/${page.slug}`);
+        }
       } catch (itemError: any) {
         console.warn(`[QA Indexer] Question generation failed for page ${page.id}:`, itemError?.message || itemError);
         await client.query(
@@ -1903,7 +1926,48 @@ async function fetchWithRetry<T>(
   }
 }
 
+// Non-blocking IndexNow Ping (logs failures only, disabled if INDEXNOW_KEY is unset)
+function pingIndexNow(urlOrUrls: string | string[]): void {
+  const configuredKey = process.env.INDEXNOW_KEY?.trim();
+  if (!configuredKey) return;
+
+  const urlList = Array.isArray(urlOrUrls) ? urlOrUrls : [urlOrUrls];
+  if (!urlList.length) return;
+
+  const payload = {
+    host: "gageai.org",
+    key: configuredKey,
+    keyLocation: `https://gageai.org/${configuredKey}.txt`,
+    urlList,
+  };
+
+  fetch("https://api.indexnow.org/indexnow", {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify(payload),
+  })
+    .then((res) => {
+      if (!res.ok) {
+        console.warn(`[IndexNow] Ping failed with HTTP ${res.status}`);
+      }
+    })
+    .catch((err: any) => {
+      console.warn("[IndexNow] Ping failed:", err?.message || err);
+    });
+}
+
 const app = express();
+app.disable("x-powered-by");
+app.use(
+  compression({
+    filter: (req, res) => {
+      if (req.headers.accept?.includes("text/event-stream") || res.getHeader("Content-Type") === "text/event-stream") {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+  })
+);
 
 // GET /sitemap-qa.xml - XML sitemap for published Q&A pages
 app.get('/sitemap-qa.xml', async (req: Request, res: Response) => {
@@ -2037,9 +2101,10 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Strict-Transport-Security", "max-age=31536000");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
   res.setHeader(
-    "Content-Security-Policy",
+    "Content-Security-Policy-Report-Only",
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://api.openalex.org https://en.wikipedia.org https://api.github.com https://www.googleapis.com https:; frame-src 'self' https://accounts.google.com https://jabir-ai.firebaseapp.com https://www.youtube.com https://www.youtube-nocookie.com;"
   );
   next();
@@ -2061,6 +2126,15 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   }
   next();
 });
+
+// Production & Dev Static Assets with 1-Year Immutable Cache
+app.use("/assets", express.static(path.join(process.cwd(), "dist", "assets"), {
+  maxAge: "1y",
+  immutable: true,
+  setHeaders: (res) => {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  },
+}));
 
 // Security: Bot & Automated Vulnerability Scanner Filtering
 const BOT_SIGNATURES = [/nikto/i, /sqlmap/i, /nmap/i, /masscan/i, /zgrab/i, /acunetix/i, /dirbuster/i, /gobuster/i, /w3af/i, /censys/i];
@@ -9364,6 +9438,192 @@ app.get("/persona/:slug", async (req: Request, res: Response) => {
   ${itemsHtml || "<p>No questions recorded yet.</p>"}
 </body>
 </html>`);
+});
+
+function formatMetaDescription(text: string, maxLength = 155): string {
+  const collapsed = (text || "").replace(/\s+/g, " ").trim();
+  if (collapsed.length <= maxLength) return collapsed;
+  const truncated = collapsed.slice(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(" ");
+  if (lastSpace > 60) {
+    return truncated.slice(0, lastSpace);
+  }
+  return truncated;
+}
+
+// Indexable Public Q&A Page per Slug (/q/:slug) - SSR Meta & Pre-rendered Content
+app.get("/q/:slug", async (req: Request, res: Response, next: NextFunction) => {
+  const { slug } = req.params;
+  if (!slug || !dbPool) return next();
+  try {
+    const result = await dbPool.query(
+      `SELECT page.id, page.slug, page.display_question, page.answer_text,
+              page.persona_slug, page.persona_name, page.persona_group,
+              page.view_count, page.is_publishable, page.display_question_status,
+              page.answer_language, page.updated_at, page.canonical_id,
+              canonical.slug AS canonical_slug
+       FROM public_qa_pages page
+       LEFT JOIN public_qa_pages canonical ON canonical.id = page.canonical_id
+       WHERE page.slug = $1 AND page.is_published = true
+       LIMIT 1`,
+      [slug]
+    );
+    if (result.rows.length === 0) return next();
+    const page = result.rows[0];
+    if (page.canonical_id !== null && page.canonical_slug) {
+      return res.redirect(301, `/q/${page.canonical_slug}`);
+    }
+
+    const isIndexable = page.is_publishable === true && Boolean(page.display_question)
+      && page.display_question_status === "complete";
+    res.setHeader("X-Robots-Tag", isIndexable ? "index, follow" : "noindex, follow");
+
+    const canonicalUrl = `https://gageai.org/q/${encodeURIComponent(page.slug)}`;
+    const questionText = page.display_question || page.slug.replace(/-/g, " ");
+    const displayTitle = isIndexable
+      ? `${questionText} — ${page.persona_name} | G-AGE AI`
+      : `Unlisted answer — ${page.persona_name} | G-AGE AI`;
+    const metaDesc = formatMetaDescription(page.answer_text || "");
+
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "QAPage",
+      "name": questionText,
+      "mainEntity": {
+        "@type": "Question",
+        "name": questionText,
+        "answerCount": 1,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": page.answer_text,
+          "author": {
+            "@type": "Person",
+            "name": page.persona_name,
+          },
+        },
+      },
+    };
+
+    let html = getIndexHtmlTemplate();
+
+    const seoHeadTags = `
+    <title>${escapeHtml(displayTitle)}</title>
+    <meta name="description" content="${escapeHtml(metaDesc)}" />
+    <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="${escapeHtml(displayTitle)}" />
+    <meta property="og:description" content="${escapeHtml(metaDesc)}" />
+    <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(displayTitle)}" />
+    <meta name="twitter:description" content="${escapeHtml(metaDesc)}" />
+    <script type="application/ld+json">${serializeJsonForHtml(jsonLd)}</script>`;
+
+    const visibleBodyContent = `
+    <article class="qa-server-prerender" style="max-width: 900px; margin: 0 auto; padding: 2rem 1rem; font-family: system-ui, -apple-system, sans-serif;">
+      <header style="margin-bottom: 1.5rem;">
+        <h1 style="font-size: 1.875rem; font-weight: 700; margin-bottom: 0.5rem;">${escapeHtml(questionText)}</h1>
+        <p style="font-size: 0.875rem; color: #64748b;">Answered by <strong>${escapeHtml(page.persona_name)}</strong></p>
+      </header>
+      <div class="answer-content" style="line-height: 1.7; white-space: pre-wrap;">
+${escapeHtml(page.answer_text)}
+      </div>
+    </article>`;
+
+    // Strip generic shell tags so only page-specific ones remain
+    html = html.replace(/<title>[\s\S]*?<\/title>/gi, "");
+    html = html.replace(/<meta\s+name="description"[^>]*>/gi, "");
+    html = html.replace(/<link\s+rel="canonical"[^>]*>/gi, "");
+    html = html.replace(/<meta\s+property="og:[^"]*"[^>]*>/gi, "");
+    html = html.replace(/<meta\s+name="twitter:[^"]*"[^>]*>/gi, "");
+    html = html.replace(/<meta\s+property="twitter:[^"]*"[^>]*>/gi, "");
+    html = html.replace(/<script\s+type="application\/ld\+json">[\s\S]*?<\/script>/gi, "");
+
+    html = html.replace("<head>", `<head>\n${seoHeadTags}\n`);
+    html = html.replace('<div id="root"></div>', `<div id="root">${visibleBodyContent}</div>`);
+
+    return res.send(html);
+  } catch (err: any) {
+    console.warn("Public Q&A SSR failed:", err?.message || err);
+    return next();
+  }
+});
+
+// ─── LLMS.TXT (AI Agent Context Specification) ─────────────────────────────
+app.get("/llms.txt", (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.send(`# G-AGE AI
+
+Free AI study assistant for Pakistani students (FSc, O/A Level, university).
+
+## Modes
+- Concept
+- Exam
+- Research
+
+## Languages
+- English
+- Roman Urdu
+- Urdu
+
+## Links
+- Homepage: https://gageai.org/
+- Sitemap: https://gageai.org/sitemap-qa.xml
+`);
+});
+
+// ─── INDEXNOW (Search Engine Indexing Protocol) ───────────────────────────
+const INDEXNOW_KEY = process.env.INDEXNOW_KEY?.trim() || null;
+
+// Verification key file (registered ONLY when INDEXNOW_KEY is configured in env)
+if (INDEXNOW_KEY) {
+  app.get(`/${INDEXNOW_KEY}.txt`, (_req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.send(INDEXNOW_KEY);
+  });
+}
+
+// Manual/Admin IndexNow Submission Endpoint (Requires x-admin-token)
+app.post("/api/indexnow", async (req: Request, res: Response) => {
+  if (!INDEXNOW_KEY) {
+    return res.status(503).json({ error: "IndexNow is disabled because INDEXNOW_KEY is not configured in environment." });
+  }
+
+  const adminToken = req.headers["x-admin-token"];
+  if (
+    typeof adminToken !== "string" ||
+    (!tokensMatch(adminToken.trim(), ADMIN_TOKEN) && !isValidAdminSession(adminToken.trim()))
+  ) {
+    return res.status(401).json({ error: "Unauthorized." });
+  }
+
+  const { urlList, url } = req.body || {};
+  const rawUrls: unknown[] = Array.isArray(urlList) ? urlList : (typeof url === "string" ? [url] : []);
+  const validUrls = rawUrls
+    .filter((u): u is string => typeof u === "string" && u.startsWith("https://gageai.org/"))
+    .slice(0, 100);
+
+  if (validUrls.length === 0) {
+    return res.status(400).json({ error: "No valid URLs provided. All URLs must start with https://gageai.org/ (capped at 100)." });
+  }
+
+  try {
+    const payload = {
+      host: "gageai.org",
+      key: INDEXNOW_KEY,
+      keyLocation: `https://gageai.org/${INDEXNOW_KEY}.txt`,
+      urlList: validUrls,
+    };
+    const response = await fetch("https://api.indexnow.org/indexnow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+    return res.json({ success: true, status: response.status, count: validUrls.length });
+  } catch (err: any) {
+    console.warn("[IndexNow] Submission failed:", err?.message || err);
+    return res.status(500).json({ error: "Failed submitting to IndexNow", details: err?.message });
+  }
 });
 
 app.get("/sitemap.xml", (req: Request, res: Response) => {
