@@ -28,6 +28,7 @@
 
 - **Security & Hardening**:
   - **Tiered In-Memory Rate Limiting**: Endpoint-specific limits (150 rpm general, 25 rpm AI synthesis, 30 rpm admin).
+  - **Free Query Allowance**: Signed-in free accounts receive 25 queries per day; guests receive 5 lifetime queries; Pro and paid accounts are unlimited.
   - **Global Input Sanitization**: Strips HTML tags, XSS scripts, null bytes, and control characters.
   - **Security HTTP Headers & CSP**: Helmet equivalent headers (`X-Frame-Options`, `Content-Security-Policy`, `X-Content-Type-Options`).
   - **Bot & Scanner Blocking**: Filters out automated vulnerability scanners (`nikto`, `sqlmap`, `nmap`).

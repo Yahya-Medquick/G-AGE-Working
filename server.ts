@@ -14,6 +14,7 @@ import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { XMLParser } from "fast-xml-parser";
 import { sanitizeInput, evaluateContentQuality } from "./src/utils/security";
+import { getQueryLimitDenial, type QueryLimitDenial } from "./src/utils/queryLimitPolicy";
 import {
   buildPersonaRegistry,
   createFallbackPersonaRegistry,
@@ -23,6 +24,15 @@ import {
 import { extractSuggestedGroup, fetchActivePersonaGroups } from "./src/data/personaGroups";
 
 const { Pool } = pg;
+
+const FREE_DAILY_QUERY_LIMIT = 25;
+const DEVICE_DAILY_QUERY_LIMIT = 200;
+const GUEST_LIFETIME_QUERY_LIMIT = 5;
+const QUERY_LIMIT_VALUES = {
+  freeDaily: FREE_DAILY_QUERY_LIMIT,
+  deviceDaily: DEVICE_DAILY_QUERY_LIMIT,
+  guestLifetime: GUEST_LIFETIME_QUERY_LIMIT,
+};
 
 type ResearchPaperSource = {
   title: string;
@@ -1723,9 +1733,9 @@ STRICT BEHAVIOR RULES:
 let inMemoryCounselingSessions: any[] = [];
 let inMemoryNotes: any[] = [];
 
-// Configurable Tier Daily Search Limits per Tab (Guest limit = 5/day)
+// Legacy per-tab search configuration; chat quota enforcement uses QUERY_LIMIT_VALUES.
 export const TIER_CONFIG: Record<string, Record<string, number>> = {
-  free: { research: 50, software: 50, qa: 50, general: 50, notes: 50, flashcards: 50, exam_prep: 50 },
+  free: { research: FREE_DAILY_QUERY_LIMIT, software: FREE_DAILY_QUERY_LIMIT, qa: FREE_DAILY_QUERY_LIMIT, general: FREE_DAILY_QUERY_LIMIT, notes: FREE_DAILY_QUERY_LIMIT, flashcards: FREE_DAILY_QUERY_LIMIT, exam_prep: FREE_DAILY_QUERY_LIMIT },
   guest: { research: 5, software: 5, qa: 5, general: 5, notes: 5, flashcards: 5, exam_prep: 5 },
   paid: { research: 1000, software: 1000, qa: 1000, general: 1000, notes: 1000, flashcards: 1000, exam_prep: 1000 },
   logged_out: { research: 5, software: 5, qa: 5, general: 5, notes: 5, flashcards: 5, exam_prep: 5 },
@@ -6258,6 +6268,36 @@ async function getUserTotalDailyQueryCount(userId: string, dateStr: string): Pro
   return total;
 }
 
+function buildQueryLimitErrorPayload(denial: QueryLimitDenial, counts: { guestLifetimeCount: number; deviceCount: number; accountCount: number }, category?: string) {
+  const limit = denial === "guest_lifetime"
+    ? GUEST_LIFETIME_QUERY_LIMIT
+    : denial === "device"
+      ? DEVICE_DAILY_QUERY_LIMIT
+      : FREE_DAILY_QUERY_LIMIT;
+  const count = denial === "guest_lifetime"
+    ? counts.guestLifetimeCount
+    : denial === "device"
+      ? counts.deviceCount
+      : counts.accountCount;
+  const message = denial === "guest_lifetime"
+    ? `Guest lifetime limit of ${limit} queries reached on this device. Sign up or upgrade to Pro for continued access.`
+    : denial === "device"
+      ? `Device daily limit of ${limit} queries reached across all accounts on this device. Upgrade to Pro for unlimited access.`
+      : `Account daily limit of ${limit} queries reached for today. Upgrade to Pro for unlimited access.`;
+
+  return {
+    error: `LIMIT_EXCEEDED: ${message}`,
+    message,
+    ...(category ? { tab: category } : {}),
+    limit,
+    count,
+    remaining: 0,
+    resetInSeconds: denial === "guest_lifetime" ? 0 : getSecondsUntilUtcMidnight(),
+    paywallTrigger: true,
+    limitType: denial,
+  };
+}
+
 // Tab Usage & Device Rate Limiting Verification Helper
 async function recordAndVerifyTabUsage(req: Request, category: string, resolvedUser?: any | null): Promise<{ allowed: boolean; status?: number; errorPayload?: any; currentCount?: number }> {
   const GATED_TABS = ["research", "software", "qa", "chat", "counsel", "learn"];
@@ -6276,74 +6316,20 @@ async function recordAndVerifyTabUsage(req: Request, category: string, resolvedU
     return { allowed: true };
   }
 
-  // Guest Lifetime Limit Check (Strict 5 Queries Cap Across All Time)
-  const GUEST_LIFETIME_LIMIT = 5;
-  if (!currentUser) {
-    const lifetimeCount = await getGuestLifetimeCount(deviceId);
-    if (lifetimeCount >= GUEST_LIFETIME_LIMIT) {
-      return {
-        allowed: false,
-        status: 429,
-        errorPayload: {
-          error: `LIMIT_EXCEEDED: Guest lifetime limit of ${GUEST_LIFETIME_LIMIT} queries reached.`,
-          message: `Guest lifetime limit of ${GUEST_LIFETIME_LIMIT} queries reached on this device. Sign up or upgrade to Pro for continued access.`,
-          tab: category,
-          limit: GUEST_LIFETIME_LIMIT,
-          count: lifetimeCount,
-          remaining: 0,
-          resetInSeconds: 0,
-          paywallTrigger: true,
-          limitType: "guest_lifetime",
-        },
-      };
-    }
-  }
-
-  const DEVICE_LIMIT = 200;
-  const FREE_DAILY_QUERY_LIMIT = 25;
-  const ACCOUNT_LIMIT = FREE_DAILY_QUERY_LIMIT;
-
-  // 1. Primary Mechanism: Device Level Daily Query Limit (200/day across all accounts)
+  const guestLifetimeCount = currentUser ? 0 : await getGuestLifetimeCount(deviceId);
   const deviceCount = await getDeviceQueryCount(deviceId, today);
-  if (deviceCount >= DEVICE_LIMIT) {
+  const accountCount = currentUser ? await getUserTotalDailyQueryCount(currentUser.id, today) : 0;
+  const denial = getQueryLimitDenial(currentUser ? "free" : "guest", {
+    guestLifetimeCount,
+    deviceCount,
+    accountCount,
+  }, QUERY_LIMIT_VALUES);
+  if (denial) {
     return {
       allowed: false,
       status: 429,
-      errorPayload: {
-        error: `LIMIT_EXCEEDED: Device daily limit of ${DEVICE_LIMIT} queries reached.`,
-        message: `Device daily limit of ${DEVICE_LIMIT} queries reached across all accounts on this device. Upgrade to Pro for unlimited access.`,
-        tab: category,
-        limit: DEVICE_LIMIT,
-        count: deviceCount,
-        remaining: 0,
-        resetInSeconds: getSecondsUntilUtcMidnight(),
-        paywallTrigger: true,
-        limitType: "device",
-      },
+      errorPayload: buildQueryLimitErrorPayload(denial, { guestLifetimeCount, deviceCount, accountCount }, category),
     };
-  }
-
-  // 2. Secondary Layer: Account Level Daily Query Limit (25/day)
-  let accountCount = 0;
-  if (currentUser) {
-    accountCount = await getUserTotalDailyQueryCount(currentUser.id, today);
-    if (accountCount >= ACCOUNT_LIMIT) {
-      return {
-        allowed: false,
-        status: 429,
-        errorPayload: {
-          error: `LIMIT_EXCEEDED: Account daily limit of ${ACCOUNT_LIMIT} queries reached.`,
-          message: `Account daily limit of ${ACCOUNT_LIMIT} queries reached for today. Upgrade to Pro for unlimited access.`,
-          tab: category,
-          limit: ACCOUNT_LIMIT,
-          count: accountCount,
-          remaining: 0,
-          resetInSeconds: getSecondsUntilUtcMidnight(),
-          paywallTrigger: true,
-          limitType: "account",
-        },
-      };
-    }
   }
 
   // Record query usage for device and account
@@ -6385,9 +6371,6 @@ app.get("/api/usage", async (req: Request, res: Response) => {
   const tab = ((req.query.tab as string) || "research").toLowerCase();
   const today = getUtcTodayDateString();
 
-  const DEVICE_LIMIT = 200;
-  const FREE_DAILY_QUERY_LIMIT = 25;
-
   if (currentUser?.tier === "paid" || currentUser?.tier === "pro" || currentUser?.tier === "unlimited") {
     return res.json({
       loggedIn: true,
@@ -6400,7 +6383,7 @@ app.get("/api/usage", async (req: Request, res: Response) => {
       accountLimit: 999999,
       accountCount: 0,
       accountRemaining: 999999,
-      guestLifetimeLimit: 5,
+      guestLifetimeLimit: GUEST_LIFETIME_QUERY_LIMIT,
       guestLifetimeCount: 0,
       limit: 999999,
       count: 0,
@@ -6410,9 +6393,8 @@ app.get("/api/usage", async (req: Request, res: Response) => {
   }
 
   const deviceCount = await getDeviceQueryCount(deviceId, today);
-  const deviceRemaining = Math.max(0, DEVICE_LIMIT - deviceCount);
+  const deviceRemaining = Math.max(0, DEVICE_DAILY_QUERY_LIMIT - deviceCount);
 
-  const GUEST_LIFETIME_LIMIT = 5;
   let guestLifetimeCount = 0;
   if (!currentUser) {
     guestLifetimeCount = await getGuestLifetimeCount(deviceId);
@@ -6425,22 +6407,22 @@ app.get("/api/usage", async (req: Request, res: Response) => {
   const accountRemaining = currentUser ? Math.max(0, FREE_DAILY_QUERY_LIMIT - accountCount) : deviceRemaining;
   const effectiveRemaining = currentUser
     ? Math.min(deviceRemaining, accountRemaining)
-    : Math.max(0, GUEST_LIFETIME_LIMIT - guestLifetimeCount);
+    : Math.max(0, GUEST_LIFETIME_QUERY_LIMIT - guestLifetimeCount);
 
   const resetInSeconds = getSecondsUntilUtcMidnight();
   res.json({
     loggedIn: !!currentUser,
     tab,
     deviceId,
-    deviceLimit: DEVICE_LIMIT,
+    deviceLimit: DEVICE_DAILY_QUERY_LIMIT,
     deviceCount,
     deviceRemaining,
     accountLimit: FREE_DAILY_QUERY_LIMIT,
     accountCount,
     accountRemaining,
-    guestLifetimeLimit: GUEST_LIFETIME_LIMIT,
+    guestLifetimeLimit: GUEST_LIFETIME_QUERY_LIMIT,
     guestLifetimeCount,
-    limit: currentUser ? FREE_DAILY_QUERY_LIMIT : GUEST_LIFETIME_LIMIT,
+    limit: currentUser ? FREE_DAILY_QUERY_LIMIT : GUEST_LIFETIME_QUERY_LIMIT,
     count: currentUser ? accountCount : guestLifetimeCount,
     remaining: effectiveRemaining,
     resetInSeconds,
@@ -6454,33 +6436,28 @@ app.post("/api/query/track", async (req: Request, res: Response) => {
   const deviceId = isGuest ? getTrustedGuestDeviceId(req) : ((req.headers["x-device-id"] as string) || (req.headers["X-Device-ID"] as string) || req.body?.deviceId || (req.query.deviceId as string) || "dev-unknown");
   const today = getUtcTodayDateString();
 
-  const DEVICE_LIMIT = 200;
-  const FREE_DAILY_QUERY_LIMIT = 25;
-
-  if (currentUser?.tier === "paid") {
-    return res.json({ allowed: true, remaining: 999999, count: 0, tier: "paid" });
+  const isPaidUser = currentUser && (currentUser.tier === "paid" || currentUser.tier === "pro" || currentUser.tier === "unlimited");
+  if (isPaidUser) {
+    return res.json({ allowed: true, remaining: 999999, count: 0, tier: currentUser.tier });
   }
 
-  const GUEST_LIFETIME_LIMIT = 5;
-  let guestLifetimeCount = 0;
-  if (isGuest) {
-    guestLifetimeCount = await getGuestLifetimeCount(deviceId);
-    if (guestLifetimeCount >= GUEST_LIFETIME_LIMIT) {
-      return res.status(429).json({
-        success: false,
-        allowed: false,
-        error: `LIMIT_EXCEEDED: Guest lifetime limit of ${GUEST_LIFETIME_LIMIT} queries reached.`,
-        message: `Guest lifetime limit of ${GUEST_LIFETIME_LIMIT} queries reached on this device. Sign up or upgrade to Pro for continued access.`,
-        limit: GUEST_LIFETIME_LIMIT,
-        count: guestLifetimeCount,
-        remaining: 0,
-        paywallTrigger: true,
-        limitType: "guest_lifetime",
-      });
-    }
-    guestLifetimeCount = await incrementGuestLifetimeCount(deviceId);
+  const guestLifetimeCount = isGuest ? await getGuestLifetimeCount(deviceId) : 0;
+  const deviceCount = await getDeviceQueryCount(deviceId, today);
+  const accountCount = currentUser ? await getUserTotalDailyQueryCount(currentUser.id, today) : 0;
+  const denial = getQueryLimitDenial(isGuest ? "guest" : "free", {
+    guestLifetimeCount,
+    deviceCount,
+    accountCount,
+  }, QUERY_LIMIT_VALUES);
+  if (denial) {
+    return res.status(429).json({
+      success: false,
+      allowed: false,
+      ...buildQueryLimitErrorPayload(denial, { guestLifetimeCount, deviceCount, accountCount }),
+    });
   }
 
+  const updatedGuestLifetimeCount = isGuest ? await incrementGuestLifetimeCount(deviceId) : 0;
   const updatedDeviceCount = await incrementDeviceQueryCount(deviceId, today, isGuest);
 
   let updatedAccountCount = 0;
@@ -6506,18 +6483,18 @@ app.post("/api/query/track", async (req: Request, res: Response) => {
   }
 
   const effectiveRemaining = isGuest
-    ? Math.max(0, GUEST_LIFETIME_LIMIT - guestLifetimeCount)
-    : Math.min(Math.max(0, DEVICE_LIMIT - updatedDeviceCount), Math.max(0, FREE_DAILY_QUERY_LIMIT - updatedAccountCount));
+    ? Math.max(0, GUEST_LIFETIME_QUERY_LIMIT - updatedGuestLifetimeCount)
+    : Math.min(Math.max(0, DEVICE_DAILY_QUERY_LIMIT - updatedDeviceCount), Math.max(0, FREE_DAILY_QUERY_LIMIT - updatedAccountCount));
 
   res.json({
     success: true,
     deviceId,
     isGuest,
     deviceCount: updatedDeviceCount,
-    guestLifetimeCount,
+    guestLifetimeCount: updatedGuestLifetimeCount,
     accountCount: updatedAccountCount,
-    limit: isGuest ? GUEST_LIFETIME_LIMIT : FREE_DAILY_QUERY_LIMIT,
-    count: isGuest ? guestLifetimeCount : updatedAccountCount,
+    limit: isGuest ? GUEST_LIFETIME_QUERY_LIMIT : FREE_DAILY_QUERY_LIMIT,
+    count: isGuest ? updatedGuestLifetimeCount : updatedAccountCount,
     remaining: effectiveRemaining,
     today,
   });
