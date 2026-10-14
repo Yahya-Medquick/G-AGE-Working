@@ -100,12 +100,12 @@ export const MultiLevelDefinitionCard: React.FC<MultiLevelDefinitionCardProps> =
     intermediate: {
       label: "Intermediate",
       subtitle: "Working knowledge of mechanisms & practical application",
-      badgeClass: "bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800/80",
+      badgeClass: "bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/80",
     },
     advanced: {
       label: "Advanced",
       subtitle: "Formal theory, edge cases & research frontiers",
-      badgeClass: "bg-purple-50 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/80",
+      badgeClass: "bg-amber-50 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/80",
     },
   };
 

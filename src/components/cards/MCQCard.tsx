@@ -240,7 +240,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
       <div className="p-4 sm:p-5 space-y-4">
         {isLoading && questions.length === 0 ? (
           <div className="py-12 text-center space-y-3">
-            <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin mx-auto" />
+            <div className="w-8 h-8 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin mx-auto" />
             <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
               Generating exam-grade MCQs for &ldquo;{topic}&rdquo;...
             </p>
@@ -282,7 +282,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
               <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <span>Question {currentIndex + 1} of {questions.length}</span>
                 {questions.length > 3 && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                     Set {Math.floor(currentIndex / 3) + 1}
                   </span>
                 )}
@@ -292,7 +292,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
                   id={`save-mcq-note-${currentIndex}`}
                   type="button"
                   onClick={() => handleSaveQuestionToNotes(currentIndex)}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 text-slate-600 dark:text-slate-300 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                   title="Save this question & explanation to notes"
                 >
                   {savedToNotesMap[currentIndex] ? (
@@ -322,7 +322,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
                 const isCorrect = optIdx === currentQ.answerIndex;
                 const optionLetter = String.fromCharCode(65 + optIdx);
 
-                let optClass = 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 hover:border-indigo-300 dark:hover:border-indigo-700';
+                let optClass = 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 hover:border-emerald-300 dark:hover:border-emerald-700';
 
                 if (isAnswered) {
                   if (isCorrect) {
@@ -373,7 +373,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
             {/* Explanation Drawer */}
             {isAnswered && showExplanation[currentIndex] && (
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs space-y-2 animate-in fade-in duration-150">
-                <div className="flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide text-[10px]">
+                <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide text-[10px]">
                   <HelpCircle className="w-3.5 h-3.5" />
                   <span>Explanation & Diagnostic Breakdown</span>
                 </div>
@@ -402,7 +402,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
                     id="next-mcq-btn"
                     type="button"
                     onClick={() => setCurrentIndex((prev) => prev + 1)}
-                    className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs transition-colors"
+                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs transition-colors"
                   >
                     <span>Next Question</span>
                     <ChevronRight className="w-3.5 h-3.5" />

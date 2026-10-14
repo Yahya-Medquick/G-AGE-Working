@@ -57,7 +57,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
           <X className="w-4 h-4" />
         </button>
 
-        <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 border border-indigo-100 dark:border-indigo-900/50 shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4 border border-emerald-100 dark:border-emerald-900/50 shadow-xs">
           <Moon className="w-6 h-6" />
         </div>
 
@@ -67,12 +67,12 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
               Free Queries Used Up
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 mb-6 leading-relaxed max-w-sm">
-              You have used your 5 free guest queries. Sign up free to get <span className="font-semibold text-indigo-500">25 queries every day</span> — no payment needed.
+              You have used your 5 free guest queries. Sign up free to get <span className="font-semibold text-emerald-500">25 queries every day</span> — no payment needed.
             </p>
             <div className="w-full space-y-2.5">
               <button
                 onClick={handleSignUp}
-                className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.99]"
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.99]"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Sign Up Free — 25 Queries/Day</span>

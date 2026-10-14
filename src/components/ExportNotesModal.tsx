@@ -368,7 +368,7 @@ export const ExportNotesModal: React.FC<Props> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm font-bold text-white truncate flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <User className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   <span>{personaName}</span>
                 </h2>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
@@ -402,7 +402,7 @@ export const ExportNotesModal: React.FC<Props> = ({
               key={m}
               onClick={() => setMode(m)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                mode === m ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800'
+                mode === m ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
               {modeIcons[m]}
@@ -472,7 +472,7 @@ export const ExportNotesModal: React.FC<Props> = ({
           <button
             onClick={handleDownloadPDF}
             disabled={isGenerating}
-            className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-md disabled:cursor-not-allowed"
+            className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-md disabled:cursor-not-allowed"
           >
             {isGenerating ? (
               <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /><span>Generating PDF...</span></>

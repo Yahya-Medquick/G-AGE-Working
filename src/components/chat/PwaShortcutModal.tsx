@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ExpertPersona } from '../../data/experts';
+import { getBrandPersonaColor } from './ChatSidebar';
 
 interface PwaShortcutModalProps {
   persona: ExpertPersona | null;
@@ -66,7 +67,7 @@ export const PwaShortcutModal: React.FC<PwaShortcutModalProps> = ({
           <div className="flex items-center gap-2.5">
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-xs"
-              style={{ backgroundColor: persona.avatar_color }}
+              style={{ backgroundColor: getBrandPersonaColor(persona.id).bg }}
             >
               {persona.initials}
             </div>
@@ -91,12 +92,12 @@ export const PwaShortcutModal: React.FC<PwaShortcutModalProps> = ({
         {/* Body */}
         <div className="p-5 space-y-4 text-xs text-slate-700 dark:text-slate-300">
           {/* Active URL Status Banner */}
-          <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 text-indigo-950 dark:text-indigo-200 space-y-1">
+          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 text-emerald-950 dark:text-emerald-200 space-y-1">
             <div className="flex items-center gap-1.5 font-bold text-[11px]">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>Install now while on this URL</span>
             </div>
-            <p className="text-[10px] text-indigo-700 dark:text-indigo-300 leading-relaxed">
+            <p className="text-[10px] text-emerald-700 dark:text-emerald-300 leading-relaxed">
               The active browser URL is currently configured for <strong>{persona.name}</strong>. Triggering <strong>Install</strong> or <strong>Add to Home Screen</strong> right now saves this specific expert directly to your device.
             </p>
           </div>
@@ -115,7 +116,7 @@ export const PwaShortcutModal: React.FC<PwaShortcutModalProps> = ({
               />
               <button
                 onClick={handleCopyLink}
-                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
               >
                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                 <span>{copied ? 'Copied' : 'Copy'}</span>
@@ -127,7 +128,7 @@ export const PwaShortcutModal: React.FC<PwaShortcutModalProps> = ({
           <div className="space-y-3 pt-2">
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 space-y-1.5">
               <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                <Smartphone className="w-4 h-4 text-indigo-500" />
+                <Smartphone className="w-4 h-4 text-emerald-500" />
                 <span>Mobile (iOS Safari & Android Chrome)</span>
               </div>
               <ol className="list-decimal list-inside text-[11px] text-slate-500 dark:text-slate-400 space-y-1 pl-1">

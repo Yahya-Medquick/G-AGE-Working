@@ -11,12 +11,12 @@ interface PersonaSuggestionsProps {
 
 const SOFT_COLOR_THEMES = [
   {
-    bg: "bg-indigo-50/90 dark:bg-indigo-950/30",
-    border: "border-indigo-200/80 dark:border-indigo-800/50 hover:border-indigo-400 dark:hover:border-indigo-600",
-    nameColor: "text-indigo-950 dark:text-indigo-200",
-    descColor: "text-indigo-700/80 dark:text-indigo-300/70",
-    badgeBg: "bg-indigo-100/90 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300",
-    hoverIcon: "text-indigo-600 dark:text-indigo-400",
+    bg: "bg-emerald-50/90 dark:bg-emerald-950/30",
+    border: "border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-400 dark:hover:border-emerald-600",
+    nameColor: "text-emerald-950 dark:text-emerald-200",
+    descColor: "text-emerald-700/80 dark:text-emerald-300/70",
+    badgeBg: "bg-emerald-100/90 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300",
+    hoverIcon: "text-emerald-600 dark:text-emerald-400",
   },
   {
     bg: "bg-emerald-50/90 dark:bg-emerald-950/30",
@@ -35,12 +35,12 @@ const SOFT_COLOR_THEMES = [
     hoverIcon: "text-amber-600 dark:text-amber-400",
   },
   {
-    bg: "bg-purple-50/90 dark:bg-purple-950/30",
-    border: "border-purple-200/80 dark:border-purple-800/50 hover:border-purple-400 dark:hover:border-purple-600",
-    nameColor: "text-purple-950 dark:text-purple-200",
-    descColor: "text-purple-700/80 dark:text-purple-300/70",
-    badgeBg: "bg-purple-100/90 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300",
-    hoverIcon: "text-purple-600 dark:text-purple-400",
+    bg: "bg-amber-50/90 dark:bg-amber-950/30",
+    border: "border-amber-200/80 dark:border-amber-800/50 hover:border-amber-400 dark:hover:border-amber-600",
+    nameColor: "text-amber-950 dark:text-amber-200",
+    descColor: "text-amber-700/80 dark:text-amber-300/70",
+    badgeBg: "bg-amber-100/90 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300",
+    hoverIcon: "text-amber-600 dark:text-amber-400",
   },
   {
     bg: "bg-rose-50/90 dark:bg-rose-950/30",
@@ -97,7 +97,7 @@ export const PersonaSuggestions: React.FC<PersonaSuggestionsProps> = ({
   if (isLoading && (!personas || personas.length === 0)) {
     return (
       <div className="w-full max-w-4xl mx-auto pt-4 flex items-center justify-center gap-2 text-xs text-slate-400">
-        <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-emerald-500"></div>
         <span>Loading counselors...</span>
       </div>
     );
@@ -159,7 +159,7 @@ export const PersonaSuggestions: React.FC<PersonaSuggestionsProps> = ({
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                <div className="mt-3 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                   <span>Chat now</span>
                   <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                 </div>
@@ -178,7 +178,7 @@ export const PersonaSuggestions: React.FC<PersonaSuggestionsProps> = ({
     <div className="w-full max-w-4xl mx-auto pt-5 animate-in fade-in duration-200">
       <div className="flex items-center flex-wrap justify-center sm:justify-start gap-2 text-xs">
         <span className="text-slate-500 dark:text-slate-400 font-semibold text-xs flex items-center gap-1.5 shrink-0 mr-1">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+          <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
           Ask a Specialist
         </span>
 
@@ -197,7 +197,7 @@ export const PersonaSuggestions: React.FC<PersonaSuggestionsProps> = ({
         <button
           type="button"
           onClick={() => onSelectPersona(personas[0])}
-          className="inline-flex items-center gap-0.5 text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold ml-1 cursor-pointer"
+          className="inline-flex items-center gap-0.5 text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold ml-1 cursor-pointer"
         >
           <span>All Advisors</span>
           <ChevronRight className="w-3.5 h-3.5" />

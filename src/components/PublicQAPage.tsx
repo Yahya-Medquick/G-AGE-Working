@@ -108,7 +108,7 @@ export const PublicQAPage: React.FC = () => {
     <main lang={page.answer_language === 'urdu' ? 'ur' : page.answer_language === 'roman-urdu' ? 'ur-Latn' : 'en'} dir={page.answer_language === 'urdu' ? 'rtl' : 'ltr'} className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-5 py-8 sm:px-8">
       <article className="max-w-3xl mx-auto">
         <nav className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-8" aria-label="Breadcrumb">
-          <a href="/" className="hover:text-indigo-500 inline-flex items-center gap-1"><Home className="w-3.5 h-3.5" /> Home</a>
+          <a href="/" className="hover:text-emerald-500 inline-flex items-center gap-1"><Home className="w-3.5 h-3.5" /> Home</a>
           <ChevronRight className="w-3.5 h-3.5" />
           <span>{page.persona_group || "Expert answers"}</span>
           <ChevronRight className="w-3.5 h-3.5" />
@@ -116,14 +116,14 @@ export const PublicQAPage: React.FC = () => {
         </nav>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-5">{page.display_question || 'Unlisted answer'}</h1>
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">{page.persona_name.slice(0, 1)}</div>
+          <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">{page.persona_name.slice(0, 1)}</div>
           <span className="text-sm text-slate-600 dark:text-slate-300">Answered by <strong>{page.persona_name}</strong></span>
         </div>
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 sm:p-8 shadow-sm">
           <MarkdownRenderer content={page.answer_text} />
         </div>
         <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <a href={`/?persona=${encodeURIComponent(page.persona_slug)}`} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-sm font-semibold transition-colors"><MessageCircle className="w-4 h-4" /> Ask {page.persona_name} a question</a>
+          <a href={`/?persona=${encodeURIComponent(page.persona_slug)}`} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-sm font-semibold transition-colors"><MessageCircle className="w-4 h-4" /> Ask {page.persona_name} a question</a>
           <span className="text-xs text-slate-500 dark:text-slate-400">{page.view_count || 0} students found this helpful</span>
         </div>
       </article>
@@ -133,6 +133,6 @@ export const PublicQAPage: React.FC = () => {
 
 const EmptyState: React.FC<{ title: string }> = ({ title }) => (
   <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-5 text-center">
-    <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">{title}</h1><a href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"><ArrowLeft className="w-4 h-4" /> Back home</a></div>
+    <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">{title}</h1><a href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600 hover:text-emerald-700"><ArrowLeft className="w-4 h-4" /> Back home</a></div>
   </main>
 );

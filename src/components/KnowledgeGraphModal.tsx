@@ -134,13 +134,13 @@ export const KnowledgeGraphModal: React.FC<KnowledgeGraphModalProps> = ({
         {/* Modal Top Bar */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/80 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-500/20 shrink-0">
+            <div className="w-9 h-9 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-500/20 shrink-0">
               <Network className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 truncate">
                 <span>Semantic Knowledge Graph</span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                   Interactive Network
                 </span>
               </h2>
@@ -167,12 +167,12 @@ export const KnowledgeGraphModal: React.FC<KnowledgeGraphModalProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Search another topic (currently: ${topic})...`}
-              className="w-full pl-10 pr-24 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-10 pr-24 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
             <button
               type="submit"
               disabled={!searchQuery.trim()}
-              className="absolute right-1.5 top-1.5 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold text-xs cursor-pointer transition-colors"
+              className="absolute right-1.5 top-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-xs cursor-pointer transition-colors"
             >
               Explore
             </button>
@@ -192,7 +192,7 @@ export const KnowledgeGraphModal: React.FC<KnowledgeGraphModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-950/50">
           {isLoading && !graphData ? (
             <div className="py-24 text-center space-y-3">
-              <div className="w-9 h-9 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin mx-auto" />
+              <div className="w-9 h-9 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin mx-auto" />
               <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                 Synthesizing semantic graph vectors for &ldquo;{topic}&rdquo;...
               </p>
@@ -202,7 +202,7 @@ export const KnowledgeGraphModal: React.FC<KnowledgeGraphModalProps> = ({
               <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">{error}</p>
               <button
                 onClick={() => fetchGraphForTopic(topic)}
-                className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold"
+                className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold"
               >
                 Try Again
               </button>

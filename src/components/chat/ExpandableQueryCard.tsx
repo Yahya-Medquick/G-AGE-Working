@@ -42,7 +42,7 @@ export const ExpandableQueryCard: React.FC<ExpandableQueryCardProps> = ({
       case 'research':
         return <BookOpen className="w-3.5 h-3.5 text-cyan-500" />;
       default:
-        return <Lightbulb className="w-3.5 h-3.5 text-indigo-500" />;
+        return <Lightbulb className="w-3.5 h-3.5 text-emerald-500" />;
     }
   };
 
@@ -53,12 +53,12 @@ export const ExpandableQueryCard: React.FC<ExpandableQueryCardProps> = ({
       case 'research':
         return 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-300 border-cyan-200 dark:border-cyan-900';
       default:
-        return 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900';
+        return 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900';
     }
   };
 
   return (
-    <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs hover:border-indigo-400 dark:hover:border-indigo-600/60 transition-all overflow-hidden group">
+    <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs hover:border-emerald-400 dark:hover:border-emerald-600/60 transition-all overflow-hidden group">
       {/* Card Header Bar */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
@@ -70,7 +70,7 @@ export const ExpandableQueryCard: React.FC<ExpandableQueryCardProps> = ({
           </div>
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 {card.title}
               </span>
               <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase ${getModeBadgeClass()}`}>
@@ -89,7 +89,7 @@ export const ExpandableQueryCard: React.FC<ExpandableQueryCardProps> = ({
               e.stopPropagation();
               onSelect(card.prompt, card.mode);
             }}
-            className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 text-indigo-600 dark:text-indigo-300 text-[10px] font-bold transition-all flex items-center gap-1 border border-indigo-200 dark:border-indigo-800"
+            className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 text-emerald-600 dark:text-emerald-300 text-[10px] font-bold transition-all flex items-center gap-1 border border-emerald-200 dark:border-emerald-800"
             title="Dive in directly"
           >
             <span>Dive In</span>
@@ -103,7 +103,7 @@ export const ExpandableQueryCard: React.FC<ExpandableQueryCardProps> = ({
           >
             <ChevronDown
               className={`w-4 h-4 transition-transform duration-200 ${
-                isExpanded ? 'rotate-180 text-indigo-600 dark:text-indigo-400' : ''
+                isExpanded ? 'rotate-180 text-emerald-600 dark:text-emerald-400' : ''
               }`}
             />
           </button>
@@ -128,7 +128,7 @@ export const ExpandableQueryCard: React.FC<ExpandableQueryCardProps> = ({
                     key={pIdx}
                     className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-300"
                   >
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                     <span>{point}</span>
                   </li>
                 ))}
@@ -142,7 +142,7 @@ export const ExpandableQueryCard: React.FC<ExpandableQueryCardProps> = ({
             </div>
             <button
               onClick={() => onSelect(card.prompt, card.mode)}
-              className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
             >
               <span>Ask {personaName} this Inquiry</span>
               <ArrowRight className="w-3.5 h-3.5" />

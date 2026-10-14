@@ -41,7 +41,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
   if (!isLoggedIn) {
     return (
       <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center space-y-6 max-w-xl mx-auto my-12 shadow-sm">
-        <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mx-auto">
+        <div className="w-16 h-16 rounded-3xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mx-auto">
           <History className="w-8 h-8" />
         </div>
         <div className="space-y-2">
@@ -54,7 +54,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
         </div>
         <button
           onClick={onOpenLogin}
-          className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs inline-flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+          className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs inline-flex items-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
         >
           <LogIn className="w-4 h-4" />
           <span>Sign in with Google</span>
@@ -118,17 +118,17 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header Banner */}
-      <div className="rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 p-6 sm:p-8 text-white shadow-lg space-y-4">
+      <div className="rounded-3xl bg-gradient-to-r from-emerald-900 via-emerald-950 to-slate-900 p-6 sm:p-8 text-white shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-indigo-300">
+            <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-emerald-300">
               <History className="w-5 h-5" />
             </div>
             <div>
               <h2 className="font-extrabold text-lg sm:text-xl text-white">
                 Search History & Saved Queries
               </h2>
-              <p className="text-xs text-indigo-200">
+              <p className="text-xs text-emerald-200">
                 Logged in as <span className="font-bold text-white">{user?.email}</span>
               </p>
             </div>
@@ -149,13 +149,13 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
           {/* Search in History */}
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-indigo-300 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-emerald-300 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               placeholder="Filter search history..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white placeholder-indigo-300/60 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white placeholder-emerald-300/60 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
           </div>
 
@@ -166,7 +166,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
               className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 filterStarredOnly
                   ? "bg-amber-500 text-white shadow-md"
-                  : "bg-white/10 border border-white/20 text-indigo-200 hover:text-white"
+                  : "bg-white/10 border border-white/20 text-emerald-200 hover:text-white"
               }`}
             >
               <Star className={`w-3.5 h-3.5 ${filterStarredOnly ? "fill-white" : ""}`} />
@@ -175,7 +175,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
 
             <button
               onClick={loadHistory}
-              className="p-2 rounded-xl bg-white/10 border border-white/20 text-indigo-200 hover:text-white text-xs transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-white/10 border border-white/20 text-emerald-200 hover:text-white text-xs transition-colors cursor-pointer"
               title="Refresh History"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -187,7 +187,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
       {/* History Items List */}
       {isLoading ? (
         <div className="py-12 text-center text-xs text-slate-500 space-y-2">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-600" />
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-emerald-600" />
           <p>Loading your search history...</p>
         </div>
       ) : filteredHistory.length === 0 ? (
@@ -209,7 +209,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
               key={item.id}
               className={`group p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
                 item.isPinned
-                  ? "bg-indigo-50/60 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/80 shadow-xs"
+                  ? "bg-emerald-50/60 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/80 shadow-xs"
                   : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
               }`}
             >
@@ -220,7 +220,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
               >
                 <div className="flex items-center gap-2 flex-wrap">
                   {item.isPinned && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-600 text-white">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-600 text-white">
                       <Pin className="w-2.5 h-2.5" /> Pinned
                     </span>
                   )}
@@ -238,7 +238,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
                   </span>
                 </div>
 
-                <h4 className="font-bold text-slate-900 dark:text-white text-base hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors truncate">
+                <h4 className="font-bold text-slate-900 dark:text-white text-base hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate">
                   {item.query}
                 </h4>
               </div>
@@ -283,8 +283,8 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({
                   onClick={() => handleTogglePin(item)}
                   className={`p-2 rounded-xl border transition-colors cursor-pointer ${
                     item.isPinned
-                      ? "bg-indigo-600 border-indigo-600 text-white"
-                      : "border-slate-200 dark:border-slate-800 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      ? "bg-emerald-600 border-emerald-600 text-white"
+                      : "border-slate-200 dark:border-slate-800 text-slate-400 hover:text-emerald-600 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                   title={item.isPinned ? "Unpin search" : "Pin search to top"}
                 >

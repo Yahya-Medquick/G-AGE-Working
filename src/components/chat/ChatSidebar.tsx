@@ -430,6 +430,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             </span>
           </div>
 
+          {queryUsage.tier !== 'paid' && (
+            <div className="text-[11px] text-[#4F6359] dark:text-[#9DB5A8]">
+              {queryUsage.isLoggedIn ? 'Free plan: 25 queries per day' : 'Guest: 5 lifetime queries'}
+            </div>
+          )}
+
           {/* Usage Progress Bar */}
           {queryUsage.tier !== 'paid' && (
             <div className="w-full bg-[#DDEFE6] dark:bg-[#17352A] h-2 rounded-full overflow-hidden border border-[#D5E0D8] dark:border-[#27403A]">

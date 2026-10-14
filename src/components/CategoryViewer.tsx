@@ -104,7 +104,7 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
         </div>
         <button
           onClick={onOpenLogin}
-          className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs inline-flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+          className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs inline-flex items-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
         >
           <LogIn className="w-4 h-4" />
           <span>Sign in with Google</span>
@@ -119,7 +119,7 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
 
   if (error) {
     const isLoginReq = error.includes("LOGIN_REQUIRED");
-    const isLimitExceeded = error.includes("LIMIT_EXCEEDED") || error.includes("used your 5 free searches");
+    const isLimitExceeded = error.includes("LIMIT_EXCEEDED");
 
     if (isLoginReq) {
       return (
@@ -137,7 +137,7 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
           </div>
           <button
             onClick={onOpenLogin}
-            className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs inline-flex items-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+            className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs inline-flex items-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
           >
             <LogIn className="w-4 h-4" />
             <span>Sign in with Google</span>
@@ -152,21 +152,23 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
       const secs = resetTimer % 60;
 
       return (
-        <div className="rounded-3xl border border-purple-200 dark:border-purple-900/60 bg-purple-50/50 dark:bg-purple-950/30 p-10 text-center space-y-6 max-w-lg mx-auto my-12 shadow-sm">
-          <div className="w-16 h-16 rounded-3xl bg-purple-100 dark:bg-purple-900/50 border border-purple-300 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400 mx-auto">
+        <div className="rounded-3xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/30 p-10 text-center space-y-6 max-w-lg mx-auto my-12 shadow-sm">
+          <div className="w-16 h-16 rounded-3xl bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto">
             <ShieldAlert className="w-8 h-8" />
           </div>
           <div className="space-y-2">
             <h3 className="font-extrabold text-slate-900 dark:text-white text-xl">
-              Daily Limit Reached (5/5 Free Searches)
+              {isLoggedIn ? "Daily Limit Reached (25/25 Free Queries)" : "Guest Limit Reached (5/5 Lifetime Queries)"}
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              You've used your 5 free searches for the <strong className="capitalize">{category}</strong> tab today. Your daily search limit resets automatically at midnight UTC.
+              {isLoggedIn
+                ? <>You've used all 25 free queries for today in the <strong className="capitalize">{category}</strong> tab. Your allowance resets at midnight UTC.</>
+                : <>You've used all 5 guest queries on this device. Guest queries are a one-time lifetime allowance; sign in for 25 queries per day.</>}
             </p>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-bold text-xs shadow-xs">
-            <Clock className="w-4 h-4 text-purple-600 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 font-bold text-xs shadow-xs">
+            <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
             <span>Resets in: {hours}h {mins}m {secs}s</span>
           </div>
         </div>
@@ -233,7 +235,7 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
       </p>
       <button
         onClick={onRetry}
-        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs inline-flex items-center gap-2 transition-colors shadow-xs cursor-pointer"
+        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs inline-flex items-center gap-2 transition-colors shadow-xs cursor-pointer"
       >
         <RefreshCw className="w-4 h-4" />
         <span>Refresh {categoryName} Data</span>
@@ -285,7 +287,7 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
                   onClick={() => onMatchModeChange?.('all')}
                   className={`px-3 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
                     matchMode === 'all'
-                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold'
+                      ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-white shadow-xs font-bold'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -295,7 +297,7 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
                   onClick={() => onMatchModeChange?.('any')}
                   className={`px-3 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
                     matchMode === 'any'
-                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold'
+                      ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-white shadow-xs font-bold'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -305,7 +307,7 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
                   onClick={() => onMatchModeChange?.('phrase')}
                   className={`px-3 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
                     matchMode === 'phrase'
-                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs font-bold'
+                      ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-white shadow-xs font-bold'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -452,23 +454,23 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
               <div
                 key={item.id || idx}
                 onClick={() => onSelectTopic(item.title)}
-                className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-600 cursor-pointer shadow-xs hover:shadow-md transition-all space-y-3"
+                className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-400 dark:hover:border-emerald-600 cursor-pointer shadow-xs hover:shadow-md transition-all space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                     {item.category || "Recommended Topic"}
                   </span>
                   <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                     {item.relevanceScore ? `${item.relevanceScore}% Match` : "Recommended"}
                   </span>
                 </div>
-                <h4 className="font-bold text-slate-900 dark:text-white text-base hover:text-indigo-600 transition-colors">
+                <h4 className="font-bold text-slate-900 dark:text-white text-base hover:text-emerald-600 transition-colors">
                   {item.title}
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                   {item.reason || item.description || "Curated based on your interests and related search patterns."}
                 </p>
-                <div className="pt-2 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                <div className="pt-2 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                   <span>Explore Topic</span> &rarr;
                 </div>
               </div>
@@ -483,7 +485,7 @@ export const CategoryViewer: React.FC<CategoryViewerProps> = ({
       {category === "qa" && (
         <Suspense fallback={
           <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70 rounded-2xl p-8 text-center space-y-4 shadow-xs">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400 mx-auto"></div>
             <p className="text-xs text-slate-500">Loading AI Learning Q&A...</p>
           </div>
         }>

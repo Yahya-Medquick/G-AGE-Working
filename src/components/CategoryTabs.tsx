@@ -97,7 +97,7 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
       case "Sparkles": return <Sparkles className="w-4 h-4" />;
       case "History": return <History className="w-4 h-4 text-amber-500" />;
       case "Compass": return <Compass className="w-4 h-4" />;
-      case "Brain": return <Brain className="w-4 h-4 text-indigo-500" />;
+      case "Brain": return <Brain className="w-4 h-4 text-emerald-500" />;
       default: return <BookOpen className="w-4 h-4" />;
     }
   };
@@ -136,7 +136,7 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
 
                 {/* Loaded Indicator Dot */}
                 {isLoaded && !isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/70 dark:bg-indigo-400/70" title="Loaded" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70 dark:bg-emerald-400/70" title="Loaded" />
                 )}
               </button>
             );
@@ -145,8 +145,8 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
 
         {/* Real-time Usage Display Indicator for Gated Tabs */}
         {isGatedTab && isLoggedIn && usageInfo && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-[11px] text-purple-700 dark:text-purple-300 font-medium shrink-0 self-start md:self-auto">
-            <Activity className="w-3 h-3 text-purple-500 animate-pulse shrink-0" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-[11px] text-amber-700 dark:text-amber-300 font-medium shrink-0 self-start md:self-auto">
+            <Activity className="w-3 h-3 text-amber-500 animate-pulse shrink-0" />
             <span>
               {usageInfo.limit >= 1000 ? (
                 <span>Unlimited Searches Today</span>

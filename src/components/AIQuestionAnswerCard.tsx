@@ -139,7 +139,7 @@ export const AIQuestionAnswerCard: React.FC<AIQuestionAnswerCardProps> = ({ topi
                   href={src.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 font-medium"
+                  className="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 font-medium"
                 >
                   <span>{src.title}</span>
                   <ExternalLink className="w-3 h-3" />
@@ -158,7 +158,7 @@ export const AIQuestionAnswerCard: React.FC<AIQuestionAnswerCardProps> = ({ topi
                     setQuestion(f);
                     handleAsk(f);
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-[10px] text-slate-600 dark:text-slate-300 transition-colors text-left"
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-emerald-400 text-[10px] text-slate-600 dark:text-slate-300 transition-colors text-left"
                 >
                   {f}
                 </button>

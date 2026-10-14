@@ -237,7 +237,7 @@ STRICT BEHAVIOR RULES:
     affiliation: "Lead Data Scientist, formerly Netflix Personalization · Kaggle Grandmaster",
     badge: "Data Science & AI",
     status: "Active Now",
-    avatar_color: "#8b5cf6", // violet
+    avatar_color: "#0A5C45", // emerald
     specialties: [
       "Machine learning pipelines",
       "Recommendation systems",
@@ -344,7 +344,7 @@ STRICT BEHAVIOR RULES:
     badge: "Technology & Computing",
     group_name: "Technology & Computing",
     status: "Active Now",
-    avatar_color: "#6366f1",
+    avatar_color: "#0A5C45",
     specialties: [
       "Large-scale distributed systems",
       "Mobile computing in low-resource environments",
@@ -527,7 +527,7 @@ STRICT BEHAVIOR RULES:
     badge: "Data Science & AI",
     group_name: "Data Science & AI",
     status: "Active Now",
-    avatar_color: "#8b5cf6",
+    avatar_color: "#0A5C45",
     specialties: [
       "Telecom data analytics",
       "ML for low-resource languages (Urdu/Punjabi NLP)",

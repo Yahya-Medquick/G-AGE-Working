@@ -87,8 +87,8 @@ export const LearningQACard: React.FC = () => {
   // Parse Difficulty Zone Labels
   const getDifficultyZone = (val: number) => {
     if (val <= 3) return { label: "Basic", color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200" };
-    if (val <= 6) return { label: "Intermediate", color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 dark:text-indigo-400 border-indigo-200" };
-    return { label: "Advanced", color: "text-purple-600 bg-purple-50 dark:bg-purple-950/40 dark:text-purple-400 border-purple-200" };
+    if (val <= 6) return { label: "Intermediate", color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200" };
+    return { label: "Advanced", color: "text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200" };
   };
 
   const zone = getDifficultyZone(difficulty);
@@ -207,7 +207,7 @@ export const LearningQACard: React.FC = () => {
         <div className="space-y-4">
           {Object.entries(ans).map(([subKey, val]) => (
             <div key={subKey} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-              <h4 className="font-bold text-xs text-indigo-600 dark:text-indigo-400 tracking-wide uppercase mb-1">
+              <h4 className="font-bold text-xs text-emerald-600 dark:text-emerald-400 tracking-wide uppercase mb-1">
                 {subKey}
               </h4>
               <MarkdownRenderer content={String(val)} className="text-xs text-slate-700 dark:text-slate-300" />
@@ -242,7 +242,7 @@ export const LearningQACard: React.FC = () => {
         <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70 rounded-2xl p-6 space-y-6 shadow-xs">
           
           <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
-            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <GraduationCap className="w-5 h-5" />
             </div>
             <div>
@@ -266,7 +266,7 @@ export const LearningQACard: React.FC = () => {
               <select
                 value={grade}
                 onChange={(e) => setGrade(e.target.value)}
-                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
               >
                 <option value="Grade 9 (Matric)">Grade 9 (Matric)</option>
                 <option value="Grade 10 (Matric)">Grade 10 (Matric)</option>
@@ -283,7 +283,7 @@ export const LearningQACard: React.FC = () => {
               <select
                 value={format}
                 onChange={(e) => setFormat(e.target.value)}
-                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
               >
                 <option value="Concept Explanation">Concept Explanation (2-3 Paras)</option>
                 <option value="Short Question">Short Question (3-5 Lines)</option>
@@ -300,7 +300,7 @@ export const LearningQACard: React.FC = () => {
               <select
                 value={board}
                 onChange={(e) => setBoard(e.target.value)}
-                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
               >
                 <option value="Punjab Board">Punjab Board (BISE Lahore etc.)</option>
                 <option value="Federal Board">Federal Board (FBISE)</option>
@@ -322,7 +322,7 @@ export const LearningQACard: React.FC = () => {
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="E.g., Explain the difference between longitudinal and transverse waves with examples..."
               rows={4}
-              className="w-full text-xs px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 resize-none leading-relaxed"
+              className="w-full text-xs px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 resize-none leading-relaxed"
             />
           </div>
 
@@ -364,7 +364,7 @@ export const LearningQACard: React.FC = () => {
                 }}
                 className={`border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-2 hover:bg-slate-50 dark:hover:bg-slate-950/40 ${
                   isDragging
-                    ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20"
+                    ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
                     : !isPaid
                     ? "border-amber-200/70 dark:border-amber-900/40 bg-amber-50/20 dark:bg-amber-950/10"
                     : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
@@ -381,7 +381,7 @@ export const LearningQACard: React.FC = () => {
                   {!isPaid ? (
                     <span>Unlock <span className="text-amber-600 dark:text-amber-400">Gemini Vision OCR</span> to analyze handwritten exams</span>
                   ) : (
-                    <span>Drag and drop your handwritten question, or <span className="text-indigo-600 dark:text-indigo-400">browse file</span></span>
+                    <span>Drag and drop your handwritten question, or <span className="text-emerald-600 dark:text-emerald-400">browse file</span></span>
                   )}
                 </span>
                 <span className="text-[10px] text-slate-400">
@@ -437,7 +437,7 @@ export const LearningQACard: React.FC = () => {
               max={10}
               value={difficulty}
               onChange={(e) => setDifficulty(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-indigo-400"
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-600 dark:accent-emerald-400"
             />
             <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 font-medium">
               <span>Basic (1-3)</span>
@@ -486,7 +486,7 @@ export const LearningQACard: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70 rounded-2xl p-8 text-center space-y-4 shadow-xs">
           <div className="relative w-12 h-12 mx-auto">
             <div className="absolute inset-0 rounded-full border-2 border-slate-100 dark:border-slate-800"></div>
-            <div className="absolute inset-0 rounded-full border-2 border-indigo-600 dark:border-indigo-400 border-t-transparent animate-spin"></div>
+            <div className="absolute inset-0 rounded-full border-2 border-emerald-600 dark:border-emerald-400 border-t-transparent animate-spin"></div>
           </div>
           <div className="space-y-1.5">
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -504,9 +504,9 @@ export const LearningQACard: React.FC = () => {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
           
           {/* Header Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100/50 dark:border-indigo-900/30 p-4 rounded-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 p-4 rounded-xl">
             <div className="flex items-center gap-2.5">
-              <GraduationCap className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <GraduationCap className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               <div>
                 <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
                   Solutions formulated for {board}
@@ -523,7 +523,7 @@ export const LearningQACard: React.FC = () => {
                   const fullContent = `## Topic: ${question || "Board Prep"}\n\n### Explanation\n${typeof result.answer === 'string' ? result.answer : JSON.stringify(result.answer, null, 2)}\n\n### Key Points\n${result.keyPoints?.map(p => `* ${p}`).join('\n') || ''}`;
                   handleAddNote("full", `Study Guide: ${question || "Board Prep"}`, fullContent);
                 }}
-                className="px-3.5 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
               >
                 {addedMap["full"] ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                 <span>{addedMap["full"] ? "Added" : "+ Save Full Study Guide"}</span>
@@ -543,7 +543,7 @@ export const LearningQACard: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70 rounded-2xl p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-indigo-500" />
+                <BookOpen className="w-4 h-4 text-emerald-500" />
                 <span>Main Solution & Explanation</span>
               </h3>
               <button
@@ -603,7 +603,7 @@ export const LearningQACard: React.FC = () => {
               
               <div>
                 <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <HelpCircle className="w-4 h-4 text-indigo-500" />
+                  <HelpCircle className="w-4 h-4 text-emerald-500" />
                   <span>Interactive Board MCQ Quiz</span>
                 </h3>
                 <p className="text-[10px] text-slate-500 mt-1">
@@ -635,7 +635,7 @@ export const LearningQACard: React.FC = () => {
                           const isRightOption = mcq.correct === oIdx;
 
                           // Option styling states
-                          let optStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-indigo-200 dark:hover:border-indigo-800/50";
+                          let optStyle = "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-emerald-200 dark:hover:border-emerald-800/50";
                           if (hasAnswered) {
                             if (isRightOption) {
                               optStyle = "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold";
@@ -687,7 +687,7 @@ export const LearningQACard: React.FC = () => {
           {result.practiceQuestions && result.practiceQuestions.length > 0 && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70 rounded-2xl p-6 space-y-4 shadow-xs">
               <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b border-slate-100 dark:border-slate-800/80 pb-3 flex items-center gap-2">
-                <ChevronRight className="w-4 h-4 text-indigo-500" />
+                <ChevronRight className="w-4 h-4 text-emerald-500" />
                 <span>Subjective Comprehension & Homework Practice Questions</span>
               </h3>
               <div className="space-y-3 pl-2">

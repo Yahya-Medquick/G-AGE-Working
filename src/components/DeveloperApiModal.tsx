@@ -89,7 +89,7 @@ export const DeveloperApiModal: React.FC<DeveloperApiModalProps> = ({ isOpen, on
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-slate-800 text-indigo-400 font-bold flex items-center justify-center border border-slate-700 shadow-md">
+            <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-slate-800 text-emerald-400 font-bold flex items-center justify-center border border-slate-700 shadow-md">
               <Code2 className="w-5 h-5" />
             </div>
             <div>
@@ -109,14 +109,14 @@ export const DeveloperApiModal: React.FC<DeveloperApiModalProps> = ({ isOpen, on
         </div>
 
         {/* Info Banner */}
-        <div className="px-6 py-3 bg-purple-50 dark:bg-purple-950/50 border-b border-purple-200 dark:border-purple-800/60 text-xs text-purple-900 dark:text-purple-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="px-6 py-3 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+            <Terminal className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
             <span>
-              Authentication Required: Pass <code className="bg-purple-200/80 dark:bg-purple-900 px-1.5 py-0.5 rounded font-mono font-bold">Authorization: Bearer gage_live_...</code> on all <code className="font-mono">/api/v1/*</code> endpoints.
+              Authentication Required: Pass <code className="bg-amber-200/80 dark:bg-amber-900 px-1.5 py-0.5 rounded font-mono font-bold">Authorization: Bearer gage_live_...</code> on all <code className="font-mono">/api/v1/*</code> endpoints.
             </span>
           </div>
-          <span className="font-mono text-[10px] bg-purple-200 dark:bg-purple-900 px-2 py-0.5 rounded font-bold shrink-0">
+          <span className="font-mono text-[10px] bg-amber-200 dark:bg-amber-900 px-2 py-0.5 rounded font-bold shrink-0">
             v2.5.0 (API Key Protected)
           </span>
         </div>

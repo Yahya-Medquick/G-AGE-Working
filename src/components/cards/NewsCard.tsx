@@ -63,7 +63,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
         <div className="flex items-center gap-1.5">
           <button
             onClick={handleAddNote}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 font-medium cursor-pointer"
             title="Add News to Notes"
           >
             {added ? (

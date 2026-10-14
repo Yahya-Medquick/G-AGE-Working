@@ -420,9 +420,9 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
 
       {/* Migration offer banner */}
       {hasLocalNotes && (
-        <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 dark:from-slate-900 dark:to-slate-850 border border-indigo-200/60 dark:border-indigo-950 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-slate-900 dark:to-slate-850 border border-emerald-200/60 dark:border-emerald-950 p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+            <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
               <RefreshCw className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`} />
             </div>
             <div>
@@ -438,7 +438,7 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
             <button
               onClick={handleSyncNotes}
               disabled={syncing}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
             >
               {syncing ? "Syncing..." : "Sync Notes"}
             </button>
@@ -455,7 +455,7 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
 
       {/* Header Info */}
       <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-        <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+        <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
           <FileText className="w-5 h-5" />
         </div>
         <div>
@@ -495,7 +495,7 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
                 placeholder="e.g. Newton's Second Law of Motion"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
                 required
               />
             </div>
@@ -510,7 +510,7 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
                 placeholder="e.g. Physics"
                 value={subjectTag}
                 onChange={(e) => setSubjectTag(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
               />
 
               {/* Suggestions row */}
@@ -520,7 +520,7 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
                     key={subj}
                     type="button"
                     onClick={() => setSubjectTag(subj)}
-                    className="text-[10px] px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                    className="text-[10px] px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                   >
                     {subj}
                   </button>
@@ -538,7 +538,7 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
                 placeholder="Type or paste your notes here..."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 font-mono text-xs focus:outline-hidden focus:ring-1 focus:ring-indigo-500 leading-relaxed"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 font-mono text-xs focus:outline-hidden focus:ring-1 focus:ring-emerald-500 leading-relaxed"
                 required
               />
             </div>
@@ -598,7 +598,7 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
               <button
                 onClick={handleCompileNotes}
                 disabled={compiling || selectedIds.length < 2}
-                className="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold flex items-center gap-1.5 disabled:opacity-40 shadow-xs cursor-pointer transition-colors"
+                className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 disabled:opacity-40 shadow-xs cursor-pointer transition-colors"
                 title="Select at least 2 notes to compile"
               >
                 <Sparkles className={`w-4 h-4 ${compiling ? "animate-spin" : ""}`} />
@@ -610,7 +610,7 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
           {/* List display */}
           {loading && notes.length === 0 ? (
             <div className="py-16 text-center space-y-3">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400 mx-auto"></div>
               <p className="text-xs text-slate-400">Loading your notes...</p>
             </div>
           ) : filteredNotes.length === 0 ? (
@@ -631,17 +631,17 @@ export const NotesCard: React.FC<NotesCardProps> = ({ persona }) => {
                     key={note.id}
                     className={`bg-white dark:bg-slate-900 border rounded-xl p-4 flex gap-3 transition-all ${
                       isChecked
-                        ? "border-indigo-500/80 bg-indigo-50/10 dark:bg-indigo-950/10"
+                        ? "border-emerald-500/80 bg-emerald-50/10 dark:bg-emerald-950/10"
                         : "border-slate-200/60 dark:border-slate-800/80"
                     }`}
                   >
                     {/* Checkbox trigger */}
                     <div
                       onClick={() => handleToggleSelect(note.id)}
-                      className="cursor-pointer shrink-0 mt-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                      className="cursor-pointer shrink-0 mt-0.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                     >
                       {isChecked ? (
-                        <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       ) : (
                         <Square className="w-4 h-4" />
                       )}

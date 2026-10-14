@@ -555,10 +555,10 @@ export const CompiledNotesModal: React.FC<Props> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm font-bold text-white truncate flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <User className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   <span>{personaName}</span>
                 </h2>
-                <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
                   Compiled Study Notes
                 </span>
               </div>
@@ -604,7 +604,7 @@ export const CompiledNotesModal: React.FC<Props> = ({
               onClick={() => setViewMode('preview')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                 viewMode === 'preview'
-                  ? 'bg-indigo-600 text-white shadow-xs'
+                  ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
@@ -617,7 +617,7 @@ export const CompiledNotesModal: React.FC<Props> = ({
               onClick={() => setViewMode('edit')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                 viewMode === 'edit'
-                  ? 'bg-indigo-600 text-white shadow-xs'
+                  ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
@@ -640,7 +640,7 @@ export const CompiledNotesModal: React.FC<Props> = ({
           ) : (
             <textarea
               id="compiled-notes-editor-textarea"
-              className="w-full h-full min-h-[380px] bg-slate-900 text-slate-100 rounded-xl p-4 text-xs sm:text-sm leading-relaxed resize-none border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono"
+              className="w-full h-full min-h-[380px] bg-slate-900 text-slate-100 rounded-xl p-4 text-xs sm:text-sm leading-relaxed resize-none border border-slate-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono"
               value={editableContent}
               onChange={(e) => setEditableContent(e.target.value)}
               placeholder="Your compiled notes will appear here..."
@@ -687,7 +687,7 @@ export const CompiledNotesModal: React.FC<Props> = ({
             type="button"
             onClick={handleDownloadPDF}
             disabled={isGenerating}
-            className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:cursor-not-allowed"
+            className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md disabled:cursor-not-allowed"
           >
             {isGenerating ? (
               <>

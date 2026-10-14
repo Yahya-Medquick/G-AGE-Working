@@ -256,7 +256,7 @@ export const CounselingCard: React.FC<CounselingCardProps> = ({
               onClick={() => handleToggleVariant("global")}
               className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 variant === "global"
-                  ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-xs"
+                  ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-300 shadow-xs"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -462,9 +462,9 @@ export const CounselingCard: React.FC<CounselingCardProps> = ({
                 {currentExpert.initials}
               </div>
               <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl px-4 py-3 shadow-2xs flex items-center gap-1.5">
-                <div className="w-2 h-2 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                <div className="w-2 h-2 bg-indigo-600 dark:bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                <div className="w-2 h-2 bg-emerald-600 dark:bg-emerald-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-emerald-600 dark:bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div className="w-2 h-2 bg-emerald-600 dark:bg-emerald-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
                 <span className="text-xs text-slate-400 ml-2 font-medium">
                   {currentExpert.name} is formulating response...
                 </span>
@@ -495,7 +495,7 @@ export const CounselingCard: React.FC<CounselingCardProps> = ({
                 key={i}
                 onClick={() => handleSend(`Can you explain your perspective on ${spec} regarding ${topic || "this field"}?`)}
                 disabled={loading}
-                className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors whitespace-nowrap cursor-pointer shadow-2xs shrink-0"
+                className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors whitespace-nowrap cursor-pointer shadow-2xs shrink-0"
               >
                 {spec}
               </button>
@@ -519,7 +519,7 @@ export const CounselingCard: React.FC<CounselingCardProps> = ({
             onChange={(e) => setInput(e.target.value)}
             placeholder={`Ask ${currentExpert.name} about ${currentExpert.badge}...`}
             disabled={loading}
-            className="flex-1 text-xs sm:text-sm px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-normal"
+            className="flex-1 text-xs sm:text-sm px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-normal"
           />
           <button
             type="submit"

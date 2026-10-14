@@ -185,9 +185,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           }`}
         >
           {/* Left Search Icon */}
-          <div className="pl-3 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+          <div className="pl-3 text-slate-400 group-focus-within:text-emerald-500 transition-colors">
             {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+              <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
             ) : (
               <Search className="w-5 h-5" />
             )}
@@ -240,12 +240,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               }}
               className={`h-8 sm:h-9 px-2 sm:px-3 text-xs font-medium rounded-full border transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer select-none ${
                 activeCategory !== "all"
-                  ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/80"
+                  ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/80"
                   : "bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-200/80 dark:hover:bg-slate-700"
               }`}
               title="Filter search by category"
             >
-              <span className={activeCategory !== "all" ? "text-indigo-600 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400"}>
+              <span className={activeCategory !== "all" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-slate-400"}>
                 {renderCategoryIcon(currentOption.iconName, "w-3.5 h-3.5")}
               </span>
               <span className="hidden sm:inline font-semibold">
@@ -265,7 +265,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               >
                 <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 mb-1">
                   <span>Filter by Category</span>
-                  <span className="text-indigo-500 font-semibold">{currentMode === "research" ? "Research" : "Learning"}</span>
+                  <span className="text-emerald-500 font-semibold">{currentMode === "research" ? "Research" : "Learning"}</span>
                 </div>
                 <div className="max-h-72 overflow-y-auto py-0.5">
                   {categoryOptions.map((opt) => {
@@ -277,12 +277,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                         onClick={() => handleChooseCategory(opt.id)}
                         className={`w-full text-left px-3.5 py-2 flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
                           isSelected
-                            ? "bg-indigo-50/90 dark:bg-indigo-950/50 text-indigo-900 dark:text-indigo-200 font-semibold"
+                            ? "bg-emerald-50/90 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-200 font-semibold"
                             : "hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300"
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <span className={`p-1 rounded-md shrink-0 ${isSelected ? "bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300" : "text-slate-400 dark:text-slate-500"}`}>
+                          <span className={`p-1 rounded-md shrink-0 ${isSelected ? "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300" : "text-slate-400 dark:text-slate-500"}`}>
                             {renderCategoryIcon(opt.iconName, "w-3.5 h-3.5")}
                           </span>
                           <div className="min-w-0">
@@ -290,7 +290,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                             <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{opt.description}</div>
                           </div>
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
                       </button>
                     );
                   })}
@@ -358,12 +358,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                     onClick={() => handleChooseCategory(opt.id)}
                     className={`w-full text-left px-4 py-3 rounded-2xl flex items-center justify-between gap-3 min-h-[48px] transition-all cursor-pointer ${
                       isSelected
-                        ? "bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200"
+                        ? "bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
                         : "bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-transparent"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className={`p-2 rounded-xl shrink-0 ${isSelected ? "bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300" : "bg-white dark:bg-slate-800 text-slate-500"}`}>
+                      <span className={`p-2 rounded-xl shrink-0 ${isSelected ? "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300" : "bg-white dark:bg-slate-800 text-slate-500"}`}>
                         {renderCategoryIcon(opt.iconName, "w-4 h-4")}
                       </span>
                       <div>
@@ -372,7 +372,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                       </div>
                     </div>
                     {isSelected ? (
-                      <Check className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                      <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     ) : (
                       <div className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600" />
                     )}
@@ -388,7 +388,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       {isOpen && (query.trim().length >= 2 || suggestions.length > 0) && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60 animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5 bg-slate-50/50 dark:bg-slate-950/50">
-            <Sparkles className="w-3 h-3 text-indigo-500" />
+            <Sparkles className="w-3 h-3 text-emerald-500" />
             <span>Intelligent Suggestions</span>
           </div>
 
@@ -401,11 +401,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`px-4 py-3 flex items-start gap-3 cursor-pointer transition-colors ${
                     selectedIndex === idx
-                      ? "bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-100"
+                      ? "bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100"
                       : "hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-200"
                   }`}
                 >
-                  <Compass className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+                  <Compass className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-sm text-slate-900 dark:text-white truncate">
                       {item.title}
@@ -419,7 +419,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             ) : (
               <div
                 onClick={() => handleSubmit(query)}
-                className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 text-sm font-medium text-indigo-600 dark:text-indigo-400"
+                className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 text-sm font-medium text-emerald-600 dark:text-emerald-400"
               >
                 <span>Search knowledge for "{query}"</span>
                 <ArrowRight className="w-4 h-4" />
@@ -441,7 +441,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 setQuery(topic);
                 handleSubmit(topic);
               }}
-              className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/80 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-300 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/60 font-medium transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/80 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-300 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/60 font-medium transition-colors cursor-pointer"
             >
               {topic}
             </button>

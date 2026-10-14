@@ -74,7 +74,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [newPersonaRole, setNewPersonaRole] = useState("");
   const [newPersonaAffiliation, setNewPersonaAffiliation] = useState("");
   const [newPersonaBadge, setNewPersonaBadge] = useState("");
-  const [newPersonaAvatarColor, setNewPersonaAvatarColor] = useState("#6366f1");
+  const [newPersonaAvatarColor, setNewPersonaAvatarColor] = useState("#0A5C45");
   const [newPersonaSpecialties, setNewPersonaSpecialties] = useState("");
   const [newPersonaDomains, setNewPersonaDomains] = useState("");
   const [newPersonaDescription, setNewPersonaDescription] = useState("");
@@ -432,7 +432,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           role: roleVal,
           affiliation: newPersonaAffiliation.trim() || undefined,
           badge: badgeVal,
-          avatar_color: newPersonaAvatarColor.trim() || "#6366f1",
+          avatar_color: newPersonaAvatarColor.trim() || "#0A5C45",
           specialties: newPersonaSpecialties
             ? newPersonaSpecialties.split(",").map(s => s.trim()).filter(Boolean)
             : [],
@@ -459,7 +459,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
       setNewPersonaRole("");
       setNewPersonaAffiliation("");
       setNewPersonaBadge("");
-      setNewPersonaAvatarColor("#6366f1");
+      setNewPersonaAvatarColor("#0A5C45");
       setNewPersonaSpecialties("");
       setNewPersonaDomains("");
       setNewPersonaDescription("");
@@ -572,7 +572,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           </button>
 
           <div className="flex flex-col items-center text-center space-y-2 pt-2">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/10">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/10">
               <Lock className="w-7 h-7" />
             </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Admin Panel Locked</h2>
@@ -594,7 +594,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   placeholder="Enter admin password..."
                   autoFocus
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono"
                 />
                 <Key className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
               </div>
@@ -617,7 +617,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               <button
                 type="submit"
                 disabled={isVerifying || !passwordInput.trim()}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/20"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20"
               >
                 {isVerifying ? (
                   <>
@@ -645,7 +645,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-500/20">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-500/20">
               <Cpu className="w-5 h-5" />
             </div>
             <div>
@@ -696,7 +696,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             onClick={() => setActiveTab("overview")}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
               activeTab === "overview"
-                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold"
+                ? "border-emerald-600 text-emerald-600 dark:text-emerald-400 font-semibold"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
             }`}
           >
@@ -707,7 +707,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             onClick={() => setActiveTab("entities")}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
               activeTab === "entities"
-                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold"
+                ? "border-emerald-600 text-emerald-600 dark:text-emerald-400 font-semibold"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
             }`}
           >
@@ -718,7 +718,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             onClick={() => setActiveTab("cache")}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
               activeTab === "cache"
-                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold"
+                ? "border-emerald-600 text-emerald-600 dark:text-emerald-400 font-semibold"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
             }`}
           >
@@ -729,18 +729,18 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             onClick={() => setActiveTab("apikeys")}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
               activeTab === "apikeys"
-                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold"
+                ? "border-emerald-600 text-emerald-600 dark:text-emerald-400 font-semibold"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
             }`}
           >
-            <Key className="w-4 h-4 text-purple-500" />
+            <Key className="w-4 h-4 text-amber-500" />
             <span>API Keys ({apiKeys.length})</span>
           </button>
           <button
             onClick={() => setActiveTab("personas")}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
               activeTab === "personas"
-                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold"
+                ? "border-emerald-600 text-emerald-600 dark:text-emerald-400 font-semibold"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
             }`}
           >
@@ -751,7 +751,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             onClick={() => setActiveTab("users")}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
               activeTab === "users"
-                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-semibold"
+                ? "border-emerald-600 text-emerald-600 dark:text-emerald-400 font-semibold"
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
             }`}
           >
@@ -779,7 +779,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
                     <span>Total Searches</span>
-                    <Search className="w-4 h-4 text-indigo-500" />
+                    <Search className="w-4 h-4 text-emerald-500" />
                   </div>
                   <div className="text-2xl font-black text-slate-900 dark:text-white">
                     {stats.totalSearches}
@@ -831,7 +831,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 {/* API Node Calls */}
                 <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-indigo-500" />
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
                     External API Integrations Telemetry
                   </h3>
                   
@@ -839,11 +839,11 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     <div>
                       <div className="flex justify-between text-xs font-medium mb-1">
                         <span className="text-slate-700 dark:text-slate-300">OpenAlex Scientific API (Research Papers)</span>
-                        <span className="font-bold text-indigo-600">{stats.apiCalls.openAlex} calls</span>
+                        <span className="font-bold text-emerald-600">{stats.apiCalls.openAlex} calls</span>
                       </div>
                       <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                         <div
-                          className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                          className="bg-emerald-600 h-full rounded-full transition-all duration-500"
                           style={{ width: `${Math.min(100, stats.apiCalls.openAlex * 10)}%` }}
                         />
                       </div>
@@ -878,11 +878,11 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     <div>
                       <div className="flex justify-between text-xs font-medium mb-1">
                         <span className="text-slate-700 dark:text-slate-300">GitHub Open Source API</span>
-                        <span className="font-bold text-purple-600">{stats.apiCalls.github} calls</span>
+                        <span className="font-bold text-amber-600">{stats.apiCalls.github} calls</span>
                       </div>
                       <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                         <div
-                          className="bg-purple-500 h-full rounded-full transition-all duration-500"
+                          className="bg-amber-500 h-full rounded-full transition-all duration-500"
                           style={{ width: `${Math.min(100, stats.apiCalls.github * 10)}%` }}
                         />
                       </div>
@@ -904,7 +904,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                         className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] flex items-center justify-center">
+                          <span className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] flex items-center justify-center">
                             #{i + 1}
                           </span>
                           <span className="font-medium text-slate-900 dark:text-white capitalize">
@@ -929,7 +929,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               {/* Register New Entity Form */}
               <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-indigo-500" />
+                  <Plus className="w-4 h-4 text-emerald-500" />
                   Register New Lightweight Entity
                 </h3>
                 <form onSubmit={handleCreateEntity} className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -996,14 +996,14 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                       max="100"
                       value={newPopularity}
                       onChange={(e) => setNewPopularity(Number(e.target.value))}
-                      className="w-full accent-indigo-600"
+                      className="w-full accent-emerald-600"
                     />
                   </div>
 
                   <div className="md:col-span-2 flex justify-end">
                     <button
                       type="submit"
-                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
                     >
                       <Plus className="w-4 h-4" /> Save Entity
                     </button>
@@ -1038,7 +1038,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                             <div className="text-[11px] text-slate-400 font-mono">{ent.slug}</div>
                           </td>
                           <td className="p-3.5">
-                            <span className="px-2 py-0.5 rounded-full font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                            <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
                               {ent.popularityScore}/100
                             </span>
                           </td>
@@ -1065,7 +1065,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                           <td className="p-3.5 text-right">
                             <button
                               onClick={() => handleTriggerRefresh(ent.slug)}
-                              className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
                               title="Force background entity update"
                             >
                               <RefreshCw className="w-3 h-3" /> Refresh
@@ -1119,7 +1119,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
                 <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
                   <div className="text-xs font-semibold text-slate-400 uppercase">Process Memory</div>
-                  <div className="text-3xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
+                  <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
                     {stats.memoryUsageMb} MB
                   </div>
                 </div>
@@ -1173,7 +1173,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               {/* Issue New API Key Form */}
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Key className="w-4 h-4 text-purple-600" /> Issue New API Key
+                  <Key className="w-4 h-4 text-amber-600" /> Issue New API Key
                 </h3>
 
                 <form onSubmit={handleCreateApiKey} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -1216,7 +1216,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   <div className="flex items-end">
                     <button
                       type="submit"
-                      className="w-full py-2 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      className="w-full py-2 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
                     >
                       <Plus className="w-4 h-4" /> Issue Key
                     </button>
@@ -1253,7 +1253,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                       ) : (
                         apiKeys.map((k) => (
                           <tr key={k.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-950/50">
-                            <td className="py-3 px-3 font-mono font-bold text-purple-600 dark:text-purple-400">
+                            <td className="py-3 px-3 font-mono font-bold text-amber-600 dark:text-amber-400">
                               {k.keyPrefix || "gage_live_..."}
                             </td>
                             <td className="py-3 px-3">
@@ -1267,7 +1267,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                               <span className={`font-mono font-bold px-2 py-0.5 rounded text-[11px] ${
                                 k.todayRequests >= k.dailyLimit
                                   ? "bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-300"
-                                  : "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300"
+                                  : "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"
                               }`}>
                                 {k.todayRequests} / {k.dailyLimit}
                               </span>
@@ -1320,7 +1320,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   </div>
                 </div>
                 <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <div className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Regional Variants</div>
+                  <div className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Regional Variants</div>
                   <div className="text-xs font-bold text-slate-900 dark:text-white mt-2 flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300">
                       Global: {personas.filter(p => p.variant !== 'pk').length}
@@ -1331,7 +1331,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   </div>
                 </div>
                 <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <div className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Default Persona</div>
+                  <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Default Persona</div>
                   <div className="text-sm font-bold text-slate-900 dark:text-white mt-1 truncate">
                     {personas.find(p => p.is_default)?.name || "None set"}
                   </div>
@@ -1538,7 +1538,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    <Sparkles className="w-4 h-4 text-emerald-500" />
                     Expert Personas Directory ({personas.length})
                   </h3>
                   <div className="relative">
@@ -1586,7 +1586,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                             onDragOver={handleDragOver}
                             onDrop={(e) => handleDrop(e, p.id)}
                             className={`hover:bg-slate-50/50 dark:hover:bg-slate-950/50 transition-colors ${
-                              draggedPersonaId === p.id ? "opacity-40 bg-indigo-50/50" : ""
+                              draggedPersonaId === p.id ? "opacity-40 bg-emerald-50/50" : ""
                             }`}
                           >
                             <td className="py-3 px-2 text-center">
@@ -1599,7 +1599,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                                     type="button"
                                     disabled={idx === 0}
                                     onClick={() => handleMovePersona(idx, "up")}
-                                    className="text-slate-400 hover:text-indigo-600 disabled:opacity-20 cursor-pointer p-0.5"
+                                    className="text-slate-400 hover:text-emerald-600 disabled:opacity-20 cursor-pointer p-0.5"
                                     title="Move Up"
                                   >
                                     <ArrowUp className="w-3 h-3" />
@@ -1608,7 +1608,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                                     type="button"
                                     disabled={idx === personas.length - 1}
                                     onClick={() => handleMovePersona(idx, "down")}
-                                    className="text-slate-400 hover:text-indigo-600 disabled:opacity-20 cursor-pointer p-0.5"
+                                    className="text-slate-400 hover:text-emerald-600 disabled:opacity-20 cursor-pointer p-0.5"
                                     title="Move Down"
                                   >
                                     <ArrowDown className="w-3 h-3" />
@@ -1621,7 +1621,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                               <div className="flex items-center gap-2.5">
                                 <div
                                   className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-2xs"
-                                  style={{ backgroundColor: p.avatar_color || "#6366f1" }}
+                                  style={{ backgroundColor: p.avatar_color || "#0A5C45" }}
                                 >
                                   {p.initials || p.name.slice(0, 2).toUpperCase()}
                                 </div>
@@ -1653,7 +1653,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                               )}
                             </td>
                             <td className="py-3 px-3">
-                              <span className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
                                 {p.badge || "Expert"}
                               </span>
                             </td>
@@ -1710,7 +1710,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative overflow-hidden text-slate-800 dark:text-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
                       <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Edit2 className="w-4 h-4 text-indigo-500" />
+                        <Edit2 className="w-4 h-4 text-emerald-500" />
                         Edit Expert Persona: {editingPersona.name}
                       </h3>
                       <button
@@ -1783,13 +1783,13 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                         <div className="flex items-center gap-2">
                           <input
                             type="color"
-                            value={editingPersona.avatar_color || "#6366f1"}
+                            value={editingPersona.avatar_color || "#0A5C45"}
                             onChange={(e) => setEditingPersona({ ...editingPersona, avatar_color: e.target.value })}
                             className="w-8 h-8 rounded border border-slate-200 dark:border-slate-700 cursor-pointer p-0"
                           />
                           <input
                             type="text"
-                            value={editingPersona.avatar_color || "#6366f1"}
+                            value={editingPersona.avatar_color || "#0A5C45"}
                             onChange={(e) => setEditingPersona({ ...editingPersona, avatar_color: e.target.value })}
                             className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-xs"
                           />
@@ -1878,7 +1878,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                         </button>
                         <button
                           type="submit"
-                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-colors cursor-pointer"
                         >
                           Save Changes
                         </button>
@@ -1904,14 +1904,14 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                       placeholder="Search users by username, phone, or email..."
                       value={userSearchQuery}
                       onChange={(e) => setUserSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
 
                   <select
                     value={userTierFilter}
                     onChange={(e) => setUserTierFilter(e.target.value as any)}
-                    className="px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="all">All Tiers ({usersList.length})</option>
                     <option value="free">
@@ -2005,7 +2005,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                             <tr key={u.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                               <td className="py-3.5 px-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-xs shadow-xs shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-amber-600 text-white font-bold flex items-center justify-center text-xs shadow-xs shrink-0">
                                     {(u.name || u.username || "U").slice(0, 2).toUpperCase()}
                                   </div>
                                   <div className="min-w-0">
@@ -2040,7 +2040,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
                               <td className="py-3.5 px-4">
                                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
-                                  <Activity className="w-3 h-3 text-indigo-500" />
+                                  <Activity className="w-3 h-3 text-emerald-500" />
                                   <span>{u.queries_today || 0} today</span>
                                 </div>
                               </td>

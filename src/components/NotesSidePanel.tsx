@@ -118,9 +118,9 @@ export const NotesSidePanel = ({ isOpen, onClose, persona }: Props) => {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-850">
           <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-indigo-400" />
+            <FileText className="w-5 h-5 text-emerald-400" />
             <h3 className="text-base font-bold text-white">📝 My Notes</h3>
-            <span className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full font-semibold">
+            <span className="bg-emerald-500/20 text-emerald-300 text-xs px-2 py-0.5 rounded-full font-semibold">
               {notes.length}
             </span>
           </div>
@@ -139,7 +139,7 @@ export const NotesSidePanel = ({ isOpen, onClose, persona }: Props) => {
           <select
             value={subjectFilter}
             onChange={(e) => setSubjectFilter(e.target.value)}
-            className="flex-1 bg-slate-900 border border-slate-800 text-xs px-2.5 py-1.5 rounded-lg text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="flex-1 bg-slate-900 border border-slate-800 text-xs px-2.5 py-1.5 rounded-lg text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           >
             <option value="All">All Subjects</option>
             {uniqueSubjects.map((sub) => (
@@ -166,7 +166,7 @@ export const NotesSidePanel = ({ isOpen, onClose, persona }: Props) => {
 
           {loading && notes.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-400 space-y-2">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-400 mx-auto"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-400 mx-auto"></div>
               <p>Loading notes...</p>
             </div>
           ) : filteredNotes.length === 0 ? (
@@ -185,13 +185,13 @@ export const NotesSidePanel = ({ isOpen, onClose, persona }: Props) => {
                   onClick={() => handleToggleSelect(note.id)}
                   className={`cursor-pointer rounded-xl p-3 border transition-all flex gap-3 text-left ${
                     isChecked
-                      ? "border-indigo-500/60 bg-indigo-950/20"
+                      ? "border-emerald-500/60 bg-emerald-950/20"
                       : "border-slate-800 bg-slate-950 hover:bg-slate-900"
                   }`}
                 >
                   <div className="shrink-0 mt-0.5 text-slate-500">
                     {isChecked ? (
-                      <CheckSquare className="w-4 h-4 text-indigo-400" />
+                      <CheckSquare className="w-4 h-4 text-emerald-400" />
                     ) : (
                       <Square className="w-4 h-4" />
                     )}
@@ -259,7 +259,7 @@ export const NotesSidePanel = ({ isOpen, onClose, persona }: Props) => {
           <button
             onClick={handleCompile}
             disabled={compiling || !hasSelection}
-            className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md"
+            className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-md"
           >
             <Sparkles className={`w-4 h-4 ${compiling ? "animate-spin" : ""}`} />
             <span>{compiling ? "Compiling with AI..." : `AI Compile (${selectedIds.length})`}</span>

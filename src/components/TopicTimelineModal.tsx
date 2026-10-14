@@ -48,7 +48,7 @@ export const TopicTimelineModal: React.FC<TopicTimelineModalProps> = ({ isOpen, 
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center shadow-md">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center shadow-md">
               <History className="w-5 h-5" />
             </div>
             <div>
@@ -71,23 +71,23 @@ export const TopicTimelineModal: React.FC<TopicTimelineModalProps> = ({ isOpen, 
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-950/50">
           {loading ? (
             <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
-              <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
+              <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
               <span className="text-xs">Constructing historical timeline...</span>
             </div>
           ) : timeline.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-xs italic">No timeline events recorded for this topic.</div>
           ) : (
-            <div className="relative border-l-2 border-indigo-200 dark:border-indigo-800/80 ml-4 space-y-8 pl-6 my-2">
+            <div className="relative border-l-2 border-emerald-200 dark:border-emerald-800/80 ml-4 space-y-8 pl-6 my-2">
               {timeline.map((event, idx) => (
                 <div key={idx} className="relative group">
                   {/* Dot icon */}
                   <div className={`absolute -left-[31px] top-0.5 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${
-                    event.impact === "breakthrough" ? "bg-amber-500 ring-4 ring-amber-500/20" : "bg-indigo-600"
+                    event.impact === "breakthrough" ? "bg-amber-500 ring-4 ring-amber-500/20" : "bg-emerald-600"
                   }`} />
 
                   <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 text-xs shadow-xs">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-xs">
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs">
                         {event.year}
                       </span>
                       {event.impact === "breakthrough" && (
