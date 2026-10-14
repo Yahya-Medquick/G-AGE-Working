@@ -180,15 +180,15 @@ export const MCQCard: React.FC<MCQCardProps> = ({
   const selectedOpt = currentQ ? selectedAnswers[currentIndex] : undefined;
 
   return (
-    <div id="mcq-quiz-card" className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden animate-in fade-in duration-200">
+    <div id="mcq-quiz-card" className="w-full rounded-2xl border border-slate-200 dark:border-[#27403A] bg-white dark:bg-[#12231C] shadow-sm overflow-hidden animate-in fade-in duration-200">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/80 flex items-center justify-between">
+      <div className="px-4 py-3.5 border-b border-slate-200 dark:border-[#27403A] bg-slate-50/80 dark:bg-[#0B1612] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
             <GraduationCap className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-[#E8F2EC] flex items-center gap-1.5">
               <span>Interactive Quiz & MCQs</span>
               <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
                 {topic}
@@ -216,7 +216,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
             type="button"
             onClick={() => fetchMCQs(false)}
             disabled={isLoading || isGeneratingMore}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors text-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-[#E8F2EC] hover:bg-slate-200/60 dark:hover:bg-[#17352A] transition-colors text-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
             title="Regenerate MCQs"
           >
             <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -228,7 +228,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
               id="close-mcq-btn"
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-[#E8F2EC] hover:bg-slate-100 dark:hover:bg-[#17352A] transition-colors cursor-pointer"
             >
               ✕
             </button>
@@ -278,8 +278,8 @@ export const MCQCard: React.FC<MCQCardProps> = ({
             )}
 
             {/* Question Counter & Meta */}
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2">
-              <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#9DB5A8] border-b border-slate-100 dark:border-[#27403A] pb-2">
+              <span className="font-bold text-slate-700 dark:text-[#E8F2EC] flex items-center gap-1.5">
                 <span>Question {currentIndex + 1} of {questions.length}</span>
                 {questions.length > 3 && (
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
@@ -292,7 +292,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
                   id={`save-mcq-note-${currentIndex}`}
                   type="button"
                   onClick={() => handleSaveQuestionToNotes(currentIndex)}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 text-slate-600 dark:text-slate-300 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-[#27403A] hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 text-slate-600 dark:text-[#E8F2EC] text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                   title="Save this question & explanation to notes"
                 >
                   {savedToNotesMap[currentIndex] ? (
@@ -311,7 +311,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
             </div>
 
             {/* Question Text */}
-            <div className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed">
+            <div className="text-sm font-semibold text-slate-900 dark:text-[#E8F2EC] leading-relaxed">
               <MarkdownRenderer content={currentQ.question} />
             </div>
 
@@ -322,7 +322,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
                 const isCorrect = optIdx === currentQ.answerIndex;
                 const optionLetter = String.fromCharCode(65 + optIdx);
 
-                let optClass = 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 hover:border-emerald-300 dark:hover:border-emerald-700';
+                let optClass = 'border-slate-200 dark:border-[#27403A] bg-slate-50/50 dark:bg-[#0B1612] text-slate-800 dark:text-[#E8F2EC] hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 hover:border-emerald-300 dark:hover:border-emerald-700';
 
                 if (isAnswered) {
                   if (isCorrect) {
@@ -330,7 +330,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
                   } else if (isSelected && !isCorrect) {
                     optClass = 'border-rose-500 bg-rose-50 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200 ring-1 ring-rose-500';
                   } else {
-                    optClass = 'border-slate-200 dark:border-slate-800 opacity-60 text-slate-500 dark:text-slate-400';
+                    optClass = 'border-slate-200 dark:border-[#27403A] opacity-60 text-slate-500 dark:text-[#9DB5A8]';
                   }
                 }
 
@@ -349,7 +349,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
                           ? 'bg-emerald-600 text-white'
                           : isAnswered && isSelected && !isCorrect
                           ? 'bg-rose-600 text-white'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+                          : 'bg-slate-200 dark:bg-[#27403A] text-slate-700 dark:text-[#E8F2EC]'
                       }`}
                     >
                       {optionLetter}
@@ -372,25 +372,25 @@ export const MCQCard: React.FC<MCQCardProps> = ({
 
             {/* Explanation Drawer */}
             {isAnswered && showExplanation[currentIndex] && (
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs space-y-2 animate-in fade-in duration-150">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0B1612] border border-slate-200 dark:border-[#27403A] text-xs space-y-2 animate-in fade-in duration-150">
                 <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide text-[10px]">
                   <HelpCircle className="w-3.5 h-3.5" />
                   <span>Explanation & Diagnostic Breakdown</span>
                 </div>
-                <div className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                <div className="text-slate-700 dark:text-[#E8F2EC] leading-relaxed">
                   <MarkdownRenderer content={currentQ.explanation} />
                 </div>
               </div>
             )}
 
             {/* Footer Navigation */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#27403A]">
               <button
                 id="prev-mcq-btn"
                 type="button"
                 onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                 disabled={currentIndex === 0 || isGeneratingMore}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#27403A] text-slate-600 dark:text-[#9DB5A8] hover:bg-slate-100 dark:hover:bg-[#17352A] disabled:opacity-30 disabled:pointer-events-none text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>Previous</span>

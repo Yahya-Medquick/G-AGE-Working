@@ -175,12 +175,35 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
 
   const dynamicSuggestedPrompts = useMemo(() => {
     if (!activePersona) return [];
-    const specs = activePersona.specialties || [];
-    return [
-      `Explain the fundamental principles of ${specs[0] || 'this field'} with rigorous proofs and intuitive analogies.`,
-      `What are the most common exam traps or misconceptions in ${specs[1] || specs[0] || 'this domain'}?`,
-      `How do modern 2026 research breakthroughs connect to ${specs[0] || 'this concept'}?`,
-    ];
+    const cleanSubject = (value?: string) => {
+      if (!value) return '';
+      const subject = value
+        .replace(/\([^)]*\)/g, ' ')
+        .split(/\s+(?:&|\/|\||and)\s+/i)[0]
+        .replace(/\b(bilingual|english|hinglish|urdu|roman)\b/gi, ' ')
+        .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .split(' ')
+        .slice(0, 3)
+        .join(' ');
+      return /^(general|conversation|chat|help|study|basics|concepts?|questions?|advice)$/i.test(subject) ? '' : subject;
+    };
+    const subject = [activePersona.specialties?.[0], activePersona.domains?.[0], activePersona.group_name]
+      .map(cleanSubject)
+      .find(Boolean);
+
+    return subject
+      ? [
+          `Explain ${subject} in simple words`,
+          `What are common exam mistakes in ${subject}?`,
+          `Give me 5 practice MCQs on ${subject}`,
+        ]
+      : [
+          'Explain this topic in simple words',
+          'What are common exam mistakes?',
+          'Give me 5 practice MCQs',
+        ];
   }, [activePersona]);
 
   const handleGroupClick = (groupName: string) => {
