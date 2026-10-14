@@ -505,6 +505,41 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     }
   }, [inputText]);
 
+  // Voice recognition (Web Speech API) for accent gold voice button
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  const toggleVoiceInput = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice recognition is not supported in this browser. Please use Chrome or Edge.");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = language === 'urdu' ? 'ur-PK' : 'en-PK';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onstart = () => setIsListening(true);
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+      };
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      console.warn("Speech recognition error:", e);
+      setIsListening(false);
+    }
+  };
+
   useEffect(() => {
     if (!showModeSwitcher) return;
     const close = (e: MouseEvent) => {
@@ -827,28 +862,28 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const currentTopic = session?.title && session.title !== 'New Consultation' ? session.title : 'this topic';
 
   return (
-    <div className="flex-1 flex flex-col h-full min-w-0 bg-[#efeae2] dark:bg-[#0b141a] overflow-hidden relative selection:bg-[#00a884]/20 selection:text-[#005c4b] dark:selection:text-[#00a884]">
-      {/* WhatsApp Doodle Pattern Subtle Background Overlay */}
+    <div className="flex-1 flex flex-col h-full min-w-0 bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] overflow-hidden relative selection:bg-[#0A5C45] dark:selection:bg-[#0F8056] selection:text-white">
+      {/* Subtle Background Pattern */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-[0.04] dark:opacity-[0.025] bg-[radial-gradient(#00a884_1px,transparent_1px)] [background-size:16px_16px]"
+        className="absolute inset-0 pointer-events-none opacity-[0.04] dark:opacity-[0.025] bg-[radial-gradient(#0A5C45_1px,transparent_1px)] [background-size:16px_16px]"
         aria-hidden="true"
       />
 
-      {/* 1. TOP WHATSAPP HEADER BAR */}
-      <header className="h-15 px-3 sm:px-4 border-b border-[#e9edef] dark:border-[#2a3942] bg-[#f0f2f5] dark:bg-[#202c33] shadow-xs flex items-center justify-between shrink-0 z-10 gap-2">
+      {/* 1. TOP HEADER BAR */}
+      <header className="h-16 px-3 sm:px-4 border-b border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] flex items-center justify-between shrink-0 z-10 gap-2">
         {/* Left Section: Back/Sidebar Toggle & Active Group Profile */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {!isLeftPanelOpen && (
             <button
               onClick={onToggleLeftPanel}
-              className="p-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="min-h-[44px] min-w-[44px] p-2.5 rounded-[14px] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
               title="Open Chat Sessions"
             >
               <PanelLeft className="w-5 h-5" />
             </button>
           )}
 
-          {/* WhatsApp Group / Contact Profile Pill */}
+          {/* Group / Contact Profile */}
           <div
             id="tour-persona-toggle"
             onClick={onToggleRightPanel}
@@ -857,33 +892,33 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           >
             <div className="relative">
               <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-xs border border-white/20"
-                style={{ backgroundColor: activePersona.avatar_color || '#00a884' }}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 border border-white/20"
+                style={{ backgroundColor: activePersona.avatar_color || '#0A5C45' }}
               >
                 {activePersona.initials}
               </div>
               {/* Online Green Indicator Dot */}
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#25D366] border-2 border-[#f0f2f5] dark:border-[#202c33]" />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#5BE0A5] border-2 border-white dark:border-[#12231C]" />
             </div>
 
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-[#111b21] dark:text-[#e9edef] truncate">
+                <span className="font-heading text-base font-bold text-[#10231C] dark:text-[#E8F2EC] truncate">
                   {activePersona.name}
                 </span>
                 <span
-                  className="hidden md:inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+                  className="hidden md:inline-block text-xs font-bold px-2 py-0.5 rounded-[12px] border"
                   style={{
-                    color: activePersona.avatar_color || '#00a884',
-                    borderColor: `${activePersona.avatar_color || '#00a884'}40`,
-                    backgroundColor: `${activePersona.avatar_color || '#00a884'}15`,
+                    color: activePersona.avatar_color || '#0A5C45',
+                    borderColor: `${activePersona.avatar_color || '#0A5C45'}40`,
+                    backgroundColor: `${activePersona.avatar_color || '#0A5C45'}15`,
                   }}
                 >
                   {activePersona.badge || 'Academic Mentor'}
                 </span>
               </div>
-              <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                <span className="text-[#00a884] dark:text-[#25d366] font-semibold">online</span>
+              <div className="flex items-center gap-1 text-xs text-[#4F6359] dark:text-[#9DB5A8] truncate">
+                <span className="text-[#0A5C45] dark:text-[#5BE0A5] font-semibold">online</span>
                 <span>•</span>
                 <span className="truncate">{isLoading ? 'typing...' : activePersona.role}</span>
               </div>
@@ -891,53 +926,46 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           </div>
         </div>
 
-        {/* Center/Right Section: WhatsApp Style Mode Tabs & Quick Actions */}
+        {/* Center/Right Section: Mode Tabs & Quick Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Mode Switcher — single dropdown button */}
+          {/* Mode Switcher */}
           <div className="relative" data-mode-switcher>
             <button
               onClick={() => setShowModeSwitcher(!showModeSwitcher)}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer bg-white dark:bg-[#202c33] border border-slate-300 dark:border-[#2a3942] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3942] shadow-xs"
+              className="px-3.5 py-2 min-h-[44px] rounded-[14px] text-xs font-bold flex items-center gap-2 transition-all cursor-pointer bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A]"
               title="Switch Mode"
             >
-              {activeMode === 'concept' && <Lightbulb className="w-3.5 h-3.5 text-[#00a884]" />}
-              {activeMode === 'exam' && <GraduationCap className="w-3.5 h-3.5 text-amber-500" />}
-              {activeMode === 'research' && <BookOpen className="w-3.5 h-3.5 text-cyan-500" />}
+              {activeMode === 'concept' && <Lightbulb className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />}
+              {activeMode === 'exam' && <GraduationCap className="w-4 h-4 text-[#F4B400]" />}
+              {activeMode === 'research' && <BookOpen className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />}
               <span className="hidden sm:inline capitalize">{activeMode}</span>
-              <ChevronDown className="w-3 h-3 opacity-60" />
+              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
             </button>
 
             {showModeSwitcher && (
-              <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-[#202c33] border border-slate-200 dark:border-[#2a3942] rounded-xl shadow-lg overflow-hidden min-w-[140px]">
+              <div className="absolute top-full left-0 mt-1.5 z-50 bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] rounded-[20px] p-1.5 min-w-[170px]">
                 {[
-                  { mode: 'concept' as ChatMode, icon: <Lightbulb className="w-3.5 h-3.5 text-[#00a884]" />, label: 'Concept', desc: 'Deep understanding' },
-                  { mode: 'exam' as ChatMode, icon: <GraduationCap className="w-3.5 h-3.5 text-amber-500" />, label: 'Exam', desc: 'Practice & problems' },
-                  { mode: 'research' as ChatMode, icon: <BookOpen className="w-3.5 h-3.5 text-cyan-500" />, label: 'Research', desc: 'Papers & citations' },
+                  { mode: 'concept' as ChatMode, icon: <Lightbulb className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />, label: 'Concept', desc: 'Deep understanding' },
+                  { mode: 'exam' as ChatMode, icon: <GraduationCap className="w-4 h-4 text-[#F4B400]" />, label: 'Exam', desc: 'Practice & problems' },
+                  { mode: 'research' as ChatMode, icon: <BookOpen className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />, label: 'Research', desc: 'Papers & citations' },
                 ].map(({ mode, icon, label, desc }) => (
                   <button
                     key={mode}
                     onClick={() => { handleModeChange(mode); setShowModeSwitcher(false); }}
-                    className={`w-full px-3 py-2 flex items-center gap-2 text-left text-xs transition-colors cursor-pointer
+                    className={`w-full px-3 py-2.5 rounded-[12px] flex items-center gap-2.5 text-left text-xs transition-colors cursor-pointer min-h-[44px]
                       ${activeMode === mode
-                        ? 'bg-[#00a884]/10 dark:bg-[#25d366]/10 text-[#00a884] dark:text-[#25d366]'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a3942]'
+                        ? 'bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] font-bold'
+                        : 'text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#F3F6F1] dark:hover:bg-[#17352A]'
                       }`}
                   >
                     {icon}
                     <div>
                       <div className="font-bold">{label}</div>
-                      <div className="text-[10px] opacity-60">{desc}</div>
+                      <div className="text-xs opacity-70">{desc}</div>
                     </div>
-                    {activeMode === mode && <CheckCircle2 className="w-3 h-3 ml-auto" />}
+                    {activeMode === mode && <CheckCircle2 className="w-3.5 h-3.5 ml-auto" />}
                   </button>
                 ))}
-                <div className="border-t border-slate-100 dark:border-[#2a3942] px-3 py-2 flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 cursor-not-allowed">
-                  <Compass className="w-3.5 h-3.5" />
-                  <div>
-                    <div className="font-bold text-slate-500">Courses</div>
-                    <div className="text-[10px]">Coming soon</div>
-                  </div>
-                </div>
               </div>
             )}
           </div>
@@ -946,17 +974,17 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           <div className="relative" data-lang-switcher>
             <button
               onClick={() => setShowLangSwitcher(!showLangSwitcher)}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer bg-white dark:bg-[#202c33] border border-slate-300 dark:border-[#2a3942] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a3942] shadow-xs"
+              className="px-3.5 py-2 min-h-[44px] rounded-[14px] text-xs font-bold flex items-center gap-2 transition-all cursor-pointer bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A]"
               title="Switch Response Language"
             >
-              <span className="text-[11px]">
+              <span className="text-xs">
                 {language === 'english' ? '🇬🇧 EN' : language === 'roman-urdu' ? '🇵🇰 UR' : '🇵🇰 اردو'}
               </span>
-              <ChevronDown className="w-3 h-3 opacity-60" />
+              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
             </button>
 
             {showLangSwitcher && (
-              <div className="absolute top-full right-0 mt-1 z-50 bg-white dark:bg-[#202c33] border border-slate-200 dark:border-[#2a3942] rounded-xl shadow-lg overflow-hidden min-w-[160px]">
+              <div className="absolute top-full right-0 mt-1.5 z-50 bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] rounded-[20px] p-1.5 min-w-[180px]">
                 {[
                   { lang: 'english' as const, flag: '🇬🇧', label: 'English', desc: 'Full English responses' },
                   { lang: 'roman-urdu' as const, flag: '🇵🇰', label: 'Roman Urdu', desc: 'Urdu in English script' },
@@ -968,18 +996,18 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                       onLanguageChange?.(lang);
                       setShowLangSwitcher(false);
                     }}
-                    className={`w-full px-3 py-2 flex items-center gap-2 text-left text-xs transition-colors cursor-pointer
+                    className={`w-full px-3 py-2.5 rounded-[12px] flex items-center gap-2.5 text-left text-xs transition-colors cursor-pointer min-h-[44px]
                       ${language === lang
-                        ? 'bg-[#00a884]/10 dark:bg-[#25d366]/10 text-[#00a884] dark:text-[#25d366]'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a3942]'
+                        ? 'bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] font-bold'
+                        : 'text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#F3F6F1] dark:hover:bg-[#17352A]'
                       }`}
                   >
                     <span>{flag}</span>
                     <div>
                       <div className="font-bold">{label}</div>
-                      <div className="text-[10px] opacity-60">{desc}</div>
+                      <div className="text-xs opacity-70">{desc}</div>
                     </div>
-                    {language === lang && <CheckCircle2 className="w-3 h-3 ml-auto" />}
+                    {language === lang && <CheckCircle2 className="w-3.5 h-3.5 ml-auto" />}
                   </button>
                 ))}
               </div>
@@ -989,15 +1017,15 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           {/* Query Usage Pill / Upgrade CTA */}
           <button
             onClick={onOpenPaywall}
-            className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 min-h-[44px] rounded-[14px] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               queryUsage.tier === 'paid'
-                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                ? 'bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border border-[#0A5C45]/30'
                 : queryUsage.remaining <= 1
-                ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse'
-                : 'bg-white/90 dark:bg-[#202c33] text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-[#2a3942] hover:border-[#00a884]'
+                ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
+                : 'bg-[#FFFFFF] dark:bg-[#12231C] text-[#10231C] dark:text-[#E8F2EC] border border-[#D5E0D8] dark:border-[#27403A] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A]'
             }`}
           >
-            <Zap className="w-3 h-3 text-amber-500" />
+            <Zap className="w-3.5 h-3.5 text-[#F4B400]" />
             <span className="hidden sm:inline">
               {queryUsage.tier === 'paid' ? 'Pro' : `${queryUsage.remaining} Left`}
             </span>
@@ -1007,7 +1035,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           {!isRightPanelOpen && (
             <button
               onClick={onToggleRightPanel}
-              className="p-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="min-h-[44px] min-w-[44px] p-2.5 rounded-[14px] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
               title="Open Personas & Mentors"
             >
               <PanelRight className="w-5 h-5" />
@@ -1101,38 +1129,38 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               ref={isLatestTurnStart ? latestTurnRef : null}
               className={`flex flex-col ${isAssistant ? 'items-start' : 'items-end'} max-w-3xl mx-auto w-full`}
             >
-              {/* WhatsApp Message Bubble Container */}
+              {/* Message Bubble Container */}
               <div
-                className={`relative px-4 py-3 text-sm transition-all shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] dark:shadow-[0_1px_0.5px_rgba(11,20,26,0.3)] ${
+                className={`relative px-4 py-3.5 text-base transition-all ${
                   isAssistant
-                    ? 'w-full bg-white dark:bg-[#202c33] text-[#111b21] dark:text-[#e9edef] rounded-2xl rounded-tl-xs border border-black/5 dark:border-white/5'
-                    : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-[#111b21] dark:text-[#e9edef] font-normal max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-xs'
+                    ? 'w-full bg-[#FFFFFF] dark:bg-[#12231C] text-[#10231C] dark:text-[#E8F2EC] rounded-[20px] rounded-bl-none border border-[#D5E0D8] dark:border-[#27403A]'
+                    : 'bg-[#0A5C45] dark:bg-[#0F8056] text-white font-normal max-w-[85%] sm:max-w-[75%] rounded-[20px] rounded-br-none border border-[#0A5C45] dark:border-[#0F8056]'
                 }`}
               >
                 {/* Assistant Group Participant Header */}
                 {isAssistant && msgPersona && (
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-[#2a3942]/60">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#D5E0D8] dark:border-[#27403A]">
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
-                        style={{ backgroundColor: msgPersona.avatar_color || '#00a884' }}
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[12px] font-bold"
+                        style={{ backgroundColor: msgPersona.avatar_color || '#0A5C45' }}
                       >
                         {msgPersona.initials}
                       </div>
                       <span
-                        className="font-bold text-xs"
-                        style={{ color: msgPersona.avatar_color || '#00a884' }}
+                        className="font-bold text-sm"
+                        style={{ color: msgPersona.avatar_color || '#0A5C45' }}
                       >
                         ~ {msgPersona.name}
                       </span>
                       {msg.mode && (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-[#111b21] text-slate-500 dark:text-slate-400 font-semibold uppercase">
+                        <span className="text-xs px-2 py-0.5 rounded-[12px] bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] font-semibold uppercase">
                           {msg.mode}
                         </span>
                       )}
                     </div>
 
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                    <span className="text-xs text-[#4F6359] dark:text-[#9DB5A8] font-medium">
                       {msg.timestamp}
                     </span>
                   </div>
@@ -1642,23 +1670,30 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                         {messageImages.length > 0 && (
                           <div className="mb-2.5 flex flex-wrap gap-2">
                             {messageImages.map((image, imageIndex) => (
-                              <div key={imageIndex} className="h-20 w-20 overflow-hidden rounded-xl border border-emerald-500/30 bg-black/5 shadow-xs dark:border-emerald-400/20 dark:bg-black/20">
+                              <div key={imageIndex} className="h-20 w-20 overflow-hidden rounded-[14px] border border-white/30 bg-black/10">
                                 <img
                                   src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
                                   alt={`Attached diagram or notes ${imageIndex + 1}`}
-                                  className="h-full w-full rounded-xl object-cover"
+                                  className="h-full w-full rounded-[14px] object-cover"
                                 />
                               </div>
                             ))}
                           </div>
                         )}
-                        <div className="whitespace-pre-wrap">{msg.content}</div>
-                        <div className="mt-1 flex items-center justify-end gap-1 text-[10px] font-medium text-[#54656f] dark:text-emerald-200/80">
-                          {msg.edited && <span className="mr-auto text-slate-500 dark:text-slate-300">edited</span>}
+                        <div className="whitespace-pre-wrap text-white font-normal text-base">{msg.content}</div>
+                        <div className="mt-1 flex items-center justify-end gap-1.5 text-xs font-medium text-white/80">
+                          {msg.edited && <span className="mr-auto text-white/70">edited</span>}
                           <span>{msg.timestamp}</span>
-                          <CheckCheck className="h-3.5 w-3.5 text-[#53bdeb]" />
+                          <CheckCheck className="h-3.5 w-3.5 text-white" />
                           {!isLoading && (
-                            <button type="button" onClick={() => startEditMessage(msg, messageImages)} disabled={!!editingMessageId || isImageProcessing} className="ml-1 rounded p-1 text-slate-500 hover:bg-black/5 hover:text-slate-800 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-white/10" title="Edit message" aria-label="Edit message">
+                            <button
+                              type="button"
+                              onClick={() => startEditMessage(msg, messageImages)}
+                              disabled={!!editingMessageId || isImageProcessing}
+                              className="ml-1 min-h-[44px] min-w-[44px] rounded-[12px] p-2 text-white/80 hover:bg-white/10 hover:text-white disabled:opacity-40 flex items-center justify-center cursor-pointer"
+                              title="Edit message"
+                              aria-label="Edit message"
+                            >
                               <Edit2 className="h-3.5 w-3.5" />
                             </button>
                           )}
@@ -1670,17 +1705,17 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
                 {/* Minimalist Interactive Message Action Bar */}
                 {isAssistant && (
-                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-[#2a3942]/70 flex items-center justify-between text-xs text-slate-400">
-                    <div className="flex items-center gap-1">
-                        <button
+                  <div className="mt-3 pt-2.5 border-t border-[#D5E0D8] dark:border-[#27403A] flex items-center justify-between text-xs text-[#4F6359] dark:text-[#9DB5A8]">
+                    <div className="flex items-center gap-1.5">
+                      <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className="px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#111b21] hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer"
+                        className="min-h-[44px] px-3 py-1.5 rounded-[12px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] text-[#10231C] dark:text-[#E8F2EC] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
                         title="Copy message to clipboard"
                       >
                         {copiedMsgId === msg.id ? (
                           <>
-                            <Check className="w-3.5 h-3.5 text-emerald-500" />
-                            <span className="text-emerald-500 font-bold">Copied</span>
+                            <Check className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5]" />
+                            <span className="text-[#0A5C45] dark:text-[#5BE0A5] font-bold">Copied</span>
                           </>
                         ) : (
                           <>
@@ -1692,13 +1727,13 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
                       <button
                         onClick={() => handleSaveNote(msg.id, msg.content)}
-                        className="px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#111b21] hover:text-[#00a884] dark:hover:text-[#25d366] transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer"
+                        className="min-h-[44px] px-3 py-1.5 rounded-[12px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] text-[#10231C] dark:text-[#E8F2EC] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
                         title="Save to compiled notes"
                       >
                         {savedNotesMsgId === msg.id ? (
                           <>
-                            <Check className="w-3.5 h-3.5 text-[#00a884]" />
-                            <span className="text-[#00a884] font-bold">Saved Note ✓</span>
+                            <Check className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5]" />
+                            <span className="text-[#0A5C45] dark:text-[#5BE0A5] font-bold">Saved Note ✓</span>
                           </>
                         ) : (
                           <>
@@ -1706,29 +1741,29 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                             <span>Save Note</span>
                           </>
                         )}
-                        </button>
+                      </button>
                     </div>
 
                     {idx === latestAssistantIndex && (
-                      <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          let userMessageIndex = -1;
-                          for (let messageIndex = idx - 1; messageIndex >= 0; messageIndex -= 1) {
-                            if (session?.messages[messageIndex]?.role === 'user') {
-                              userMessageIndex = messageIndex;
-                              break;
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            let userMessageIndex = -1;
+                            for (let messageIndex = idx - 1; messageIndex >= 0; messageIndex -= 1) {
+                              if (session?.messages[messageIndex]?.role === 'user') {
+                                userMessageIndex = messageIndex;
+                                break;
+                              }
                             }
-                          }
-                          if (userMessageIndex >= 0) onRegenerateMessage(msg.id, userMessageIndex);
-                        }}
-                        disabled={isLoading || pendingReplyMessageIds.has(msg.id)}
-                        className="px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#111b21] hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer group disabled:opacity-40 disabled:pointer-events-none"
-                        title="Regenerate response"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5 group-hover:-rotate-45 transition-transform" />
-                        <span className="hidden sm:inline">Regenerate</span>
-                      </button>
+                            if (userMessageIndex >= 0) onRegenerateMessage(msg.id, userMessageIndex);
+                          }}
+                          disabled={isLoading || pendingReplyMessageIds.has(msg.id)}
+                          className="min-h-[44px] px-3 py-1.5 rounded-[12px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] text-[#10231C] dark:text-[#E8F2EC] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer group disabled:opacity-40 disabled:pointer-events-none"
+                          title="Regenerate response"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 group-hover:-rotate-45 transition-transform" />
+                          <span className="hidden sm:inline">Regenerate</span>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1742,16 +1777,16 @@ export const ChatStage: React.FC<ChatStageProps> = ({
         {isLoading && (
           <div className="flex items-start gap-2 max-w-3xl mx-auto w-full animate-in fade-in">
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-xs"
-              style={{ backgroundColor: activePersona.avatar_color || '#00a884' }}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[12px] font-bold shrink-0"
+              style={{ backgroundColor: activePersona.avatar_color || '#0A5C45' }}
             >
               {activePersona.initials}
             </div>
-            <div className="px-4 py-3 rounded-2xl rounded-tl-xs bg-white dark:bg-[#202c33] border border-black/5 dark:border-white/5 shadow-xs text-xs text-slate-500 dark:text-slate-300 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#00a884] animate-bounce" />
-              <div className="w-2 h-2 rounded-full bg-[#00a884] animate-bounce [animation-delay:0.2s]" />
-              <div className="w-2 h-2 rounded-full bg-[#00a884] animate-bounce [animation-delay:0.4s]" />
-              <span className="font-semibold text-slate-700 dark:text-slate-200">
+            <div className="px-4 py-3 rounded-[20px] rounded-bl-none bg-white dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] text-xs text-[#4F6359] dark:text-[#9DB5A8] flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#0A5C45] dark:bg-[#0F8056] animate-bounce" />
+              <div className="w-2 h-2 rounded-full bg-[#0A5C45] dark:bg-[#0F8056] animate-bounce [animation-delay:0.2s]" />
+              <div className="w-2 h-2 rounded-full bg-[#0A5C45] dark:bg-[#0F8056] animate-bounce [animation-delay:0.4s]" />
+              <span className="font-semibold text-[#10231C] dark:text-[#E8F2EC]">
                 {activePersona.name} is typing...
               </span>
             </div>
@@ -1761,56 +1796,57 @@ export const ChatStage: React.FC<ChatStageProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 4. WHATSAPP CHAT COMPOSER STAGE */}
-      <div className="px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:px-3 sm:pt-3 sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-[#e9edef] dark:border-[#2a3942] bg-[#f0f2f5] dark:bg-[#202c33] shadow-md shrink-0 z-10">
-        <div className="max-w-3xl mx-auto space-y-2">
+      {/* 4. CHAT COMPOSER STAGE */}
+      <div className="px-2 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 sm:pt-3 sm:pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] shrink-0 z-10">
+        <div className="max-w-3xl mx-auto space-y-2.5">
           {/* Hidden File Input for Image Upload */}
           <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" multiple className="hidden" />
           <input type="file" ref={cameraInputRef} onChange={handleImageSelect} accept="image/*" capture="environment" className="hidden" />
 
           {/* Attached Image Preview Strip */}
           {attachedImages.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-500/40 bg-white p-2 dark:bg-[#2a3942]">
+            <div className="flex flex-wrap items-center gap-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] p-2 dark:bg-[#0B1612]">
               {attachedImages.map((image, index) => (
                 <div key={`${index}-${image.slice(0, 12)}`} className="relative h-14 w-14">
                   <img
                     src={image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`}
                     alt={`Image attachment ${index + 1}`}
-                    className="h-full w-full rounded-lg border border-emerald-500/30 object-cover"
+                    className="h-full w-full rounded-[10px] border border-[#D5E0D8] dark:border-[#27403A] object-cover"
                   />
                   <button
                     type="button"
                     onClick={() => setAttachedImages((current) => current.filter((_, imageIndex) => imageIndex !== index))}
-                    className="absolute -right-1.5 -top-1.5 rounded-full bg-slate-800 p-0.5 text-white"
+                    className="absolute -right-1.5 -top-1.5 min-h-[24px] min-w-[24px] rounded-full bg-[#10231C] p-1 text-white flex items-center justify-center cursor-pointer"
                     title="Remove image"
                     aria-label={`Remove image ${index + 1}`}
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="h-3 w-3" />
                   </button>
                 </div>
               ))}
-              <span className="text-xs text-slate-500 dark:text-slate-300">{attachedImages.length}/4 PRO VISION</span>
+              <span className="text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5]">{attachedImages.length}/4 PRO VISION</span>
             </div>
           )}
-          {imageNotice && <p role="status" className="text-xs text-rose-600 dark:text-rose-400">{imageNotice}</p>}
+          {imageNotice && <p role="status" className="text-xs text-rose-600 dark:text-rose-400 font-semibold">{imageNotice}</p>}
 
-          {/* Main Rounded Input Box & Actions */}
-          <div className="flex min-w-0 items-end gap-1.5">
+          {/* Main Chat Input Bar + Buttons Row */}
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Taller Chat Input Bar (56px) */}
             <form
               onSubmit={handleSubmit}
-              className="min-w-0 flex-1 flex items-end gap-1.5 px-2 py-1 rounded-3xl bg-white dark:bg-[#2a3942] border border-slate-300/70 dark:border-transparent shadow-xs focus-within:ring-2 focus-within:ring-[#00a884]/30 transition-all"
+              className="min-h-[56px] min-w-0 flex-1 flex items-center gap-2 px-3 py-1 rounded-[14px] bg-[#F3F6F1] dark:bg-[#0B1612] border border-[#D5E0D8] dark:border-[#27403A] focus-within:border-[#0A5C45] dark:focus-within:border-[#0F8056] transition-colors"
             >
               {/* Pro Image / Vision Attachment Button */}
-              <div className="relative flex shrink-0 self-end">
+              <div className="relative flex shrink-0">
                 <button
                   type="button"
                   onClick={() => handleImageButtonClick('files')}
-                  className={`h-10 w-10 shrink-0 rounded-full transition-all flex items-center justify-center cursor-pointer ${
+                  className={`min-h-[44px] min-w-[44px] h-11 w-11 shrink-0 rounded-[12px] transition-all flex items-center justify-center cursor-pointer ${
                     attachedImages.length > 0
-                      ? 'bg-emerald-500 text-white shadow-xs'
+                      ? 'bg-[#0A5C45] dark:bg-[#0F8056] text-white'
                       : isPaid
-                      ? 'text-slate-500 hover:text-[#00a884] hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#32424b]'
-                      : 'text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
+                      ? 'text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A]'
+                      : 'text-[#F4B400] hover:bg-[#FFF3CC] dark:hover:bg-[#3A2F0B]'
                   }`}
                   title={isPaid ? 'Choose images (Pro Vision)' : 'Choose images (Pro Feature - Click to Upgrade)'}
                 >
@@ -1819,25 +1855,16 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 {!isPaid && (
                   <span
                     onClick={() => handleImageButtonClick('files')}
-                    className="absolute -top-1.5 -right-1 px-1 py-0.2 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black text-[8px] flex items-center gap-0.5 shadow-xs cursor-pointer tracking-tighter"
+                    className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#F4B400] text-[#10231C] font-black text-[9px] flex items-center gap-0.5 border border-[#10231C]/20 cursor-pointer"
                     title="Pro Feature"
                   >
-                    <Crown className="w-2 h-2" />
+                    <Crown className="w-2.5 h-2.5" />
                     <span>PRO</span>
                   </span>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => handleImageButtonClick('camera')}
-                className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-slate-500 hover:text-[#00a884] hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#32424b]"
-                title={isPaid ? 'Take a photo (Pro Vision)' : 'Take a photo (Pro Feature)'}
-                aria-label="Take a photo"
-              >
-                <Camera className="h-5 w-5" />
-              </button>
 
-              {/* Auto-growing Textarea */}
+              {/* Auto-growing Textarea (Taller 56px input bar, min 16px font) */}
               <textarea
                 id="tour-chat-input"
                 ref={textareaRef}
@@ -1851,18 +1878,43 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                     ? "Ask a specific question about this image, or hit Send to transcribe & solve..."
                     : `Message ${activePersona.name} (English or Roman Urdu / Hinglish)...`
                 }
-                className="min-w-0 flex-1 max-h-36 py-1.5 px-1 bg-transparent text-sm text-[#111b21] dark:text-[#e9edef] placeholder:text-slate-400 dark:placeholder:text-slate-400 resize-none focus:outline-none leading-relaxed"
+                className="min-w-0 flex-1 min-h-[44px] max-h-36 py-2 px-1 bg-transparent text-base text-[#10231C] dark:text-[#E8F2EC] placeholder:text-[#4F6359]/70 dark:placeholder:text-[#9DB5A8]/70 resize-none focus:outline-none leading-relaxed"
                 dir={language === 'urdu' ? 'rtl' : 'ltr'}
               />
             </form>
 
+            {/* Camera Button (Moved next to chat input bar) */}
+            <button
+              type="button"
+              onClick={() => handleImageButtonClick('camera')}
+              className="min-h-[56px] min-w-[44px] sm:min-w-[56px] h-14 w-11 sm:w-14 shrink-0 rounded-[14px] bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] flex items-center justify-center transition-colors cursor-pointer"
+              title={isPaid ? 'Take a photo (Pro Vision)' : 'Take a photo (Pro Feature)'}
+              aria-label="Take a photo"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
+
+            {/* Voice Button (Moved next to chat input bar, Accent Gold Color #F4B400 with dark text #10231C) */}
+            <button
+              type="button"
+              onClick={toggleVoiceInput}
+              className={`min-h-[56px] min-w-[44px] sm:min-w-[56px] h-14 w-11 sm:w-14 shrink-0 rounded-[14px] bg-[#F4B400] text-[#10231C] hover:bg-[#e0a500] border border-[#d49b00] flex items-center justify-center transition-all cursor-pointer font-bold ${
+                isListening ? 'ring-2 ring-[#10231C] animate-pulse' : ''
+              }`}
+              title={isListening ? 'Listening... click to stop' : 'Voice Input (Urdu & English)'}
+              aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+            >
+              <Mic className="w-5 h-5" />
+            </button>
+
+            {/* Public/Private Toggle Button */}
             <button
               onClick={() => setIsPrivate((value) => !value)}
               type="button"
-              className={`mb-1 h-10 w-10 shrink-0 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+              className={`min-h-[56px] min-w-[44px] sm:min-w-[56px] h-14 w-11 sm:w-14 shrink-0 rounded-[14px] border flex items-center justify-center transition-colors cursor-pointer ${
                 isPrivate
-                  ? 'bg-rose-100 border-rose-300 text-rose-600 dark:bg-rose-950/50 dark:border-rose-800 dark:text-rose-300'
-                  : 'bg-white/80 border-slate-300 text-slate-500 dark:bg-[#202c33] dark:border-[#2a3942] dark:text-slate-300'
+                  ? 'bg-[#FFF3CC] border-[#F4B400] text-[#10231C] dark:bg-[#3A2F0B] dark:border-[#F4B400]/60 dark:text-[#E8F2EC]'
+                  : 'bg-[#FFFFFF] border-[#D5E0D8] text-[#4F6359] dark:bg-[#12231C] dark:border-[#27403A] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A]'
               }`}
               title={isPrivate ? 'Private question' : 'Public question'}
               aria-label={isPrivate ? 'Private question' : 'Public question'}
@@ -1870,12 +1922,12 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               {isPrivate ? <Lock className="w-5 h-5" /> : <LockOpen className="w-5 h-5" />}
             </button>
 
-            {/* WhatsApp Signature Circular Green Send Button */}
+            {/* Primary Send Button (Primary Color #0A5C45 with white text) */}
             <button
               onClick={handleSubmit}
               type="button"
               disabled={(!inputText.trim() && attachedImages.length === 0) || isLoading || isImageProcessing || !!editingMessageId}
-              className="mb-1 h-10 w-10 shrink-0 rounded-full bg-[#00a884] hover:bg-[#029676] active:scale-95 text-white disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center shadow-sm cursor-pointer"
+              className="min-h-[56px] min-w-[44px] sm:min-w-[56px] h-14 w-11 sm:w-14 shrink-0 rounded-[14px] bg-[#0A5C45] dark:bg-[#0F8056] hover:brightness-110 active:scale-95 text-white disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer border border-[#0A5C45] dark:border-[#0F8056]"
               title="Send Message (Enter)"
             >
               <Send className="w-5 h-5 ml-0.5" />

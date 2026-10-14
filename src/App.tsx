@@ -668,7 +668,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen w-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex overflow-hidden font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+    <div className="h-screen w-screen bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] flex overflow-hidden font-body selection:bg-[#0A5C45] dark:selection:bg-[#0F8056] selection:text-white transition-colors duration-200">
       {chatErrorToast && (
         <div role="alert" className="fixed top-4 right-4 z-[100] max-w-sm rounded-lg border border-rose-300 bg-white px-4 py-3 text-sm text-rose-700 shadow-lg dark:border-rose-900 dark:bg-slate-900 dark:text-rose-300">
           <div className="flex items-start gap-3">

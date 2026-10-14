@@ -17,39 +17,38 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const outerNodes = graphData.nodes.filter((n) => n.id !== centerNode?.id);
 
   return (
-    <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-sm space-y-6 animate-in fade-in duration-300">
+    <div className="rounded-[20px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] p-6 sm:p-8 space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+            <span className="px-2.5 py-0.5 rounded-[10px] text-xs font-bold bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border border-[#0A5C45]/20">
               Graph Visualization
             </span>
-            <span className="text-xs text-slate-400 font-medium">
+            <span className="text-xs text-[#4F6359] dark:text-[#9DB5A8] font-medium">
               Knowledge Map
             </span>
           </div>
-          <h3 className="font-bold text-slate-900 dark:text-white text-lg">
+          <h3 className="font-heading font-bold text-[#10231C] dark:text-[#E8F2EC] text-xl">
             Connected Concept Network
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-[#4F6359] dark:text-[#9DB5A8]">
             Click any connected node to immediately navigate and explore that domain.
           </p>
         </div>
       </div>
 
       {/* Interactive Visual Network Stage */}
-      <div className="relative rounded-2xl bg-slate-950 border border-slate-800 p-8 min-h-[420px] flex items-center justify-center overflow-hidden">
+      <div className="relative rounded-[20px] bg-[#0B1612] border border-[#27403A] p-8 min-h-[420px] flex items-center justify-center overflow-hidden">
         {/* SVG Edge Connecting Lines */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none">
           <defs>
             <linearGradient id="edgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#6366f1" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#a855f7" stopOpacity="0.3" />
+              <stop offset="0%" stopColor="#0F8056" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#5BE0A5" stopOpacity="0.4" />
             </linearGradient>
           </defs>
           {outerNodes.map((node, idx) => {
             const angle = (idx / outerNodes.length) * Math.PI * 2;
-            const radius = 140;
             const centerX = 50; // percentage
             const centerY = 50;
             const targetX = 50 + Math.cos(angle) * 35;
@@ -72,8 +71,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
         {/* Center Target Node */}
         {centerNode && (
-          <div className="relative z-10 p-5 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white font-bold shadow-xl shadow-indigo-500/30 border border-indigo-400/30 text-center max-w-[180px] group cursor-pointer">
-            <div className="text-[10px] uppercase tracking-wider text-indigo-200 font-extrabold mb-0.5">
+          <div className="relative z-10 p-5 rounded-[20px] bg-[#0A5C45] dark:bg-[#0F8056] text-white font-bold border border-[#5BE0A5]/40 text-center max-w-[180px] group cursor-pointer">
+            <div className="text-xs uppercase tracking-wider text-[#5BE0A5] font-extrabold mb-0.5">
               Target Topic
             </div>
             <div className="text-sm font-extrabold line-clamp-1">{centerNode.label}</div>
@@ -93,9 +92,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
               onMouseEnter={() => setHoveredNode(node)}
               onMouseLeave={() => setHoveredNode(null)}
               style={{ left: `${leftPct}%`, top: `${topPct}%` }}
-              className="absolute z-20 -translate-x-1/2 -translate-y-1/2 p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-indigo-500 text-white shadow-lg cursor-pointer transition-all hover:scale-110 flex items-center gap-2 group text-xs font-semibold max-w-[160px]"
+              className="absolute z-20 -translate-x-1/2 -translate-y-1/2 min-h-[44px] p-3 rounded-[14px] bg-[#12231C] hover:bg-[#17352A] border border-[#27403A] hover:border-[#5BE0A5] text-[#E8F2EC] cursor-pointer transition-all hover:scale-105 flex items-center gap-2 group text-xs font-semibold max-w-[160px]"
             >
-              <Compass className="w-4 h-4 text-indigo-400 group-hover:rotate-45 transition-transform" />
+              <Compass className="w-4 h-4 text-[#5BE0A5] group-hover:rotate-45 transition-transform" />
               <span className="truncate">{node.label}</span>
             </div>
           );
@@ -104,19 +103,19 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
       {/* Hovered Node Details Panel */}
       {hoveredNode && (
-        <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 text-xs flex items-center justify-between gap-4 animate-in fade-in duration-150">
+        <div className="p-4 rounded-[20px] bg-[#FFF3CC] dark:bg-[#3A2F0B] border border-[#F4B400]/40 text-[#10231C] dark:text-[#E8F2EC] text-xs flex items-center justify-between gap-4 animate-in fade-in duration-150">
           <div>
-            <span className="font-bold text-indigo-900 dark:text-indigo-200">
+            <span className="font-bold text-[#0A5C45] dark:text-[#5BE0A5]">
               {hoveredNode.label}
             </span>
-            <span className="text-slate-500 dark:text-slate-400 ml-2">
+            <span className="text-[#4F6359] dark:text-[#9DB5A8] ml-2">
               ({hoveredNode.category}) — {hoveredNode.summary}
             </span>
           </div>
 
           <button
             onClick={() => onSelectTopic(hoveredNode.label)}
-            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold flex items-center gap-1 shrink-0 text-xs"
+            className="min-h-[44px] px-4 py-2 rounded-[14px] bg-[#0A5C45] dark:bg-[#0F8056] text-white font-bold flex items-center gap-1.5 shrink-0 text-xs cursor-pointer border border-[#0A5C45] dark:border-[#0F8056]"
           >
             <span>Explore</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -125,26 +124,26 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       )}
 
       {/* List Grid of Connected Topics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-[#D5E0D8] dark:border-[#27403A]">
         {outerNodes.map((node) => (
           <div
             key={node.id}
             onClick={() => onSelectTopic(node.label)}
-            className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-indigo-500 cursor-pointer transition-all shadow-2xs group flex flex-col justify-between"
+            className="p-4 rounded-[20px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] hover:border-[#0A5C45] dark:hover:border-[#5BE0A5] cursor-pointer transition-all group flex flex-col justify-between min-h-[44px]"
           >
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#0A5C45] dark:text-[#5BE0A5]">
                 {node.category}
               </span>
-              <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mt-0.5">
+              <h4 className="font-bold text-[#10231C] dark:text-[#E8F2EC] text-sm group-hover:text-[#0A5C45] dark:group-hover:text-[#5BE0A5] transition-colors mt-0.5">
                 {node.label}
               </h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
+              <p className="text-xs text-[#4F6359] dark:text-[#9DB5A8] line-clamp-2 mt-1">
                 {node.summary}
               </p>
             </div>
 
-            <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+            <div className="mt-3 pt-2 border-t border-[#D5E0D8] dark:border-[#27403A] flex items-center justify-between text-xs font-semibold text-[#0A5C45] dark:text-[#5BE0A5]">
               <span>Explore Domain</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>

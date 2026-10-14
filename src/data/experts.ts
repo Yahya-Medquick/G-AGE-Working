@@ -57,7 +57,7 @@ STRICT BEHAVIOR RULES:
     affiliation: "Postdoctoral Fellow, Perimeter Institute for Theoretical Physics",
     badge: "Quantum Physics & Computing",
     status: "Active Now",
-    avatar_color: "#6366f1", // indigo
+    avatar_color: "#0A5C45", // brand primary green
     specialties: [
       "Quantum entanglement",
       "Decoherence dynamics",

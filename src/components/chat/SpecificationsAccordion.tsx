@@ -87,44 +87,44 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
   };
 
   return (
-    <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 shrink-0 transition-all">
+    <div className="border-b border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] shrink-0 transition-all">
       <div className="px-4 py-2 flex items-center justify-between">
         <button
           onClick={onToggle}
-          className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+          className="min-h-[44px] flex items-center gap-2 text-xs font-bold text-[#10231C] dark:text-[#E8F2EC] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] cursor-pointer"
         >
-          <SlidersHorizontal className="w-3.5 h-3.5" />
-          <span>Specifications & Filters ({mode.toUpperCase()} MODE)</span>
-          {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          <SlidersHorizontal className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />
+          <span>Specifications &amp; Filters ({mode.toUpperCase()} MODE)</span>
+          {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
         {isOpen && (
           <button
             onClick={handleReset}
-            className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+            className="min-h-[44px] flex items-center gap-1.5 text-xs text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] cursor-pointer"
           >
-            <RotateCcw className="w-3 h-3" />
+            <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
           </button>
         )}
       </div>
 
       {isOpen && (
-        <div className="px-4 pb-3 pt-1 border-t border-slate-200/60 dark:border-slate-800/60 text-xs animate-in slide-in-from-top-1 duration-150">
+        <div className="px-4 pb-4 pt-1 border-t border-[#D5E0D8] dark:border-[#27403A] text-xs animate-in slide-in-from-top-1 duration-150">
 
           {mode === 'concept' && (
-            <div className="max-w-md space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="max-w-md space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
                 Target Depth / Level
               </label>
-              <div className="flex rounded-lg bg-slate-200/70 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700">
+              <div className="flex rounded-[14px] bg-[#F3F6F1] dark:bg-[#0B1612] p-1 border border-[#D5E0D8] dark:border-[#27403A]">
                 {(['beginner', 'intermediate', 'advanced', 'expert'] as const).map((lvl) => (
                   <button
                     key={lvl}
                     onClick={() => handleConceptChange('level', lvl)}
-                    className={`flex-1 py-1.5 text-[11px] font-medium rounded-md capitalize transition-colors cursor-pointer ${
+                    className={`flex-1 min-h-[44px] py-1.5 text-xs font-semibold rounded-[12px] capitalize transition-colors cursor-pointer ${
                       concept.level === lvl
-                        ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 font-bold shadow-2xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                        ? 'bg-[#0A5C45] dark:bg-[#0F8056] text-white font-bold'
+                        : 'text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#10231C] dark:hover:text-[#E8F2EC]'
                     }`}
                   >
                     {lvl}
@@ -136,8 +136,8 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
 
           {mode === 'exam' && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
                   Target Board / University
                 </label>
                 <input
@@ -145,12 +145,12 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
                   value={exam.targetExam || ''}
                   onChange={(e) => handleExamChange('targetExam', e.target.value)}
                   placeholder="e.g. Federal Board, Cambridge, NUST..."
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                  className="w-full min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] placeholder:text-[#4F6359] dark:placeholder:text-[#9DB5A8] text-sm focus:border-[#0A5C45] dark:focus:border-[#0F8056] focus:outline-none"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
                   Subject
                 </label>
                 <input
@@ -158,15 +158,15 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
                   value={exam.subject || ''}
                   onChange={(e) => handleExamChange('subject', e.target.value)}
                   placeholder="e.g. Physics, Chemistry, Maths, Biology..."
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                  className="w-full min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] placeholder:text-[#4F6359] dark:placeholder:text-[#9DB5A8] text-sm focus:border-[#0A5C45] dark:focus:border-[#0F8056] focus:outline-none"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
                   Question Nature
                 </label>
-                <div className="flex rounded-lg bg-slate-200/70 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700">
+                <div className="flex rounded-[14px] bg-[#F3F6F1] dark:bg-[#0B1612] p-1 border border-[#D5E0D8] dark:border-[#27403A]">
                   {([
                     { id: 'long', label: 'Long Question' },
                     { id: 'short', label: 'Short Question' },
@@ -175,10 +175,10 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
                     <button
                       key={nature.id}
                       onClick={() => handleExamChange('questionNature', nature.id)}
-                      className={`flex-1 py-1 text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
+                      className={`flex-1 min-h-[44px] py-1 text-xs font-semibold rounded-[12px] transition-colors cursor-pointer ${
                         (exam.questionNature || 'short') === nature.id
-                          ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-300 font-bold shadow-2xs'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          ? 'bg-[#0A5C45] dark:bg-[#0F8056] text-white font-bold'
+                          : 'text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#10231C] dark:hover:text-[#E8F2EC]'
                       }`}
                     >
                       {nature.label}
@@ -187,8 +187,8 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
                   Class / Grade Level
                 </label>
                 <input
@@ -196,7 +196,7 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
                   value={exam.className || ''}
                   onChange={(e) => handleExamChange('className', e.target.value)}
                   placeholder="e.g. 9th, 10th, FSc, BS / Undergrad..."
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                  className="w-full min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] placeholder:text-[#4F6359] dark:placeholder:text-[#9DB5A8] text-sm focus:border-[#0A5C45] dark:focus:border-[#0F8056] focus:outline-none"
                 />
               </div>
             </div>
@@ -204,11 +204,11 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
 
           {mode === 'research' && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
                   Paper Recency
                 </label>
-                <div className="flex rounded-lg bg-slate-200/70 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700">
+                <div className="flex rounded-[14px] bg-[#F3F6F1] dark:bg-[#0B1612] p-1 border border-[#D5E0D8] dark:border-[#27403A]">
                   {([
                     { id: '2_years', label: '2024-26' },
                     { id: '5_years', label: 'Last 5 Yrs' },
@@ -217,10 +217,10 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
                     <button
                       key={rec.id}
                       onClick={() => handleResearchChange('recency', rec.id)}
-                      className={`flex-1 py-1 text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
+                      className={`flex-1 min-h-[44px] py-1 text-xs font-semibold rounded-[12px] transition-colors cursor-pointer ${
                         research.recency === rec.id
-                          ? 'bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-300 font-bold shadow-2xs'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          ? 'bg-[#0A5C45] dark:bg-[#0F8056] text-white font-bold'
+                          : 'text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#10231C] dark:hover:text-[#E8F2EC]'
                       }`}
                     >
                       {rec.label}
@@ -229,19 +229,19 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
                   Min Citations
                 </label>
-                <div className="flex rounded-lg bg-slate-200/70 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700">
+                <div className="flex rounded-[14px] bg-[#F3F6F1] dark:bg-[#0B1612] p-1 border border-[#D5E0D8] dark:border-[#27403A]">
                   {(['any', '50+', '500+'] as const).map((cit) => (
                     <button
                       key={cit}
                       onClick={() => handleResearchChange('minCitations', cit)}
-                      className={`flex-1 py-1 text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
+                      className={`flex-1 min-h-[44px] py-1 text-xs font-semibold rounded-[12px] transition-colors cursor-pointer ${
                         research.minCitations === cit
-                          ? 'bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-300 font-bold shadow-2xs'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                          ? 'bg-[#0A5C45] dark:bg-[#0F8056] text-white font-bold'
+                          : 'text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#10231C] dark:hover:text-[#E8F2EC]'
                       }`}
                     >
                       {cit}
@@ -250,37 +250,37 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
                   GitHub Codebases
                 </label>
                 <button
                   onClick={() => handleResearchChange('includeCode', !research.includeCode)}
-                  className={`w-full py-1 px-2 rounded-lg border text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                  className={`w-full min-h-[44px] py-2 px-3 rounded-[14px] border text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
                     research.includeCode
-                      ? 'bg-cyan-50 dark:bg-cyan-950/40 border-cyan-300 dark:border-cyan-800 text-cyan-700 dark:text-cyan-300'
-                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                      ? 'bg-[#DDEFE6] dark:bg-[#17352A] border-[#0A5C45]/40 text-[#0A5C45] dark:text-[#5BE0A5]'
+                      : 'bg-white dark:bg-[#12231C] border-[#D5E0D8] dark:border-[#27403A] text-[#4F6359] dark:text-[#9DB5A8]'
                   }`}
                 >
                   <span>Include Repos</span>
-                  {research.includeCode && <Check className="w-3.5 h-3.5 text-cyan-600" />}
+                  {research.includeCode && <Check className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />}
                 </button>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
                   Datasets / Benchmarks
                 </label>
                 <button
                   onClick={() => handleResearchChange('includeDatasets', !research.includeDatasets)}
-                  className={`w-full py-1 px-2 rounded-lg border text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                  className={`w-full min-h-[44px] py-2 px-3 rounded-[14px] border text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
                     research.includeDatasets
-                      ? 'bg-cyan-50 dark:bg-cyan-950/40 border-cyan-300 dark:border-cyan-800 text-cyan-700 dark:text-cyan-300'
-                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                      ? 'bg-[#DDEFE6] dark:bg-[#17352A] border-[#0A5C45]/40 text-[#0A5C45] dark:text-[#5BE0A5]'
+                      : 'bg-white dark:bg-[#12231C] border-[#D5E0D8] dark:border-[#27403A] text-[#4F6359] dark:text-[#9DB5A8]'
                   }`}
                 >
                   <span>Include Data</span>
-                  {research.includeDatasets && <Check className="w-3.5 h-3.5 text-cyan-600" />}
+                  {research.includeDatasets && <Check className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />}
                 </button>
               </div>
             </div>

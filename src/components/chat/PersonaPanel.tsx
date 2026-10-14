@@ -230,37 +230,37 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
 
       {/* Main Panel */}
       <aside
-        className={`fixed lg:static top-0 bottom-0 right-0 z-40 flex flex-col w-[300px] sm:w-[320px] bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+        className={`fixed lg:static top-0 bottom-0 right-0 z-40 flex flex-col w-[300px] sm:w-[320px] bg-[#FFFFFF] dark:bg-[#12231C] border-l border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
           isOpen ? 'translate-x-0' : 'translate-x-full lg:w-0 lg:border-l-0'
         }`}
       >
         {/* Header */}
-        <div className="h-14 px-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white/70 dark:bg-slate-950/70">
-          <div className="flex items-center gap-2 select-none">
+        <div className="h-16 px-4 border-b border-[#D5E0D8] dark:border-[#27403A] flex items-center justify-between shrink-0 bg-[#FFFFFF] dark:bg-[#12231C]">
+          <div className="flex items-center gap-2.5 select-none">
             {view === 'personas' && !isSearching ? (
               <button
                 onClick={handleBackToGroups}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
             ) : (
-              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+              <div className="w-8 h-8 rounded-[10px] bg-[#0A5C45] dark:bg-[#0F8056] text-white flex items-center justify-center font-bold text-xs">
                 <UserCheck className="w-4 h-4" />
               </div>
             )}
             <div>
-              <h2 className="font-bold text-sm tracking-tight text-slate-900 dark:text-white">
+              <h2 className="font-heading font-bold text-base tracking-tight text-[#10231C] dark:text-[#E8F2EC]">
                 {view === 'personas' && !isSearching && activeGroup ? activeGroup : 'Expert Personas'}
               </h2>
               {view === 'personas' && !isSearching && activeGroup && (
-                <p className="text-[10px] text-slate-400">{groupPersonas.length} specialist{groupPersonas.length !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-[#4F6359] dark:text-[#9DB5A8]">{groupPersonas.length} specialist{groupPersonas.length !== 1 ? 's' : ''}</p>
               )}
             </div>
           </div>
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
             title="Collapse Persona Panel"
           >
             <PanelRightClose className="w-4 h-4" />
@@ -268,24 +268,24 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
         </div>
 
         {/* Region Toggle + Search */}
-        <div className="p-3 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/40 dark:bg-slate-950/40 shrink-0 space-y-2.5">
-          <div className="flex items-center p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+        <div className="p-3 border-b border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] shrink-0 space-y-2.5">
+          <div className="flex items-center p-1 rounded-[14px] bg-[#F3F6F1] dark:bg-[#0B1612] border border-[#D5E0D8] dark:border-[#27403A] text-xs">
             <button
               onClick={() => onToggleVariant('pk')}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 min-h-[44px] py-1.5 px-2 rounded-[12px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 variant === 'pk'
-                  ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-300 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-[#0A5C45] dark:bg-[#0F8056] text-white'
+                  : 'text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#10231C] dark:hover:text-[#E8F2EC]'
               }`}
             >
               <span>🇵🇰</span><span>Pakistani</span>
             </button>
             <button
               onClick={() => onToggleVariant('global')}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 min-h-[44px] py-1.5 px-2 rounded-[12px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 variant === 'global'
-                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-[#0A5C45] dark:bg-[#0F8056] text-white'
+                  : 'text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#10231C] dark:hover:text-[#E8F2EC]'
               }`}
             >
               <Globe className="w-3.5 h-3.5" /><span>Global</span>
@@ -293,18 +293,18 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
           </div>
 
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#4F6359] dark:text-[#9DB5A8] absolute left-3 top-3.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search specialists & domains..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full min-h-[44px] pl-9 pr-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-sm text-[#10231C] dark:text-[#E8F2EC] placeholder:text-[#4F6359] dark:placeholder:text-[#9DB5A8] focus:outline-none focus:border-[#0A5C45] dark:focus:border-[#0F8056]"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer"
+                className="absolute right-2.5 top-2.5 min-h-[32px] min-w-[32px] text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] text-xs cursor-pointer flex items-center justify-center"
               >✕</button>
             )}
           </div>
@@ -316,12 +316,12 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
           {/* SEARCH MODE — flat list across all groups */}
           {isSearching && (
             <>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center justify-between">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8] px-1 flex items-center justify-between">
                 <span>Results ({searchResults.length})</span>
                 <span className="font-normal">across all groups</span>
               </div>
               {searchResults.length === 0 && (
-                <div className="text-center py-8 text-slate-400 text-xs">No specialists found</div>
+                <div className="text-center py-8 text-[#4F6359] dark:text-[#9DB5A8] text-xs">No specialists found</div>
               )}
               {searchResults.map(persona => (
                 <PersonaCard
@@ -341,21 +341,21 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
             <>
               {/* Active Persona Focus */}
               {activePersona && (
-                <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-50/90 to-purple-50/50 dark:from-indigo-950/40 dark:to-slate-900 border border-indigo-200/80 dark:border-indigo-800/60 shadow-xs space-y-2.5">
+                <div className="p-3.5 rounded-[20px] bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-xs"
+                        className="w-7 h-7 rounded-[10px] flex items-center justify-center text-white text-xs font-bold"
                         style={{ backgroundColor: activePersona.avatar_color }}
                       >
                         {activePersona.initials}
                       </div>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      <span className="text-xs font-bold text-[#10231C] dark:text-[#E8F2EC]">
                         {activePersona.name} — Active
                       </span>
                     </div>
                     <span
-                      className="text-[9px] font-bold px-2 py-0.5 rounded-full border"
+                      className="text-xs font-bold px-2 py-0.5 rounded-[12px] border"
                       style={{
                         color: activePersona.avatar_color,
                         borderColor: `${activePersona.avatar_color}40`,
@@ -366,19 +366,19 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
                     </span>
                   </div>
                   {onSelectPrompt && dynamicSuggestedPrompts.length > 0 && (
-                    <div className="space-y-1.5 pt-1 border-t border-indigo-100 dark:border-indigo-900/60">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                        <MessageSquare className="w-3 h-3 text-indigo-500" />
+                    <div className="space-y-1.5 pt-2 border-t border-[#D5E0D8] dark:border-[#27403A]">
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8] flex items-center gap-1">
+                        <MessageSquare className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5]" />
                         <span>Suggested Inquiries</span>
                       </span>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {dynamicSuggestedPrompts.map((promptText, pIdx) => (
                           <button
                             key={pIdx}
                             onClick={() => onSelectPrompt(promptText)}
-                            className="w-full text-left p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/80 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white border border-indigo-100 dark:border-indigo-900 text-[10px] text-slate-700 dark:text-slate-200 font-medium transition-all group/p flex items-start gap-1.5 cursor-pointer shadow-2xs"
+                            className="w-full min-h-[44px] text-left p-2 rounded-[12px] bg-[#F3F6F1] dark:bg-[#0B1612] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] border border-[#D5E0D8] dark:border-[#27403A] text-xs text-[#10231C] dark:text-[#E8F2EC] font-medium transition-all group/p flex items-start gap-1.5 cursor-pointer"
                           >
-                            <ArrowRight className="w-3 h-3 text-indigo-500 group-hover/p:text-white group-hover/p:translate-x-0.5 transition-all shrink-0 mt-0.5" />
+                            <ArrowRight className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5] group-hover/p:translate-x-0.5 transition-all shrink-0 mt-0.5" />
                             <span className="line-clamp-2">{promptText}</span>
                           </button>
                         ))}
@@ -391,25 +391,25 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
               {/* Recent Personas Row */}
               {recentPersonas.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center gap-1">
-                    <Clock className="w-3 h-3" /><span>Recently Used</span>
+                  <div className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8] px-1 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" /><span>Recently Used</span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     {recentPersonas.map(p => (
                       <button
                         key={p.id}
                         onClick={() => handleSelectPersona(p)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all text-xs font-medium text-slate-700 dark:text-slate-200 shadow-2xs cursor-pointer group"
+                        className="min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:border-[#0A5C45] transition-all text-xs font-medium text-[#10231C] dark:text-[#E8F2EC] cursor-pointer group"
                       >
                         <div
-                          className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                          className="w-6 h-6 rounded-[8px] flex items-center justify-center text-white text-xs font-bold shrink-0"
                           style={{ backgroundColor: p.avatar_color }}
                         >
                           {p.initials}
                         </div>
-                        <span className="truncate max-w-[80px]">{p.name}</span>
+                        <span className="truncate max-w-[85px]">{p.name}</span>
                         {isAnimating && selectedSlug === ((p as any).slug || p.id) && (
-                          <span className="w-3 h-3 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+                          <span className="w-3 h-3 rounded-full border-2 border-[#0A5C45] border-t-transparent animate-spin" />
                         )}
                       </button>
                     ))}
@@ -419,29 +419,29 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
 
               {/* Groups Grid */}
               <div className="space-y-1.5">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center gap-1">
-                  <Layers className="w-3 h-3" /><span>Subject Groups</span>
+                <div className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8] px-1 flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5" /><span>Subject Groups</span>
                 </div>
                 <div className="space-y-2">
                   {groups.map(group => (
                     <button
                       key={group.name}
                       onClick={() => handleGroupClick(group.name)}
-                      className="w-full flex items-center justify-between p-3 rounded-xl border bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-2xs cursor-pointer group"
+                      className="min-h-[44px] w-full flex items-center justify-between p-3 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-all cursor-pointer group"
                     >
                       <div className="flex items-center gap-2.5">
                         <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-xs"
+                          className="w-8 h-8 rounded-[10px] flex items-center justify-center text-white text-xs font-bold shrink-0"
                           style={{ backgroundColor: group.color }}
                         >
                           {group.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div className="text-left">
-                          <div className="text-xs font-bold text-slate-900 dark:text-white">{group.name}</div>
-                          <div className="text-[10px] text-slate-400">{group.count} specialist{group.count !== 1 ? 's' : ''}</div>
+                          <div className="text-xs font-bold text-[#10231C] dark:text-[#E8F2EC]">{group.name}</div>
+                          <div className="text-xs text-[#4F6359] dark:text-[#9DB5A8]">{group.count} specialist{group.count !== 1 ? 's' : ''}</div>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition-all" />
+                      <ChevronRight className="w-4 h-4 text-[#4F6359] dark:text-[#9DB5A8] group-hover:text-[#10231C] dark:group-hover:text-[#E8F2EC] group-hover:translate-x-0.5 transition-all" />
                     </button>
                   ))}
                 </div>
@@ -452,12 +452,12 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
           {/* PERSONAS VIEW — within a group */}
           {!isSearching && view === 'personas' && (
             <>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center justify-between">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8] px-1 flex items-center justify-between">
                 <span>Specialists</span>
-                <span className="font-normal text-slate-400">Click to switch</span>
+                <span className="font-normal">Click to switch</span>
               </div>
               {groupPersonas.length === 0 && (
-                <div className="text-center py-8 text-slate-400 text-xs">No specialists in this group</div>
+                <div className="text-center py-8 text-[#4F6359] dark:text-[#9DB5A8] text-xs">No specialists in this group</div>
               )}
               {groupPersonas.map(persona => (
                 <PersonaCard
@@ -473,35 +473,31 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
           )}
 
           {/* WhatsApp Card */}
-          <div className={`mt-4 p-3.5 rounded-2xl bg-gradient-to-br ${
-            isPaid
-              ? 'from-emerald-500/10 via-teal-500/5 to-slate-900/50 border-emerald-500/30 dark:border-emerald-500/20'
-              : 'from-amber-500/10 via-purple-500/5 to-slate-900/50 border-amber-500/30 dark:border-amber-500/20'
-          } border text-slate-900 dark:text-slate-100 shadow-sm space-y-2.5`}>
+          <div className="mt-4 p-3.5 rounded-[20px] bg-[#FFF3CC] dark:bg-[#3A2F0B] border border-[#F4B400]/40 dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-xl ${isPaid ? 'bg-emerald-500' : 'bg-gradient-to-br from-amber-500 to-purple-600'} text-white flex items-center justify-center shadow-xs`}>
+                <div className={`w-8 h-8 rounded-[12px] ${isPaid ? 'bg-[#0A5C45] dark:bg-[#0F8056]' : 'bg-[#F4B400] text-[#10231C]'} text-white flex items-center justify-center font-bold`}>
                   {isPaid ? <MessageCircle className="w-4 h-4" /> : <Crown className="w-4 h-4" />}
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                  <h4 className="text-xs font-bold text-[#10231C] dark:text-[#E8F2EC]">
                     {variant === 'pk' ? '🇵🇰 Student WhatsApp Help' : 'WhatsApp Study Desk'}
                   </h4>
-                  <span className={`text-[10px] ${isPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} font-medium`}>
+                  <span className={`text-xs ${isPaid ? 'text-[#0A5C45] dark:text-[#5BE0A5]' : 'text-[#F4B400]'} font-semibold`}>
                     {isPaid ? 'Direct Academic Counselor' : 'Pro Member Feature'}
                   </span>
                 </div>
               </div>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-[10px] ${
                 isPaid
-                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                  : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                  ? 'bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border border-[#0A5C45]/20'
+                  : 'bg-[#F4B400] text-[#10231C] border border-[#d49b00]'
               }`}>
                 {isPaid ? 'PRO ACTIVE' : 'PRO ONLY'}
               </span>
               {isPaid && <ProExpiryBadge />}
             </div>
-            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+            <p className="text-xs text-[#10231C] dark:text-[#E8F2EC] leading-relaxed">
               {isPaid
                 ? (variant === 'pk'
                     ? 'Get priority 1-on-1 guidance on Pakistani university admissions (FAST, NUST, LUMS, AKU), syllabus roadblocks, or career roadmaps.'
@@ -519,21 +515,21 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
                 const message = encodeURIComponent(`Hi G-AGE AI Study Desk, I am a Pro subscriber (${currentUsername}). I need 1-on-1 academic mentorship.`);
                 window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
               }}
-              className={`w-full py-2 px-3 rounded-xl ${
+              className={`w-full min-h-[44px] py-2.5 px-3 rounded-[14px] ${
                 isPaid
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                  : 'bg-gradient-to-r from-amber-500 to-purple-600 hover:from-amber-600 hover:to-purple-700 text-white'
-              } text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer`}
+                  ? 'bg-[#0A5C45] dark:bg-[#0F8056] text-white hover:brightness-110 border border-[#0A5C45] dark:border-[#0F8056]'
+                  : 'bg-[#F4B400] text-[#10231C] hover:bg-[#e0a500] border border-[#d49b00]'
+              } text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer`}
             >
               {isPaid ? (
-                <><MessageCircle className="w-3.5 h-3.5" /><span>Chat on WhatsApp Desk</span><ExternalLink className="w-3 h-3 opacity-70" /></>
+                <><MessageCircle className="w-4 h-4" /><span>Chat on WhatsApp Desk</span><ExternalLink className="w-3.5 h-3.5 opacity-70" /></>
               ) : (
-                <><Lock className="w-3.5 h-3.5" /><span>Unlock Pro WhatsApp Desk</span><Crown className="w-3 h-3 opacity-70" /></>
+                <><Lock className="w-4 h-4" /><span>Unlock Pro WhatsApp Desk</span><Crown className="w-3.5 h-3.5 opacity-70" /></>
               )}
             </button>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-emerald-500/10">
-              <span className="flex items-center gap-1"><HelpCircle className="w-3 h-3" /> Mon-Sat (9 AM - 9 PM PKT)</span>
-              <span className={`font-mono text-[9px] ${isPaid ? 'text-emerald-500 font-semibold' : 'text-amber-500 font-semibold'}`}>
+            <div className="flex items-center justify-between text-xs text-[#4F6359] dark:text-[#9DB5A8] pt-1 border-t border-[#F4B400]/20">
+              <span className="flex items-center gap-1"><HelpCircle className="w-3.5 h-3.5" /> Mon-Sat (9 AM - 9 PM PKT)</span>
+              <span className={`font-mono text-xs ${isPaid ? 'text-[#0A5C45] dark:text-[#5BE0A5] font-semibold' : 'text-[#F4B400] font-semibold'}`}>
                 {isPaid ? 'Pro 1-on-1 Desk' : 'Paid Feature'}
               </span>
             </div>
@@ -559,19 +555,19 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
 }) => (
   <div
     onClick={onClick}
-    className={`relative rounded-xl border p-3 cursor-pointer transition-all duration-200 select-none ${
+    className={`relative rounded-[20px] border p-3.5 cursor-pointer transition-all duration-200 select-none min-h-[44px] ${
       isAnimating
-        ? 'scale-95 opacity-60 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+        ? 'scale-95 opacity-60 border-[#0A5C45] bg-[#DDEFE6] dark:bg-[#17352A]'
         : isSelected
-        ? 'bg-white dark:bg-slate-800/95 border-emerald-600 dark:border-emerald-400 shadow-sm ring-1 ring-emerald-500/20'
-        : 'bg-white/80 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800 shadow-2xs'
+        ? 'bg-[#DDEFE6] dark:bg-[#17352A] border-[#0A5C45] dark:border-[#5BE0A5]'
+        : 'bg-[#FFFFFF] dark:bg-[#12231C] border-[#D5E0D8] dark:border-[#27403A] hover:border-[#0A5C45]/50 hover:bg-[#F3F6F1] dark:hover:bg-[#17352A]/40'
     }`}
   >
     {/* Ribbons */}
     <div className="flex items-center gap-1.5 mb-1.5">
       {isLastUsed && !isSelected && (
-        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-[9px] font-bold text-emerald-700 dark:text-emerald-300">
-          <Clock className="w-2.5 h-2.5" /><span>LAST USED</span>
+        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[8px] bg-[#DDEFE6] dark:bg-[#17352A] border border-[#0A5C45]/30 dark:border-[#5BE0A5]/30 text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5]">
+          <Clock className="w-3 h-3" /><span>LAST USED</span>
         </div>
       )}
     </div>
@@ -579,7 +575,7 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
     {/* Avatar + Name */}
     <div className="flex items-start gap-2.5">
       <div
-        className={`w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-xs transition-transform duration-200 ${isAnimating ? 'scale-110' : ''}`}
+        className={`w-10 h-10 rounded-[12px] flex items-center justify-center text-white text-xs font-bold shrink-0 transition-transform duration-200 ${isAnimating ? 'scale-110' : ''}`}
         style={{ backgroundColor: persona.avatar_color }}
       >
         {isAnimating
@@ -588,26 +584,26 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <h3 className="text-xs font-bold text-slate-900 dark:text-white truncate">{persona.name}</h3>
+          <h3 className="text-xs font-bold text-[#10231C] dark:text-[#E8F2EC] truncate">{persona.name}</h3>
           {isSelected && (
-            <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="w-3 h-3" /> Active
+            <span className="flex items-center gap-0.5 text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5]">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Active
             </span>
           )}
         </div>
-        <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">{persona.role}</p>
-        <p className="text-[10px] text-slate-400 truncate">{persona.affiliation}</p>
+        <p className="text-xs font-medium text-[#4F6359] dark:text-[#9DB5A8] truncate">{persona.role}</p>
+        <p className="text-xs text-[#4F6359]/80 dark:text-[#9DB5A8]/80 truncate">{persona.affiliation}</p>
       </div>
     </div>
 
     {/* Badge */}
-    <div className="mt-2 flex items-center justify-between">
+    <div className="mt-2.5 flex items-center justify-between">
       <span
-        className="text-[9px] font-bold px-2 py-0.5 rounded-full border"
+        className="text-xs font-bold px-2 py-0.5 rounded-[10px] border"
         style={{
           color: persona.avatar_color,
           borderColor: `${persona.avatar_color}40`,
-          backgroundColor: `${persona.avatar_color}10`,
+          backgroundColor: `${persona.avatar_color}15`,
         }}
       >
         {persona.badge}
@@ -617,7 +613,7 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
     {/* Specialties */}
     <div className="mt-2 flex flex-wrap gap-1">
       {persona.specialties.slice(0, 3).map((spec, i) => (
-        <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-800">
+        <span key={i} className="text-xs px-2 py-0.5 rounded-[8px] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#4F6359] dark:text-[#9DB5A8] border border-[#D5E0D8] dark:border-[#27403A]">
           {spec}
         </span>
       ))}

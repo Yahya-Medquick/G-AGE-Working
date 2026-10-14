@@ -29,29 +29,29 @@ export const Header: React.FC<HeaderProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 w-full border-b border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF]/95 dark:bg-[#12231C]/95 backdrop-blur-md transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand Wordmark - Minimalist & Direct */}
         <div
           onClick={onGoHome}
-          className="flex items-center gap-2 cursor-pointer select-none group"
+          className="flex items-center gap-2 cursor-pointer select-none group min-h-[44px]"
         >
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs group-hover:bg-indigo-500 transition-colors">
+          <div className="w-8 h-8 rounded-[12px] bg-[#0A5C45] dark:bg-[#0F8056] text-white flex items-center justify-center font-bold text-xs transition-colors">
             <Compass className="w-4 h-4" />
           </div>
-          <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white">
-            G-AGE <span className="text-indigo-600 dark:text-indigo-400 font-normal">AI</span>
+          <span className="font-heading font-bold text-lg tracking-tight text-[#10231C] dark:text-[#E8F2EC]">
+            G-AGE <span className="text-[#0A5C45] dark:text-[#5BE0A5] font-semibold">AI</span>
           </span>
-          <span className="hidden xl:inline-block text-[11px] font-medium text-slate-400 dark:text-slate-500 ml-1.5 pl-2.5 border-l border-slate-200 dark:border-slate-800">
+          <span className="hidden xl:inline-block text-xs font-medium text-[#4F6359] dark:text-[#9DB5A8] ml-1.5 pl-2.5 border-l border-[#D5E0D8] dark:border-[#27403A]">
             The Next Age of Knowledge &amp; Intelligence
           </span>
         </div>
 
         {/* Current Query Badge if exploring */}
         {currentQuery && (
-          <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-600 dark:text-slate-300">
-            <span className="text-slate-400 font-normal">Exploring:</span>
-            <span className="font-medium text-slate-900 dark:text-white max-w-[200px] truncate">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-[12px] bg-[#F3F6F1] dark:bg-[#0B1612] border border-[#D5E0D8] dark:border-[#27403A] text-xs text-[#10231C] dark:text-[#E8F2EC] min-h-[44px]">
+            <span className="text-[#4F6359] dark:text-[#9DB5A8] font-normal">Exploring:</span>
+            <span className="font-medium text-[#10231C] dark:text-[#E8F2EC] max-w-[200px] truncate">
               {currentQuery}
             </span>
           </div>
@@ -60,13 +60,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Minimal Actions Bar */}
         <div className="flex items-center gap-1.5">
           {/* Research/Learning Mode Segment Selector */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200/50 dark:border-slate-800/50 text-xs mr-1">
+          <div className="flex items-center bg-[#F3F6F1] dark:bg-[#0B1612] p-1 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] text-xs mr-1">
             <button
               onClick={() => mode !== "research" && toggleMode()}
-              className={`px-2.5 py-1 rounded-md font-bold transition-all duration-150 flex items-center gap-1 cursor-pointer select-none ${
+              className={`min-h-[44px] px-3 py-1.5 rounded-[12px] font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer select-none ${
                 mode === "research"
-                  ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border-b border-indigo-200/10"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  ? "bg-[#0A5C45] dark:bg-[#0F8056] text-white"
+                  : "text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC]"
               }`}
             >
               <span>🔬</span>
@@ -74,10 +74,10 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
             <button
               onClick={() => mode !== "learning" && toggleMode()}
-              className={`px-2.5 py-1 rounded-md font-bold transition-all duration-150 flex items-center gap-1 cursor-pointer select-none ${
+              className={`min-h-[44px] px-3 py-1.5 rounded-[12px] font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer select-none ${
                 mode === "learning"
-                  ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border-b border-indigo-200/10"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  ? "bg-[#0A5C45] dark:bg-[#0F8056] text-white"
+                  : "text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC]"
               }`}
             >
               <span>📚</span>
@@ -89,20 +89,20 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={toggleTheme}
             aria-label="Toggle Dark/Light Mode"
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
+            className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
             title="Toggle Theme"
           >
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {theme === "dark" ? <Sun className="w-4 h-4 text-[#F4B400]" /> : <Moon className="w-4 h-4 text-[#10231C]" />}
           </button>
 
           {/* API Docs Button */}
           {onOpenApiDocs && (
             <button
               onClick={onOpenApiDocs}
-              className="p-2 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors flex items-center gap-1.5 text-xs font-medium"
+              className="min-h-[44px] p-2 sm:px-3 sm:py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
               title="API Reference"
             >
-              <Code2 className="w-3.5 h-3.5 text-purple-500" />
+              <Code2 className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />
               <span className="hidden sm:inline">API</span>
             </button>
           )}
@@ -110,10 +110,10 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Admin Button */}
           <button
             onClick={onOpenAdmin}
-            className="p-2 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors flex items-center gap-1.5 text-xs font-medium"
+            className="min-h-[44px] p-2 sm:px-3 sm:py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
             title="System Admin"
           >
-            <Cpu className="w-3.5 h-3.5 text-indigo-500" />
+            <Cpu className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />
             <span className="hidden sm:inline">Admin</span>
           </button>
 
@@ -122,22 +122,22 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="relative">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
+                className="min-h-[44px] flex items-center gap-1.5 p-2 rounded-[14px] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A] transition-colors cursor-pointer"
               >
                 <img
                   src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`}
                   alt={user.name}
-                  className="w-6 h-6 rounded-full border border-slate-300 dark:border-slate-700 object-cover"
+                  className="w-7 h-7 rounded-full border border-[#D5E0D8] dark:border-[#27403A] object-cover"
                 />
-                <ChevronDown className="w-3 h-3 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#4F6359] dark:text-[#9DB5A8]" />
               </button>
 
               {/* Minimal Dropdown */}
               {isMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100">
-                  <div className="px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800/80 mb-1">
-                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{user.name}</p>
-                    <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+                <div className="absolute right-0 mt-2 w-52 rounded-[20px] bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] p-2 space-y-1 z-50 animate-in fade-in duration-100">
+                  <div className="px-3 py-2 border-b border-[#D5E0D8] dark:border-[#27403A] mb-1">
+                    <p className="text-xs font-bold text-[#10231C] dark:text-[#E8F2EC] truncate">{user.name}</p>
+                    <p className="text-xs text-[#4F6359] dark:text-[#9DB5A8] truncate">{user.email}</p>
                   </div>
 
                   <button
@@ -145,9 +145,9 @@ export const Header: React.FC<HeaderProps> = ({
                       setIsMenuOpen(false);
                       if (onSelectCategory) onSelectCategory("history");
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 transition-colors"
+                    className="w-full min-h-[44px] px-3 py-2 rounded-[12px] text-left text-xs text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] flex items-center gap-2 transition-colors cursor-pointer"
                   >
-                    <History className="w-3.5 h-3.5 text-slate-400" />
+                    <History className="w-4 h-4 text-[#4F6359] dark:text-[#9DB5A8]" />
                     <span>Search History</span>
                   </button>
 
@@ -156,9 +156,9 @@ export const Header: React.FC<HeaderProps> = ({
                       setIsMenuOpen(false);
                       onOpenProfile();
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 transition-colors"
+                    className="w-full min-h-[44px] px-3 py-2 rounded-[12px] text-left text-xs text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] flex items-center gap-2 transition-colors cursor-pointer"
                   >
-                    <Shield className="w-3.5 h-3.5 text-slate-400" />
+                    <Shield className="w-4 h-4 text-[#4F6359] dark:text-[#9DB5A8]" />
                     <span>Account Profile</span>
                   </button>
 
@@ -167,9 +167,9 @@ export const Header: React.FC<HeaderProps> = ({
                       setIsMenuOpen(false);
                       logout();
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg text-left text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 transition-colors font-medium"
+                    className="w-full min-h-[44px] px-3 py-2 rounded-[12px] text-left text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 transition-colors font-medium cursor-pointer"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-4 h-4" />
                     <span>Sign Out</span>
                   </button>
                 </div>
@@ -178,9 +178,9 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <button
               onClick={onOpenLogin}
-              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+              className="min-h-[44px] px-4 py-2 rounded-[14px] bg-[#0A5C45] dark:bg-[#0F8056] hover:brightness-110 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-[#0A5C45] dark:border-[#0F8056]"
             >
-              <LogIn className="w-3.5 h-3.5" />
+              <LogIn className="w-4 h-4" />
               <span>Sign In</span>
             </button>
           )}

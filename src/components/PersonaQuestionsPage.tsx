@@ -35,24 +35,24 @@ export const PersonaQuestionsPage: React.FC = () => {
   }, [personaName]);
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-5 py-8 sm:px-8">
+    <main className="min-h-screen bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] px-5 py-8 sm:px-8">
       <section className="max-w-3xl mx-auto">
-        <nav className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-8" aria-label="Breadcrumb">
-          <a href="/" className="hover:text-indigo-500 inline-flex items-center gap-1"><Home className="w-3.5 h-3.5" /> Home</a>
+        <nav className="flex items-center gap-1.5 text-xs text-[#4F6359] dark:text-[#9DB5A8] mb-8" aria-label="Breadcrumb">
+          <a href="/" className="hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] inline-flex items-center gap-1 min-h-[44px]"><Home className="w-4 h-4" /> Home</a>
           <ChevronRight className="w-3.5 h-3.5" /><span>{personaName}</span><ChevronRight className="w-3.5 h-3.5" /><span>Questions</span>
         </nav>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3">Questions answered by {personaName}</h1>
-        <p className="text-slate-500 dark:text-slate-400 mb-8">Explore public answers from this G-AGE expert.</p>
-        {loading ? <p className="text-sm text-slate-500">Loading questions...</p> : questions.length === 0 ? <p className="text-sm text-slate-500">No public questions yet.</p> : (
+        <h1 className="font-heading text-3xl sm:text-4xl font-bold tracking-tight mb-3 text-[#10231C] dark:text-[#E8F2EC]">Questions answered by {personaName}</h1>
+        <p className="text-[#4F6359] dark:text-[#9DB5A8] mb-8 text-base">Explore public answers from this G-AGE expert.</p>
+        {loading ? <p className="text-sm text-[#4F6359] dark:text-[#9DB5A8]">Loading questions...</p> : questions.length === 0 ? <p className="text-sm text-[#4F6359] dark:text-[#9DB5A8]">No public questions yet.</p> : (
           <div className="space-y-3">
             {questions.map((question) => (
-              <a key={question.id || question.slug} href={`/q/${encodeURIComponent(question.slug)}`} className="block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-5 py-4 hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors">
-                <div className="flex items-start justify-between gap-4"><span className="font-semibold leading-relaxed">{question.question_text.slice(0, 100)}{question.question_text.length > 100 ? "..." : ""}</span><span className="shrink-0 text-xs text-slate-500">{question.view_count || 0} views</span></div>
+              <a key={question.id || question.slug} href={`/q/${encodeURIComponent(question.slug)}`} className="block min-h-[44px] bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] rounded-[20px] px-5 py-4 hover:border-[#0A5C45] dark:hover:border-[#5BE0A5] transition-colors">
+                <div className="flex items-start justify-between gap-4"><span className="font-semibold leading-relaxed text-[#10231C] dark:text-[#E8F2EC]">{question.question_text.slice(0, 100)}{question.question_text.length > 100 ? "..." : ""}</span><span className="shrink-0 text-xs text-[#4F6359] dark:text-[#9DB5A8]">{question.view_count || 0} views</span></div>
               </a>
             ))}
           </div>
         )}
-        <a href="/" className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700"><ArrowLeft className="w-4 h-4" /> Back home</a>
+        <a href="/" className="mt-8 inline-flex items-center gap-2 text-base font-bold text-[#0A5C45] dark:text-[#5BE0A5] hover:underline min-h-[44px]"><ArrowLeft className="w-4 h-4" /> Back home</a>
       </section>
     </main>
   );

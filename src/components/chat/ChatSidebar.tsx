@@ -167,15 +167,15 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       <div
         key={session.id}
         onClick={() => onSelectSession(session.id)}
-        className={`group relative flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150 select-none ${
+        className={`group relative flex items-center gap-2.5 px-3 py-2.5 rounded-[14px] min-h-[44px] cursor-pointer transition-all duration-150 select-none border ${
           isActive
-            ? 'bg-slate-200/80 dark:bg-slate-800/90 text-slate-900 dark:text-white font-medium shadow-xs'
-            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+            ? 'bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] font-bold border-[#0A5C45]/20 dark:border-[#5BE0A5]/20'
+            : 'text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#F3F6F1] dark:hover:bg-[#17352A]/40 border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]'
         }`}
       >
         {/* Persona Initials Badge */}
         <div
-          className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-2xs"
+          className="w-7 h-7 rounded-[10px] flex items-center justify-center text-xs font-bold text-white shrink-0"
           style={{ backgroundColor: color }}
         >
           {initials}
@@ -194,30 +194,30 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 autoFocus
-                className="w-full text-xs px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-indigo-500 text-slate-900 dark:text-white focus:outline-none"
+                className="w-full text-xs px-2 py-1 rounded-[10px] bg-white dark:bg-[#12231C] border border-[#0A5C45] dark:border-[#0F8056] text-[#10231C] dark:text-[#E8F2EC] focus:outline-none"
               />
               <button
                 type="submit"
-                className="p-1 text-emerald-600 hover:text-emerald-500"
+                className="min-h-[44px] min-w-[32px] p-1 text-[#0A5C45] dark:text-[#5BE0A5] hover:opacity-80 flex items-center justify-center"
                 title="Save"
               >
-                <Check className="w-3 h-3" />
+                <Check className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => setEditingSessionId(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="min-h-[44px] min-w-[32px] p-1 text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#10231C] dark:hover:text-[#E8F2EC] flex items-center justify-center"
                 title="Cancel"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </form>
           ) : (
             <div className="flex flex-col">
               <span className="text-xs truncate font-medium">{session.title}</span>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+              <div className="flex items-center gap-1.5 text-xs text-[#4F6359] dark:text-[#9DB5A8]">
                 <span className="capitalize">{session.mode}</span>
-                {session.isPinned && <Pin className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />}
+                {session.isPinned && <Pin className="w-3 h-3 text-[#F4B400] fill-[#F4B400]" />}
               </div>
             </div>
           )}
@@ -273,21 +273,21 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
       {/* Main Sidebar Panel */}
       <aside
-        className={`fixed lg:static top-0 bottom-0 left-0 z-40 flex flex-col w-[260px] bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+        className={`fixed lg:static top-0 bottom-0 left-0 z-40 flex flex-col w-[270px] bg-[#FFFFFF] dark:bg-[#12231C] border-r border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:w-0 lg:border-r-0'
         }`}
       >
         {/* Top Header: Brand & Collapse Toggle */}
-        <div className="h-14 px-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white/70 dark:bg-slate-950/70">
-          <div className="flex items-center gap-2 select-none">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+        <div className="h-16 px-4 border-b border-[#D5E0D8] dark:border-[#27403A] flex items-center justify-between shrink-0 bg-[#FFFFFF] dark:bg-[#12231C]">
+          <div className="flex items-center gap-2.5 select-none">
+            <div className="w-8 h-8 rounded-[10px] bg-[#0A5C45] dark:bg-[#0F8056] text-white flex items-center justify-center font-bold text-xs">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-sm tracking-tight text-slate-900 dark:text-white leading-tight">
-                G-AGE <span className="text-indigo-600 dark:text-indigo-400 font-normal">AI</span>
+              <div className="font-heading font-bold text-base tracking-tight text-[#10231C] dark:text-[#E8F2EC] leading-tight">
+                G-AGE <span className="text-[#0A5C45] dark:text-[#5BE0A5] font-semibold">AI</span>
               </div>
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-none">
+              <div className="text-xs text-[#4F6359] dark:text-[#9DB5A8] font-medium leading-none">
                 The Next Age of Intelligence
               </div>
             </div>
@@ -295,7 +295,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#10231C] dark:hover:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors flex items-center justify-center cursor-pointer border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
             title="Collapse Sidebar"
           >
             <PanelLeftClose className="w-4 h-4" />
@@ -303,37 +303,37 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         </div>
 
         {/* New Chat & Search Stage */}
-        <div className="p-3 space-y-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/40 dark:bg-slate-950/40 shrink-0">
+        <div className="p-3 space-y-2 border-b border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] shrink-0">
           {/* New Chat Primary Button */}
           <button
             onClick={onNewChat}
-            className="w-full py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs font-semibold shadow-xs flex items-center justify-between transition-all cursor-pointer group"
+            className="w-full min-h-[44px] py-2.5 px-3.5 rounded-[14px] bg-[#0A5C45] dark:bg-[#0F8056] hover:brightness-110 active:scale-[0.98] text-white text-xs font-bold flex items-center justify-between transition-all cursor-pointer border border-[#0A5C45] dark:border-[#0F8056] group"
           >
             <div className="flex items-center gap-2">
               <Plus className="w-4 h-4 transition-transform group-hover:rotate-90 duration-200" />
               <span>New Chat</span>
             </div>
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-indigo-700/80 text-[10px] text-indigo-200 font-mono">
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/20 text-xs text-white font-mono">
               Ctrl+K
             </kbd>
           </button>
 
           {/* Search Chat History Input */}
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#4F6359] dark:text-[#9DB5A8] absolute left-3 top-3.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search chat history..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full min-h-[44px] pl-9 pr-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-sm text-[#10231C] dark:text-[#E8F2EC] placeholder:text-[#4F6359] dark:placeholder:text-[#9DB5A8] focus:outline-none focus:border-[#0A5C45] dark:focus:border-[#0F8056]"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute right-2.5 top-2.5 min-h-[32px] min-w-[32px] text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] flex items-center justify-center cursor-pointer"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -342,18 +342,18 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         {/* Sessions List (Scrollable Area) */}
         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 text-xs">
           {sessions.length === 0 ? (
-            <div className="p-4 text-center text-slate-400 space-y-2">
-              <MessageSquare className="w-6 h-6 mx-auto opacity-40" />
-              <p className="text-xs">No previous chats yet.</p>
-              <p className="text-[11px] text-slate-500">Click &quot;New Chat&quot; to begin exploration.</p>
+            <div className="p-4 text-center text-[#4F6359] dark:text-[#9DB5A8] space-y-2">
+              <MessageSquare className="w-6 h-6 mx-auto opacity-40 text-[#0A5C45] dark:text-[#5BE0A5]" />
+              <p className="text-xs font-semibold">No previous chats yet.</p>
+              <p className="text-xs">Click &quot;New Chat&quot; to begin exploration.</p>
             </div>
           ) : (
             <>
               {/* Pinned Group */}
               {grouped.pinned.length > 0 && (
                 <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Pin className="w-2.5 h-2.5 text-amber-500" />
+                  <div className="px-2 text-xs font-bold text-[#4F6359] dark:text-[#9DB5A8] uppercase tracking-wider flex items-center gap-1">
+                    <Pin className="w-3 h-3 text-[#F4B400]" />
                     <span>Pinned</span>
                   </div>
                   {grouped.pinned.map(renderSessionItem)}
@@ -363,7 +363,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               {/* Today Group */}
               {grouped.today.length > 0 && (
                 <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <div className="px-2 text-xs font-bold text-[#4F6359] dark:text-[#9DB5A8] uppercase tracking-wider">
                     Today
                   </div>
                   {grouped.today.map(renderSessionItem)}
@@ -373,7 +373,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               {/* Yesterday Group */}
               {grouped.yesterday.length > 0 && (
                 <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <div className="px-2 text-xs font-bold text-[#4F6359] dark:text-[#9DB5A8] uppercase tracking-wider">
                     Yesterday
                   </div>
                   {grouped.yesterday.map(renderSessionItem)}
@@ -383,7 +383,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               {/* Previous 7 Days */}
               {grouped.previous7Days.length > 0 && (
                 <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <div className="px-2 text-xs font-bold text-[#4F6359] dark:text-[#9DB5A8] uppercase tracking-wider">
                     Previous 7 Days
                   </div>
                   {grouped.previous7Days.map(renderSessionItem)}
@@ -393,7 +393,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               {/* Older */}
               {grouped.older.length > 0 && (
                 <div className="space-y-1">
-                  <div className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <div className="px-2 text-xs font-bold text-[#4F6359] dark:text-[#9DB5A8] uppercase tracking-wider">
                     Older
                   </div>
                   {grouped.older.map(renderSessionItem)}
@@ -404,27 +404,27 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         </div>
 
         {/* Query Limits & Upgrade Banner */}
-        <div id="tour-quota-badge" className="p-3 border-t border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-950/70 shrink-0 space-y-2">
+        <div id="tour-quota-badge" className="p-3 border-t border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] shrink-0 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
+            <div className="flex items-center gap-1.5 font-bold text-[#10231C] dark:text-[#E8F2EC]">
+              <Zap className="w-4 h-4 text-[#F4B400]" />
               <span>Queries</span>
             </div>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border border-[#0A5C45]/20 dark:border-[#5BE0A5]/20">
               {queryUsage.tier === 'paid' ? 'Unlimited' : `${queryUsage.remaining}/${queryUsage.limit}`}
             </span>
           </div>
 
           {/* Usage Progress Bar */}
           {queryUsage.tier !== 'paid' && (
-            <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div className="w-full bg-[#DDEFE6] dark:bg-[#17352A] h-2 rounded-full overflow-hidden border border-[#D5E0D8] dark:border-[#27403A]">
               <div
                 className={`h-full transition-all duration-300 ${
                   queryUsage.remaining <= 1
                     ? 'bg-rose-500'
                     : queryUsage.remaining <= 3
-                    ? 'bg-amber-500'
-                    : 'bg-indigo-600'
+                    ? 'bg-[#F4B400]'
+                    : 'bg-[#0A5C45] dark:bg-[#0F8056]'
                 }`}
                 style={{
                   width: `${Math.max(0, Math.min(100, (queryUsage.remaining / queryUsage.limit) * 100))}%`,
@@ -436,27 +436,27 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           {queryUsage.tier !== 'paid' && (
             <button
               onClick={onOpenPaywall}
-              className="w-full py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-semibold text-[11px] shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+              className="w-full min-h-[44px] py-2.5 rounded-[14px] bg-[#F4B400] text-[#10231C] hover:bg-[#e0a500] font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-[#d49b00]"
             >
-              <Sparkles className="w-3 h-3" />
+              <Sparkles className="w-3.5 h-3.5" />
               <span>Upgrade to Pro</span>
             </button>
           )}
         </div>
 
         {/* Bottom Quick Tools & User Profile */}
-        <div className="p-2.5 border-t border-slate-200/80 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-950/60 shrink-0 space-y-1.5">
+        <div className="p-2.5 border-t border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] shrink-0 space-y-2">
           {/* Action Row: Notes, Product Tour, Admin, Theme */}
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-4 gap-1.5">
             <button
               id="tour-notes-btn"
               onClick={onOpenNotes}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-indigo-500 transition-colors flex items-center justify-center relative cursor-pointer"
+              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center justify-center relative cursor-pointer"
               title="Compiled Notes"
             >
               <FileText className="w-4 h-4" />
               {notesCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-indigo-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                <span className="absolute top-1 right-1 w-4 h-4 bg-[#0A5C45] dark:bg-[#0F8056] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {notesCount}
                 </span>
               )}
@@ -464,7 +464,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
             <button
               onClick={replayTour}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-emerald-500 transition-colors flex items-center justify-center cursor-pointer"
+              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center justify-center cursor-pointer"
               title="Guided Product Tour (Replay)"
             >
               <Compass className="w-4 h-4" />
@@ -472,7 +472,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
             <button
               onClick={onOpenAdmin}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-purple-500 transition-colors flex items-center justify-center cursor-pointer"
+              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center justify-center cursor-pointer"
               title="Admin Dashboard"
             >
               <Cpu className="w-4 h-4" />
@@ -480,7 +480,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
             <button
               onClick={toggleTheme}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-cyan-500 transition-colors flex items-center justify-center cursor-pointer"
+              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center justify-center cursor-pointer"
               title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
             >
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -491,14 +491,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           {onOpenDownload && (
             <button
               onClick={onOpenDownload}
-              className="w-full py-1.5 px-2.5 rounded-xl bg-slate-200/70 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-300/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer group"
+              className="w-full min-h-[44px] py-2 px-3 rounded-[14px] bg-white dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer group"
               title="Download Android App (.APK)"
             >
               <div className="flex items-center gap-2">
-                <Smartphone className="w-3.5 h-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
-                <span className="text-[11px]">Android App (.APK)</span>
+                <Smartphone className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5] group-hover:scale-110 transition-transform" />
+                <span className="text-xs">Android App (.APK)</span>
               </div>
-              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="text-xs font-bold px-2 py-0.5 rounded-[10px] bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border border-[#0A5C45]/20 dark:border-[#5BE0A5]/20">
                 v1.2
               </span>
             </button>
@@ -506,45 +506,45 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
           {/* User Account / Sign In Footer */}
           {isLoggedIn && user ? (
-            <div className="flex items-center justify-between p-1.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+            <div className="flex items-center justify-between p-2 rounded-[14px] bg-white dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A]">
               <div
                 onClick={onOpenProfile}
-                className="flex items-center gap-2 cursor-pointer min-w-0 flex-1"
+                className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1"
               >
                 <img
                   src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`}
                   alt={user.name}
-                  className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                  className="w-8 h-8 rounded-full object-cover border border-[#D5E0D8] dark:border-[#27403A] shrink-0"
                 />
                 <div className="flex flex-col min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    <span className="text-xs font-bold text-[#10231C] dark:text-[#E8F2EC] truncate">
                       {user.name}
                     </span>
                     {(user.tier === 'paid' || user.tier === 'pro' || user.tier === 'unlimited') && (
-                      <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80 shrink-0 shadow-2xs">
+                      <span className="inline-flex items-center px-1.5 py-0.2 rounded-[8px] text-[10px] font-extrabold bg-[#F4B400] text-[#10231C] border border-[#d49b00] shrink-0">
                         PRO
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] text-slate-400 truncate">{user.email || user.username || user.phone}</span>
+                  <span className="text-xs text-[#4F6359] dark:text-[#9DB5A8] truncate">{user.email || user.username || user.phone}</span>
                 </div>
               </div>
 
               <button
                 onClick={logout}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0"
+                className="min-h-[44px] min-w-[36px] p-2 rounded-[10px] text-[#4F6359] hover:text-rose-600 dark:hover:text-rose-400 hover:bg-[#F3F6F1] dark:hover:bg-[#17352A] transition-colors shrink-0 flex items-center justify-center cursor-pointer"
                 title="Sign Out"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
           ) : (
             <button
               onClick={onOpenLogin}
-              className="w-full py-2 px-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-750 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+              className="w-full min-h-[44px] py-2.5 px-3 rounded-[14px] bg-[#0A5C45] dark:bg-[#0F8056] text-white hover:brightness-110 border border-[#0A5C45] dark:border-[#0F8056] text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <LogIn className="w-3.5 h-3.5 text-indigo-600" />
+              <LogIn className="w-4 h-4" />
               <span>Sign In / Register</span>
             </button>
           )}
