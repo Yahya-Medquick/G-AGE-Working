@@ -87,20 +87,20 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
   };
 
   return (
-    <div className="border-b border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] shrink-0 transition-all">
-      <div className="px-4 py-2 flex items-center justify-between">
+    <div className="specifications-accordion border-b border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] shrink-0 transition-all">
+      <div className="px-4 py-2 flex items-center justify-between max-[768px]:gap-2 max-[768px]:px-2">
         <button
           onClick={onToggle}
-          className="min-h-[44px] flex items-center gap-2 text-xs font-bold text-[#10231C] dark:text-[#E8F2EC] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] cursor-pointer"
+          className="min-h-[44px] flex items-center gap-2 text-xs font-bold text-[#10231C] dark:text-[#E8F2EC] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] cursor-pointer max-[768px]:min-w-0 max-[768px]:text-left"
         >
           <SlidersHorizontal className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />
-          <span>Specifications &amp; Filters ({mode.toUpperCase()} MODE)</span>
+          <span className="max-[768px]:min-w-0 max-[768px]:whitespace-normal">Specifications &amp; Filters ({mode.toUpperCase()} MODE)</span>
           {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
         {isOpen && (
           <button
             onClick={handleReset}
-            className="min-h-[44px] flex items-center gap-1.5 text-xs text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] cursor-pointer"
+            className="min-h-[44px] flex items-center gap-1.5 text-xs text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] cursor-pointer max-[768px]:shrink-0"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>

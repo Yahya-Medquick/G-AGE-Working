@@ -3,6 +3,14 @@
 
 @variant dark (.dark &);
 
+@media (max-width: 768px) {
+  .specifications-accordion {
+    max-height: calc(100dvh - 220px);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    FONTS DEFINITIONS
    ───────────────────────────────────────────────────────────── */
