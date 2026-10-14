@@ -6300,9 +6300,10 @@ async function recordAndVerifyTabUsage(req: Request, category: string, resolvedU
   }
 
   const DEVICE_LIMIT = 200;
-  const ACCOUNT_LIMIT = 25;
+  const FREE_DAILY_QUERY_LIMIT = 25;
+  const ACCOUNT_LIMIT = FREE_DAILY_QUERY_LIMIT;
 
-  // 1. Primary Mechanism: Device Level Daily Query Limit (15/day across all accounts)
+  // 1. Primary Mechanism: Device Level Daily Query Limit (200/day across all accounts)
   const deviceCount = await getDeviceQueryCount(deviceId, today);
   if (deviceCount >= DEVICE_LIMIT) {
     return {
@@ -6322,7 +6323,7 @@ async function recordAndVerifyTabUsage(req: Request, category: string, resolvedU
     };
   }
 
-  // 2. Secondary Layer: Account Level Daily Query Limit (10/day)
+  // 2. Secondary Layer: Account Level Daily Query Limit (25/day)
   let accountCount = 0;
   if (currentUser) {
     accountCount = await getUserTotalDailyQueryCount(currentUser.id, today);
@@ -6384,6 +6385,9 @@ app.get("/api/usage", async (req: Request, res: Response) => {
   const tab = ((req.query.tab as string) || "research").toLowerCase();
   const today = getUtcTodayDateString();
 
+  const DEVICE_LIMIT = 200;
+  const FREE_DAILY_QUERY_LIMIT = 25;
+
   if (currentUser?.tier === "paid" || currentUser?.tier === "pro" || currentUser?.tier === "unlimited") {
     return res.json({
       loggedIn: true,
@@ -6406,7 +6410,7 @@ app.get("/api/usage", async (req: Request, res: Response) => {
   }
 
   const deviceCount = await getDeviceQueryCount(deviceId, today);
-  const deviceRemaining = Math.max(0, 15 - deviceCount);
+  const deviceRemaining = Math.max(0, DEVICE_LIMIT - deviceCount);
 
   const GUEST_LIFETIME_LIMIT = 5;
   let guestLifetimeCount = 0;
@@ -6418,7 +6422,7 @@ app.get("/api/usage", async (req: Request, res: Response) => {
   if (currentUser) {
     accountCount = await getUserTotalDailyQueryCount(currentUser.id, today);
   }
-  const accountRemaining = currentUser ? Math.max(0, 10 - accountCount) : deviceRemaining;
+  const accountRemaining = currentUser ? Math.max(0, FREE_DAILY_QUERY_LIMIT - accountCount) : deviceRemaining;
   const effectiveRemaining = currentUser
     ? Math.min(deviceRemaining, accountRemaining)
     : Math.max(0, GUEST_LIFETIME_LIMIT - guestLifetimeCount);
@@ -6428,15 +6432,15 @@ app.get("/api/usage", async (req: Request, res: Response) => {
     loggedIn: !!currentUser,
     tab,
     deviceId,
-    deviceLimit: 15,
+    deviceLimit: DEVICE_LIMIT,
     deviceCount,
     deviceRemaining,
-    accountLimit: 10,
+    accountLimit: FREE_DAILY_QUERY_LIMIT,
     accountCount,
     accountRemaining,
     guestLifetimeLimit: GUEST_LIFETIME_LIMIT,
     guestLifetimeCount,
-    limit: currentUser ? Math.min(15, 10) : GUEST_LIFETIME_LIMIT,
+    limit: currentUser ? FREE_DAILY_QUERY_LIMIT : GUEST_LIFETIME_LIMIT,
     count: currentUser ? accountCount : guestLifetimeCount,
     remaining: effectiveRemaining,
     resetInSeconds,
@@ -6449,6 +6453,9 @@ app.post("/api/query/track", async (req: Request, res: Response) => {
   const isGuest = !currentUser;
   const deviceId = isGuest ? getTrustedGuestDeviceId(req) : ((req.headers["x-device-id"] as string) || (req.headers["X-Device-ID"] as string) || req.body?.deviceId || (req.query.deviceId as string) || "dev-unknown");
   const today = getUtcTodayDateString();
+
+  const DEVICE_LIMIT = 200;
+  const FREE_DAILY_QUERY_LIMIT = 25;
 
   if (currentUser?.tier === "paid") {
     return res.json({ allowed: true, remaining: 999999, count: 0, tier: "paid" });
@@ -6500,7 +6507,7 @@ app.post("/api/query/track", async (req: Request, res: Response) => {
 
   const effectiveRemaining = isGuest
     ? Math.max(0, GUEST_LIFETIME_LIMIT - guestLifetimeCount)
-    : Math.min(Math.max(0, 15 - updatedDeviceCount), Math.max(0, 10 - updatedAccountCount));
+    : Math.min(Math.max(0, DEVICE_LIMIT - updatedDeviceCount), Math.max(0, FREE_DAILY_QUERY_LIMIT - updatedAccountCount));
 
   res.json({
     success: true,
@@ -6509,7 +6516,7 @@ app.post("/api/query/track", async (req: Request, res: Response) => {
     deviceCount: updatedDeviceCount,
     guestLifetimeCount,
     accountCount: updatedAccountCount,
-    limit: isGuest ? GUEST_LIFETIME_LIMIT : 10,
+    limit: isGuest ? GUEST_LIFETIME_LIMIT : FREE_DAILY_QUERY_LIMIT,
     count: isGuest ? guestLifetimeCount : updatedAccountCount,
     remaining: effectiveRemaining,
     today,
