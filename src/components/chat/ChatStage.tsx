@@ -410,13 +410,14 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full bg-[#F3F6F1] dark:bg-[#0B1612] overflow-hidden relative">
       {/* 1. CHAT HEADER */}
-      <header className="sticky top-0 z-30 h-16 px-4 bg-[#FFFFFF]/95 dark:bg-[#12231C]/95 backdrop-blur-md border-b border-[#D5E0D8] dark:border-[#27403A] flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="sticky top-0 z-30 h-16 px-4 bg-[#FFFFFF]/95 dark:bg-[#12231C]/95 backdrop-blur-md border-b border-[#D5E0D8] dark:border-[#27403A] flex items-center justify-between shrink-0 max-[768px]:h-auto max-[768px]:min-h-16 max-[768px]:px-2 max-[768px]:py-1 max-[768px]:flex-wrap max-[768px]:justify-start max-[768px]:gap-y-1">
+        <div className="flex items-center gap-3 min-w-0 max-[768px]:w-full max-[768px]:gap-2">
           {!isLeftPanelOpen && onToggleLeftPanel && (
             <button
               onClick={onToggleLeftPanel}
               className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
               title="Open Chat Sessions"
+              aria-label="Open chats"
             >
               <PanelLeft className="w-5 h-5" />
             </button>
@@ -458,19 +459,19 @@ export const ChatStage: React.FC<ChatStageProps> = ({
         </div>
 
         {/* Center/Right Section: Mode Tabs & Quick Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 max-[768px]:w-full max-[768px]:justify-between max-[768px]:gap-1">
           {/* Mode Switcher */}
           <div className="relative" data-mode-switcher>
             <button
               onClick={() => setShowModeSwitcher(!showModeSwitcher)}
-              className="px-3.5 py-2 min-h-[44px] rounded-[14px] text-xs font-bold flex items-center gap-2 transition-all cursor-pointer bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A]"
+              className="px-3.5 py-2 min-h-[44px] rounded-[14px] text-xs font-bold flex items-center gap-2 transition-all cursor-pointer bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] max-[768px]:px-2 max-[768px]:gap-1"
               title="Switch Mode"
               aria-label={`Switch mode. Current mode: ${activeMode}`}
             >
               {activeMode === 'concept' && <Lightbulb className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />}
               {activeMode === 'exam' && <GraduationCap className="w-4 h-4 text-[#F4B400]" />}
               {activeMode === 'research' && <BookOpen className="w-4 h-4 text-[#0A5C45] dark:text-[#5BE0A5]" />}
-              <span className="capitalize whitespace-nowrap">{activeMode}</span>
+              <span className="capitalize whitespace-nowrap max-[768px]:hidden">{activeMode}</span>
               <ChevronDown className="w-3.5 h-3.5 opacity-60" />
             </button>
 
@@ -506,7 +507,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           <div className="relative" data-lang-switcher>
             <button
               onClick={() => setShowLangSwitcher(!showLangSwitcher)}
-              className="px-3.5 py-2 min-h-[44px] rounded-[14px] text-xs font-bold flex items-center gap-2 transition-all cursor-pointer bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A]"
+              className="px-3.5 py-2 min-h-[44px] rounded-[14px] text-xs font-bold flex items-center gap-2 transition-all cursor-pointer bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] max-[768px]:px-2 max-[768px]:gap-1"
               title="Switch Response Language"
             >
               <span className="text-xs">
@@ -549,7 +550,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           {/* Query Usage Pill / Upgrade CTA */}
           <button
             onClick={onOpenPaywall}
-            className={`px-3 py-1.5 min-h-[44px] rounded-[14px] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 min-h-[44px] rounded-[14px] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer max-[768px]:px-2 max-[768px]:gap-1 ${
               queryUsage.tier === 'paid'
                 ? 'bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border border-[#0A5C45]/30'
                 : queryUsage.remaining <= 1
@@ -570,6 +571,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               onClick={onToggleRightPanel}
               className="min-h-[44px] min-w-[44px] p-2.5 rounded-[14px] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
               title="Open Personas & Mentors"
+              aria-label="Open expert panel"
             >
               <PanelRight className="w-5 h-5" />
             </button>

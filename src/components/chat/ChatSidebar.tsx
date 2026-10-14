@@ -312,6 +312,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             onClick={onToggle}
             className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] dark:text-[#9DB5A8] hover:text-[#10231C] dark:hover:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors flex items-center justify-center cursor-pointer border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
             title="Collapse Sidebar"
+            aria-label="Close chats"
           >
             <PanelLeftClose className="w-4 h-4" />
           </button>
@@ -468,7 +469,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         {/* Bottom Quick Tools & User Profile */}
         <div className="p-2.5 border-t border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] shrink-0 space-y-2">
           {/* Action Row: Notes, Product Tour, Admin, Theme */}
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5 max-[768px]:grid-cols-5">
             <button
               id="tour-notes-btn"
               onClick={onOpenNotes}
@@ -500,6 +501,16 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             >
               <Cpu className="w-3.5 h-3.5" />
               <span className="text-[12px] font-semibold mt-0.5 leading-none">Admin</span>
+            </button>
+
+            <button
+              onClick={onOpenApiDocs}
+              className="hidden max-[768px]:flex min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex-col items-center justify-center p-1 cursor-pointer"
+              title="API Reference"
+              aria-label="Open API reference"
+            >
+              <Code2 className="w-3.5 h-3.5" />
+              <span className="text-[12px] font-semibold mt-0.5 leading-none">API</span>
             </button>
 
             <button

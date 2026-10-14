@@ -282,6 +282,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
             onClick={onToggle}
             className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
             title="Collapse Persona Panel"
+            aria-label="Close expert panel"
           >
             <PanelRightClose className="w-4 h-4" />
           </button>
