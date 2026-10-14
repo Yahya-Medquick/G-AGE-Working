@@ -29,6 +29,21 @@ import { ChatSession } from '../../types/chat';
 import { useUser } from '../../context/UserContext';
 import { ExpertPersona } from '../../data/experts';
 
+export function getBrandPersonaColor(id: string): { bg: string; text: string } {
+  let hash = 0;
+  for (let i = 0; i < (id || '').length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+    hash |= 0;
+  }
+  const colors = [
+    { bg: '#0A5C45', text: '#FFFFFF' },
+    { bg: '#F4B400', text: '#10231C' },
+    { bg: '#0F8056', text: '#FFFFFF' },
+    { bg: '#7A5200', text: '#FFFFFF' },
+  ];
+  return colors[Math.abs(hash) % colors.length];
+}
+
 interface ChatSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
@@ -161,7 +176,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       || personaName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
       || personaId.slice(0, 2).toUpperCase()
       || '?';
-    const color = persona?.avatar_color || '#6366f1';
+    const brandColor = getBrandPersonaColor(personaId || session.id);
 
     return (
       <div
@@ -175,8 +190,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       >
         {/* Persona Initials Badge */}
         <div
-          className="w-7 h-7 rounded-[10px] flex items-center justify-center text-xs font-bold text-white shrink-0"
-          style={{ backgroundColor: color }}
+          className="w-7 h-7 rounded-[10px] flex items-center justify-center text-xs font-bold shrink-0"
+          style={{ backgroundColor: brandColor.bg, color: brandColor.text }}
         >
           {initials}
         </div>
@@ -451,10 +466,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             <button
               id="tour-notes-btn"
               onClick={onOpenNotes}
-              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center justify-center relative cursor-pointer"
-              title="Compiled Notes"
+              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex flex-col items-center justify-center p-1 relative cursor-pointer"
+              title="Notes"
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-3.5 h-3.5" />
+              <span className="text-[12px] font-semibold mt-0.5 leading-none">Notes</span>
               {notesCount > 0 && (
                 <span className="absolute top-1 right-1 w-4 h-4 bg-[#0A5C45] dark:bg-[#0F8056] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {notesCount}
@@ -464,26 +480,29 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
             <button
               onClick={replayTour}
-              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center justify-center cursor-pointer"
-              title="Guided Product Tour (Replay)"
+              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex flex-col items-center justify-center p-1 cursor-pointer"
+              title="Tour"
             >
-              <Compass className="w-4 h-4" />
+              <Compass className="w-3.5 h-3.5" />
+              <span className="text-[12px] font-semibold mt-0.5 leading-none">Tour</span>
             </button>
 
             <button
               onClick={onOpenAdmin}
-              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center justify-center cursor-pointer"
-              title="Admin Dashboard"
+              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex flex-col items-center justify-center p-1 cursor-pointer"
+              title="Admin"
             >
-              <Cpu className="w-4 h-4" />
+              <Cpu className="w-3.5 h-3.5" />
+              <span className="text-[12px] font-semibold mt-0.5 leading-none">Admin</span>
             </button>
 
             <button
               onClick={toggleTheme}
-              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center justify-center cursor-pointer"
-              title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              className="min-h-[44px] min-w-[44px] rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#4F6359] dark:text-[#9DB5A8] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex flex-col items-center justify-center p-1 cursor-pointer"
+              title={theme === 'dark' ? 'Light' : 'Dark'}
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              <span className="text-[12px] font-semibold mt-0.5 leading-none">{theme === 'dark' ? 'Light' : 'Dark'}</span>
             </button>
           </div>
 

@@ -152,10 +152,8 @@ body, input, textarea, select, button, p, span, li, a {
 /* ─────────────────────────────────────────────────────────────
    SHAPES, SIZES & TOUCH TARGETS
    ───────────────────────────────────────────────────────────── */
-/* Interactive controls touch target floor: at least 44px tall */
-button,
-[role="button"],
-.btn,
+/* Specific interactive controls touch target floor: at least 44px tall; chips and toggles keep their size */
+.btn-touch,
 .interactive-target {
   min-height: 44px;
 }
@@ -183,6 +181,16 @@ textarea:not([class*="rounded-["]) {
   box-shadow: none !important;
   border-width: 1px !important;
   border-color: var(--color-border) !important;
+}
+
+/* Assistant answer paragraphs sit cleanly on card surface without tinted/highlighted background bands */
+.prose p,
+.urdu-block,
+p.urdu-block,
+[class*="prose"] p {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* ─────────────────────────────────────────────────────────────

@@ -78,54 +78,57 @@ export const MarkdownRendererContent = ({ content, className = '', isStreaming =
   }, []);
 
   return (
-    <div className={`prose dark:prose-invert max-w-none text-sm leading-relaxed text-slate-800 dark:text-slate-200 [&_.urdu-block]:font-[Jameel_Noori_Nastaleeq,Noto_Nastaliq_Urdu,serif] [&_.urdu-block]:text-right [&_.urdu-block]:leading-loose [&_.urdu-block]:text-base
-      prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-headings:font-bold prose-headings:tracking-tight
-      prose-p:text-slate-700 dark:prose-p:text-slate-300 prose-p:leading-relaxed prose-p:mb-3
-      prose-strong:text-slate-900 dark:prose-strong:text-slate-100 prose-strong:font-bold
-      prose-ul:text-slate-700 dark:prose-ul:text-slate-300 prose-ul:pl-5 prose-ul:mb-3
-      prose-ol:text-slate-700 dark:prose-ol:text-slate-300 prose-ol:pl-5 prose-ol:mb-3
-      prose-li:mb-1.5 prose-li:marker:text-indigo-500 dark:prose-li:marker:text-indigo-400
-      prose-code:text-indigo-700 dark:prose-code:text-indigo-300 prose-code:bg-indigo-50 dark:prose-code:bg-indigo-950/60 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-[12px]
-      prose-blockquote:border-l-4 prose-blockquote:border-indigo-500 dark:prose-blockquote:border-indigo-400 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400 prose-blockquote:italic prose-blockquote:pl-4
-      prose-hr:border-slate-200 dark:prose-hr:border-slate-800
+    <div className={`prose dark:prose-invert max-w-none text-base leading-relaxed text-[#10231C] dark:text-[#E8F2EC] [&_.urdu-block]:font-[Jameel_Noori_Nastaleeq,Noto_Nastaliq_Urdu,serif] [&_.urdu-block]:text-right [&_.urdu-block]:leading-loose [&_.urdu-block]:text-base [&_.urdu-block]:bg-transparent
+      prose-headings:text-[#10231C] dark:prose-headings:text-[#E8F2EC] prose-headings:font-bold prose-headings:tracking-tight
+      prose-p:text-[#10231C] dark:prose-p:text-[#E8F2EC] prose-p:leading-relaxed prose-p:mb-3 prose-p:bg-transparent
+      prose-strong:text-[#10231C] dark:prose-strong:text-[#E8F2EC] prose-strong:font-bold
+      prose-ul:text-[#10231C] dark:prose-ul:text-[#E8F2EC] prose-ul:pl-5 prose-ul:mb-3
+      prose-ol:text-[#10231C] dark:prose-ol:text-[#E8F2EC] prose-ol:pl-5 prose-ol:mb-3
+      prose-li:mb-1.5 prose-li:marker:text-[#0A5C45] dark:prose-li:marker:text-[#5BE0A5]
+      prose-code:text-[#0A5C45] dark:prose-code:text-[#5BE0A5] prose-code:bg-[#DDEFE6] dark:prose-code:bg-[#17352A] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-[12px]
+      prose-blockquote:border-l-4 prose-blockquote:border-[#0A5C45] dark:prose-blockquote:border-[#5BE0A5] prose-blockquote:text-[#4F6359] dark:prose-blockquote:text-[#9DB5A8] prose-blockquote:italic prose-blockquote:pl-4
+      prose-hr:border-[#D5E0D8] dark:border-[#27403A]
       ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
-          h1: ({ ...props }) => <h1 className="text-base sm:text-lg font-bold mt-4 mb-2 text-slate-900 dark:text-white" {...props} />,
-          h2: ({ ...props }) => <h2 className="text-sm sm:text-base font-bold mt-3 mb-1.5 text-slate-900 dark:text-white" {...props} />,
-          h3: ({ ...props }) => <h3 className="text-xs sm:text-sm font-bold mt-2.5 mb-1 text-slate-800 dark:text-slate-100" {...props} />,
+          h1: ({ ...props }) => <h1 className="font-heading text-lg sm:text-xl font-bold mt-4 mb-2 text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
+          h2: ({ ...props }) => <h2 className="font-heading text-base sm:text-lg font-bold mt-3 mb-1.5 text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
+          h3: ({ ...props }) => <h3 className="font-heading text-sm sm:text-base font-bold mt-2.5 mb-1 text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
           p: ({ children, ...props }) => {
             const text = typeof children === 'string' ? children :
               (Array.isArray(children) ? children.join('') : '');
             const isUrdu = hasUrdu(text);
             return (
               <p
-                className={`mb-2.5 last:mb-0 leading-relaxed ${
+                className={`mb-2.5 last:mb-0 leading-relaxed bg-transparent ${
                   isUrdu
                     ? 'urdu-block text-right text-base leading-loose'
-                    : 'text-slate-700 dark:text-slate-300'
+                    : 'text-[#10231C] dark:text-[#E8F2EC]'
                 }`}
                 dir={isUrdu ? 'rtl' : 'ltr'}
                 style={isUrdu ? {
                   fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif",
                   lineHeight: '2.2',
                   textAlign: 'right',
-                } : {}}
+                  backgroundColor: 'transparent',
+                } : {
+                  backgroundColor: 'transparent',
+                }}
                 {...props}
               >
                 {isUrdu ? processUrduText(text) : children}
               </p>
             );
           },
-          ul: ({ ...props }) => <ul className="list-disc pl-5 mb-2.5 space-y-1 text-slate-700 dark:text-slate-300" {...props} />,
-          ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-2.5 space-y-1 text-slate-700 dark:text-slate-300" {...props} />,
-          li: ({ ...props }) => <li className="mb-1 text-slate-700 dark:text-slate-300" {...props} />,
-          strong: ({ ...props }) => <strong className="font-bold text-slate-900 dark:text-white" {...props} />,
-          code: ({ ...props }) => <code className="bg-slate-100 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded font-mono text-[11px] border border-slate-200/60 dark:border-slate-700/60" {...props} />,
+          ul: ({ ...props }) => <ul className="list-disc pl-5 mb-2.5 space-y-1 text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
+          ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-2.5 space-y-1 text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
+          li: ({ ...props }) => <li className="mb-1 text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
+          strong: ({ ...props }) => <strong className="font-bold text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
+          code: ({ ...props }) => <code className="bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] px-1.5 py-0.5 rounded font-mono text-xs border border-[#D5E0D8] dark:border-[#27403A]" {...props} />,
           table: ({ children, node: _node, ...props }) => (
-            <div className="my-3 max-w-full overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+            <div className="my-3 max-w-full overflow-x-auto rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A]">
               <table
                 dir={containsUrdu ? 'rtl' : 'ltr'}
                 className={`w-max min-w-full border-collapse text-xs ${containsUrdu ? 'text-right' : 'text-left'}`}
@@ -135,19 +138,19 @@ export const MarkdownRendererContent = ({ content, className = '', isStreaming =
               </table>
             </div>
           ),
-          thead: ({ node: _node, ...props }) => <thead className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100" {...props} />,
-          tbody: ({ node: _node, ...props }) => <tbody className="[&_tr:nth-child(even)]:bg-slate-50 dark:[&_tr:nth-child(even)]:bg-slate-800/40" {...props} />,
-          tr: ({ node: _node, ...props }) => <tr className="border-b border-slate-200 last:border-b-0 dark:border-slate-700" {...props} />,
+          thead: ({ node: _node, ...props }) => <thead className="bg-[#F3F6F1] text-[#10231C] dark:bg-[#0B1612] dark:text-[#E8F2EC]" {...props} />,
+          tbody: ({ node: _node, ...props }) => <tbody className="[&_tr:nth-child(even)]:bg-[#F3F6F1]/50 dark:[&_tr:nth-child(even)]:bg-[#0B1612]/40" {...props} />,
+          tr: ({ node: _node, ...props }) => <tr className="border-b border-[#D5E0D8] last:border-b-0 dark:border-[#27403A]" {...props} />,
           th: ({ node: _node, ...props }) => (
             <th
-              className={`max-w-[18rem] border-r border-slate-200 px-3 py-2 font-semibold last:border-r-0 dark:border-slate-700 ${containsUrdu ? 'text-right' : 'text-left'}`}
+              className={`max-w-[18rem] border-r border-[#D5E0D8] px-3 py-2 font-semibold last:border-r-0 dark:border-[#27403A] ${containsUrdu ? 'text-right' : 'text-left'}`}
               style={containsUrdu ? { fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif", lineHeight: '2' } : undefined}
               {...props}
             />
           ),
           td: ({ node: _node, ...props }) => (
             <td
-              className={`max-w-[18rem] break-words border-r border-slate-200 px-3 py-2 align-top last:border-r-0 dark:border-slate-700 ${containsUrdu ? 'text-right' : 'text-left'}`}
+              className={`max-w-[18rem] break-words border-r border-[#D5E0D8] px-3 py-2 align-top last:border-r-0 dark:border-[#27403A] ${containsUrdu ? 'text-right' : 'text-left'}`}
               style={containsUrdu ? { fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif", lineHeight: '2' } : undefined}
               {...props}
             />

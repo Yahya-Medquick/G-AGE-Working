@@ -23,6 +23,7 @@ import { ExpertPersona } from '../../data/experts';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useUser } from '../../context/UserContext';
 import { ProExpiryBadge } from '../ProExpiryBadge';
+import { getBrandPersonaColor } from './ChatSidebar';
 
 interface PersonaPanelProps {
   isOpen: boolean;
@@ -126,8 +127,9 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
     const groupMap = new Map<string, { name: string; count: number; color: string }>();
     for (const p of personaList) {
       const gName = (p as any).group_name || p.badge || 'General';
+      const brandCol = getBrandPersonaColor(p.id || gName);
       if (!groupMap.has(gName)) {
-        groupMap.set(gName, { name: gName, count: 0, color: p.avatar_color || '#6366f1' });
+        groupMap.set(gName, { name: gName, count: 0, color: brandCol.bg });
       }
       groupMap.get(gName)!.count++;
     }
@@ -148,7 +150,6 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
       const gName = (p as any).group_name || p.badge || 'General';
       return gName === activeGroup;
     }).sort((a, b) => {
-      // Last used on top
       const aIdx = recentSlugs.indexOf((a as any).slug || a.id);
       const bIdx = recentSlugs.indexOf((b as any).slug || b.id);
       if (aIdx !== -1 && bIdx === -1) return -1;
@@ -198,7 +199,6 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
     setSelectedSlug(slug);
     setIsAnimating(true);
 
-    // Record usage
     if (user) {
       fetch(`/api/v1/personas/${slug}/used`, { method: 'POST', credentials: 'include' }).catch(() => {});
     } else {
@@ -206,7 +206,6 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
     }
     setRecentSlugs(prev => [slug, ...prev.filter(s => s !== slug)].slice(0, 3));
 
-    // Animate then switch
     setTimeout(() => {
       onSelectPersona(persona.id || slug, variant);
       setIsAnimating(false);
@@ -220,7 +219,6 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
       {isOpen && (
         <div
           onClick={onToggle}
@@ -228,7 +226,6 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
         />
       )}
 
-      {/* Main Panel */}
       <aside
         className={`fixed lg:static top-0 bottom-0 right-0 z-40 flex flex-col w-[300px] sm:w-[320px] bg-[#FFFFFF] dark:bg-[#12231C] border-l border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
           isOpen ? 'translate-x-0' : 'translate-x-full lg:w-0 lg:border-l-0'
@@ -340,53 +337,49 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
           {!isSearching && view === 'groups' && (
             <>
               {/* Active Persona Focus */}
-              {activePersona && (
-                <div className="p-3.5 rounded-[20px] bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-7 h-7 rounded-[10px] flex items-center justify-center text-white text-xs font-bold"
-                        style={{ backgroundColor: activePersona.avatar_color }}
-                      >
-                        {activePersona.initials}
+              {activePersona && (() => {
+                const brandCol = getBrandPersonaColor(activePersona.id);
+                return (
+                  <div className="p-3.5 rounded-[20px] bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-7 h-7 rounded-[10px] flex items-center justify-center text-xs font-bold"
+                          style={{ backgroundColor: brandCol.bg, color: brandCol.text }}
+                        >
+                          {activePersona.initials}
+                        </div>
+                        <span className="text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5]">
+                          {activePersona.name} — Active
+                        </span>
                       </div>
-                      <span className="text-xs font-bold text-[#10231C] dark:text-[#E8F2EC]">
-                        {activePersona.name} — Active
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-[12px] border bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border-[#0A5C45]/30 dark:border-[#5BE0A5]/30">
+                        {(activePersona as any).group_name || activePersona.badge}
                       </span>
                     </div>
-                    <span
-                      className="text-xs font-bold px-2 py-0.5 rounded-[12px] border"
-                      style={{
-                        color: activePersona.avatar_color,
-                        borderColor: `${activePersona.avatar_color}40`,
-                        backgroundColor: `${activePersona.avatar_color}10`,
-                      }}
-                    >
-                      {(activePersona as any).group_name || activePersona.badge}
-                    </span>
+                    {onSelectPrompt && dynamicSuggestedPrompts.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-[#D5E0D8] dark:border-[#27403A]">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8] flex items-center gap-1">
+                          <MessageSquare className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5]" />
+                          <span>Suggested Inquiries</span>
+                        </span>
+                        <div className="space-y-1.5">
+                          {dynamicSuggestedPrompts.map((promptText, pIdx) => (
+                            <button
+                              key={pIdx}
+                              onClick={() => onSelectPrompt(promptText)}
+                              className="w-full min-h-[44px] text-left p-2 rounded-[12px] bg-[#F3F6F1] dark:bg-[#0B1612] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] border border-[#D5E0D8] dark:border-[#27403A] text-xs text-[#10231C] dark:text-[#E8F2EC] font-medium transition-all group/p flex items-start gap-1.5 cursor-pointer"
+                            >
+                              <ArrowRight className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5] group-hover/p:translate-x-0.5 transition-all shrink-0 mt-0.5" />
+                              <span className="line-clamp-2">{promptText}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {onSelectPrompt && dynamicSuggestedPrompts.length > 0 && (
-                    <div className="space-y-1.5 pt-2 border-t border-[#D5E0D8] dark:border-[#27403A]">
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8] flex items-center gap-1">
-                        <MessageSquare className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5]" />
-                        <span>Suggested Inquiries</span>
-                      </span>
-                      <div className="space-y-1.5">
-                        {dynamicSuggestedPrompts.map((promptText, pIdx) => (
-                          <button
-                            key={pIdx}
-                            onClick={() => onSelectPrompt(promptText)}
-                            className="w-full min-h-[44px] text-left p-2 rounded-[12px] bg-[#F3F6F1] dark:bg-[#0B1612] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] border border-[#D5E0D8] dark:border-[#27403A] text-xs text-[#10231C] dark:text-[#E8F2EC] font-medium transition-all group/p flex items-start gap-1.5 cursor-pointer"
-                          >
-                            <ArrowRight className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5] group-hover/p:translate-x-0.5 transition-all shrink-0 mt-0.5" />
-                            <span className="line-clamp-2">{promptText}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                );
+              })()}
 
               {/* Recent Personas Row */}
               {recentPersonas.length > 0 && (
@@ -395,55 +388,61 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
                     <Clock className="w-3.5 h-3.5" /><span>Recently Used</span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    {recentPersonas.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => handleSelectPersona(p)}
-                        className="min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:border-[#0A5C45] transition-all text-xs font-medium text-[#10231C] dark:text-[#E8F2EC] cursor-pointer group"
-                      >
-                        <div
-                          className="w-6 h-6 rounded-[8px] flex items-center justify-center text-white text-xs font-bold shrink-0"
-                          style={{ backgroundColor: p.avatar_color }}
+                    {recentPersonas.map(p => {
+                      const brandCol = getBrandPersonaColor(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => handleSelectPersona(p)}
+                          className="min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:border-[#0A5C45] transition-all text-xs font-medium text-[#10231C] dark:text-[#E8F2EC] cursor-pointer group"
                         >
-                          {p.initials}
-                        </div>
-                        <span className="truncate max-w-[85px]">{p.name}</span>
-                        {isAnimating && selectedSlug === ((p as any).slug || p.id) && (
-                          <span className="w-3 h-3 rounded-full border-2 border-[#0A5C45] border-t-transparent animate-spin" />
-                        )}
-                      </button>
-                    ))}
+                          <div
+                            className="w-6 h-6 rounded-[8px] flex items-center justify-center text-xs font-bold shrink-0"
+                            style={{ backgroundColor: brandCol.bg, color: brandCol.text }}
+                          >
+                            {p.initials}
+                          </div>
+                          <span className="truncate max-w-[85px]">{p.name}</span>
+                          {isAnimating && selectedSlug === ((p as any).slug || p.id) && (
+                            <span className="w-3 h-3 rounded-full border-2 border-[#0A5C45] border-t-transparent animate-spin" />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* Groups Grid */}
-              <div className="space-y-1.5">
+              {/* Groups Grid (Larger rounded cards with coloured initials badge, group name, and "N specialist(s)") */}
+              <div className="space-y-2">
                 <div className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8] px-1 flex items-center gap-1">
                   <Layers className="w-3.5 h-3.5" /><span>Subject Groups</span>
                 </div>
-                <div className="space-y-2">
-                  {groups.map(group => (
-                    <button
-                      key={group.name}
-                      onClick={() => handleGroupClick(group.name)}
-                      className="min-h-[44px] w-full flex items-center justify-between p-3 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-8 h-8 rounded-[10px] flex items-center justify-center text-white text-xs font-bold shrink-0"
-                          style={{ backgroundColor: group.color }}
-                        >
-                          {group.name.slice(0, 2).toUpperCase()}
+                <div className="space-y-3">
+                  {groups.map(group => {
+                    const brandCol = getBrandPersonaColor(group.name);
+                    return (
+                      <button
+                        key={group.name}
+                        onClick={() => handleGroupClick(group.name)}
+                        className="min-h-[56px] w-full flex items-center justify-between p-4 rounded-[20px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#FFFFFF] dark:bg-[#12231C] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-all cursor-pointer group shadow-xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 rounded-[12px] flex items-center justify-center text-xs font-bold shrink-0"
+                            style={{ backgroundColor: brandCol.bg, color: brandCol.text }}
+                          >
+                            {group.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-bold text-[#10231C] dark:text-[#E8F2EC]">{group.name}</div>
+                            <div className="text-xs text-[#4F6359] dark:text-[#9DB5A8]">{group.count} specialist{group.count !== 1 ? 's' : ''}</div>
+                          </div>
                         </div>
-                        <div className="text-left">
-                          <div className="text-xs font-bold text-[#10231C] dark:text-[#E8F2EC]">{group.name}</div>
-                          <div className="text-xs text-[#4F6359] dark:text-[#9DB5A8]">{group.count} specialist{group.count !== 1 ? 's' : ''}</div>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-[#4F6359] dark:text-[#9DB5A8] group-hover:text-[#10231C] dark:group-hover:text-[#E8F2EC] group-hover:translate-x-0.5 transition-all" />
-                    </button>
-                  ))}
+                        <ChevronRight className="w-4 h-4 text-[#4F6359] dark:text-[#9DB5A8] group-hover:text-[#0A5C45] dark:group-hover:text-[#5BE0A5] group-hover:translate-x-0.5 transition-all" />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </>
@@ -552,71 +551,67 @@ interface PersonaCardProps {
 
 const PersonaCard: React.FC<PersonaCardProps> = ({
   persona, isSelected, isAnimating, isLastUsed, onClick
-}) => (
-  <div
-    onClick={onClick}
-    className={`relative rounded-[20px] border p-3.5 cursor-pointer transition-all duration-200 select-none min-h-[44px] ${
-      isAnimating
-        ? 'scale-95 opacity-60 border-[#0A5C45] bg-[#DDEFE6] dark:bg-[#17352A]'
-        : isSelected
-        ? 'bg-[#DDEFE6] dark:bg-[#17352A] border-[#0A5C45] dark:border-[#5BE0A5]'
-        : 'bg-[#FFFFFF] dark:bg-[#12231C] border-[#D5E0D8] dark:border-[#27403A] hover:border-[#0A5C45]/50 hover:bg-[#F3F6F1] dark:hover:bg-[#17352A]/40'
-    }`}
-  >
-    {/* Ribbons */}
-    <div className="flex items-center gap-1.5 mb-1.5">
-      {isLastUsed && !isSelected && (
-        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[8px] bg-[#DDEFE6] dark:bg-[#17352A] border border-[#0A5C45]/30 dark:border-[#5BE0A5]/30 text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5]">
-          <Clock className="w-3 h-3" /><span>LAST USED</span>
-        </div>
-      )}
-    </div>
-
-    {/* Avatar + Name */}
-    <div className="flex items-start gap-2.5">
-      <div
-        className={`w-10 h-10 rounded-[12px] flex items-center justify-center text-white text-xs font-bold shrink-0 transition-transform duration-200 ${isAnimating ? 'scale-110' : ''}`}
-        style={{ backgroundColor: persona.avatar_color }}
-      >
-        {isAnimating
-          ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-          : persona.initials}
+}) => {
+  const brandCol = getBrandPersonaColor(persona.id);
+  return (
+    <div
+      onClick={onClick}
+      className={`relative rounded-[20px] border p-3.5 cursor-pointer transition-all duration-200 select-none min-h-[44px] ${
+        isAnimating
+          ? 'scale-95 opacity-60 border-[#0A5C45] bg-[#DDEFE6] dark:bg-[#17352A]'
+          : isSelected
+          ? 'bg-[#DDEFE6] dark:bg-[#17352A] border-[#0A5C45] dark:border-[#5BE0A5]'
+          : 'bg-[#FFFFFF] dark:bg-[#12231C] border-[#D5E0D8] dark:border-[#27403A] hover:border-[#0A5C45]/50 hover:bg-[#F3F6F1] dark:hover:bg-[#17352A]/40'
+      }`}
+    >
+      {/* Ribbons */}
+      <div className="flex items-center gap-1.5 mb-1.5">
+        {isLastUsed && !isSelected && (
+          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[8px] bg-[#DDEFE6] dark:bg-[#17352A] border border-[#0A5C45]/30 dark:border-[#5BE0A5]/30 text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5]">
+            <Clock className="w-3 h-3" /><span>LAST USED</span>
+          </div>
+        )}
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-1">
-          <h3 className="text-xs font-bold text-[#10231C] dark:text-[#E8F2EC] truncate">{persona.name}</h3>
-          {isSelected && (
-            <span className="flex items-center gap-0.5 text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5]">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Active
-            </span>
-          )}
+
+      {/* Avatar + Name */}
+      <div className="flex items-start gap-2.5">
+        <div
+          className={`w-10 h-10 rounded-[12px] flex items-center justify-center text-xs font-bold shrink-0 transition-transform duration-200 ${isAnimating ? 'scale-110' : ''}`}
+          style={{ backgroundColor: brandCol.bg, color: brandCol.text }}
+        >
+          {isAnimating
+            ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+            : persona.initials}
         </div>
-        <p className="text-xs font-medium text-[#4F6359] dark:text-[#9DB5A8] truncate">{persona.role}</p>
-        <p className="text-xs text-[#4F6359]/80 dark:text-[#9DB5A8]/80 truncate">{persona.affiliation}</p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-1">
+            <h3 className="text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5] truncate">{persona.name}</h3>
+            {isSelected && (
+              <span className="flex items-center gap-0.5 text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5]">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Active
+              </span>
+            )}
+          </div>
+          <p className="text-xs font-medium text-[#4F6359] dark:text-[#9DB5A8] truncate">{persona.role}</p>
+          <p className="text-xs text-[#4F6359]/80 dark:text-[#9DB5A8]/80 truncate">{persona.affiliation}</p>
+        </div>
       </div>
-    </div>
 
-    {/* Badge */}
-    <div className="mt-2.5 flex items-center justify-between">
-      <span
-        className="text-xs font-bold px-2 py-0.5 rounded-[10px] border"
-        style={{
-          color: persona.avatar_color,
-          borderColor: `${persona.avatar_color}40`,
-          backgroundColor: `${persona.avatar_color}15`,
-        }}
-      >
-        {persona.badge}
-      </span>
-    </div>
-
-    {/* Specialties */}
-    <div className="mt-2 flex flex-wrap gap-1">
-      {persona.specialties.slice(0, 3).map((spec, i) => (
-        <span key={i} className="text-xs px-2 py-0.5 rounded-[8px] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#4F6359] dark:text-[#9DB5A8] border border-[#D5E0D8] dark:border-[#27403A]">
-          {spec}
+      {/* Badge (Tint green background with primary text) */}
+      <div className="mt-2.5 flex items-center justify-between">
+        <span className="text-xs font-bold px-2 py-0.5 rounded-[10px] border bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border-[#0A5C45]/30 dark:border-[#5BE0A5]/30">
+          {persona.badge}
         </span>
-      ))}
+      </div>
+
+      {/* Specialties */}
+      <div className="mt-2 flex flex-wrap gap-1">
+        {persona.specialties.slice(0, 3).map((spec, i) => (
+          <span key={i} className="text-xs px-2 py-0.5 rounded-[8px] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#4F6359] dark:text-[#9DB5A8] border border-[#D5E0D8] dark:border-[#27403A]">
+            {spec}
+          </span>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
