@@ -4651,6 +4651,38 @@ app.get("/api/v1/personas", async (req: Request, res: Response) => {
   return res.json({ success: true, personas: personaRegistry.personas });
 });
 
+// GET /api/v1/personas/recent - Returns last 3 used personas for logged-in user
+app.get("/api/v1/personas/recent", async (req: Request, res: Response) => {
+  try {
+    const variant: PersonaVariant = req.query.variant === "pk" ? "pk" : "global";
+    const allowedSlugs = new Set(getRegistryPersonas(variant).map((persona) => persona.slug));
+    const token = req.cookies?.token;
+    if (!token) return res.json({ success: true, personas: [] });
+    const jwt = await import('jsonwebtoken');
+    const decoded: any = jwt.default.verify(token, JWT_SECRET);
+    const userId = decoded?.userId || decoded?.id;
+    if (!userId) return res.json({ success: true, personas: [] });
+    const result = await dbPool.query(`
+      SELECT ep.*, upu.last_used_at as user_last_used
+      FROM user_persona_usage upu
+      JOIN expert_personas ep ON ep.slug = upu.persona_slug
+      WHERE upu.user_id = $1 AND ep.is_active = true AND COALESCE(ep.variant, 'global') = $2
+      ORDER BY upu.last_used_at DESC
+      LIMIT 3
+    `, [userId, variant]);
+    const personas = result.rows
+      .filter((persona: any) => allowedSlugs.has(persona.slug))
+      .map((persona: any) => ({
+        ...persona,
+        group_name: personaRegistry.personas.find((entry) => entry.slug === persona.slug && entry.variant === variant)?.group_name,
+      }));
+    return res.json({ success: true, personas });
+  } catch (err) {
+    console.error("GET /api/v1/personas/recent error:", err);
+    return res.json({ success: true, personas: [] });
+  }
+});
+
 // GET /api/v1/personas/:slug - Returns a single persona by slug or id
 app.get("/api/v1/personas/:slug", async (req: Request, res: Response) => {
   const { slug } = req.params;
@@ -4689,38 +4721,6 @@ app.post("/api/v1/personas/:slug/used", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("POST /api/v1/personas/:slug/used error:", err);
     return res.json({ success: true }); // non-fatal
-  }
-});
-
-// GET /api/v1/personas/recent - Returns last 3 used personas for logged-in user
-app.get("/api/v1/personas/recent", async (req: Request, res: Response) => {
-  try {
-    const variant: PersonaVariant = req.query.variant === "pk" ? "pk" : "global";
-    const allowedSlugs = new Set(getRegistryPersonas(variant).map((persona) => persona.slug));
-    const token = req.cookies?.token;
-    if (!token) return res.json({ success: true, personas: [] });
-    const jwt = await import('jsonwebtoken');
-    const decoded: any = jwt.default.verify(token, JWT_SECRET);
-    const userId = decoded?.userId || decoded?.id;
-    if (!userId) return res.json({ success: true, personas: [] });
-    const result = await dbPool.query(`
-      SELECT ep.*, upu.last_used_at as user_last_used
-      FROM user_persona_usage upu
-      JOIN expert_personas ep ON ep.slug = upu.persona_slug
-      WHERE upu.user_id = $1 AND ep.is_active = true AND COALESCE(ep.variant, 'global') = $2
-      ORDER BY upu.last_used_at DESC
-      LIMIT 3
-    `, [userId, variant]);
-    const personas = result.rows
-      .filter((persona: any) => allowedSlugs.has(persona.slug))
-      .map((persona: any) => ({
-        ...persona,
-        group_name: personaRegistry.personas.find((entry) => entry.slug === persona.slug && entry.variant === variant)?.group_name,
-      }));
-    return res.json({ success: true, personas });
-  } catch (err) {
-    console.error("GET /api/v1/personas/recent error:", err);
-    return res.json({ success: true, personas: [] });
   }
 });
 
