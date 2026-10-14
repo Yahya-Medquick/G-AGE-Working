@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Copy,
   Check,
+  Compass,
   FileText,
   RotateCcw,
   Lightbulb,
@@ -70,50 +71,76 @@ interface ChatStageProps {
   onOpenKnowledgeGraph?: () => void;
 }
 
+const ExploreResultsSection: React.FC<{ endpoint: string; resultKey: string; heading: string }> = ({ endpoint, resultKey, heading }) => {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    fetch(endpoint)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Explore request failed: ${response.status}`);
+        return response.json();
+      })
+      .then((data) => {
+        if (isMounted) setItems(Array.isArray(data[resultKey]) ? data[resultKey] : []);
+      })
+      .catch((error) => console.error('Explore request failed:', error))
+      .finally(() => { if (isMounted) setLoading(false); });
+    return () => { isMounted = false; };
+  }, [endpoint, resultKey]);
+
+  return (
+    <div className="space-y-2 text-xs">
+      <div className="font-bold text-[#0A5C45] dark:text-[#5BE0A5]">{heading}</div>
+      {loading ? (
+        <p className="py-3 text-[#4F6359] dark:text-[#9DB5A8]">Loading...</p>
+      ) : items.length === 0 ? (
+        <p className="py-3 text-[#4F6359] dark:text-[#9DB5A8]">No results found.</p>
+      ) : (
+        items.map((item, index) => {
+          const title = item.title || item.name || 'Open result';
+          const href = item.url || item.link || '#';
+          const details = item.description || item.authors?.join(', ') || item.journal || item.source || '';
+          return (
+            <a key={item.id || `${title}-${index}`} href={href} target="_blank" rel="noreferrer" className="block rounded-[12px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] p-3 hover:bg-[#F3F6F1] dark:hover:bg-[#17352A]">
+              <span className="font-semibold text-[#10231C] dark:text-[#E8F2EC]">{title}</span>
+              {details && <span className="mt-1 block text-[#4F6359] dark:text-[#9DB5A8]">{details}</span>}
+            </a>
+          );
+        })
+      )}
+    </div>
+  );
+};
+
 const ExplorePapersSection = ({ topic, recency, minCitations }: any) => (
-  <div className="p-3 bg-white dark:bg-[#12231C] rounded-xl border border-[#D5E0D8] dark:border-[#27403A] text-xs space-y-2">
-    <div className="font-bold text-[#0A5C45] dark:text-[#5BE0A5]">Research Papers for {topic}</div>
-    <p className="text-[#4F6359] dark:text-[#9DB5A8]">Recency: {recency}, Min Citations: {minCitations}</p>
-    <a href={`https://scholar.google.com/scholar?q=${encodeURIComponent(topic)}`} target="_blank" rel="noreferrer" className="text-[#0A5C45] dark:text-[#5BE0A5] underline font-semibold flex items-center gap-1">
-      <span>Search Google Scholar</span> <ExternalLink className="w-3 h-3" />
-    </a>
-  </div>
+  <ExploreResultsSection
+    endpoint={`/api/explore/papers?${new URLSearchParams({ q: topic, recency, minCitations })}`}
+    resultKey="papers"
+    heading={`Research Papers for ${topic}`}
+  />
 );
 
 const ExploreReposSection = ({ topic }: any) => (
-  <div className="p-3 bg-white dark:bg-[#12231C] rounded-xl border border-[#D5E0D8] dark:border-[#27403A] text-xs space-y-2">
-    <div className="font-bold text-[#0A5C45] dark:text-[#5BE0A5]">Open Source Repositories for {topic}</div>
-    <a href={`https://github.com/search?q=${encodeURIComponent(topic)}`} target="_blank" rel="noreferrer" className="text-[#0A5C45] dark:text-[#5BE0A5] underline font-semibold flex items-center gap-1">
-      <span>Search GitHub Repos</span> <ExternalLink className="w-3 h-3" />
-    </a>
-  </div>
+  <ExploreResultsSection endpoint={`/api/explore/repos?q=${encodeURIComponent(topic)}`} resultKey="repos" heading={`Open Source Repositories for ${topic}`} />
 );
 
 const ExploreResearchNewsSection = ({ topic, recency }: any) => (
-  <div className="p-3 bg-white dark:bg-[#12231C] rounded-xl border border-[#D5E0D8] dark:border-[#27403A] text-xs space-y-2">
-    <div className="font-bold text-[#0A5C45] dark:text-[#5BE0A5]">Recent Research on {topic} ({recency})</div>
-    <a href={`https://news.google.com/search?q=${encodeURIComponent(topic)}`} target="_blank" rel="noreferrer" className="text-[#0A5C45] dark:text-[#5BE0A5] underline font-semibold flex items-center gap-1">
-      <span>Search News</span> <ExternalLink className="w-3 h-3" />
-    </a>
-  </div>
+  <ExploreResultsSection
+    endpoint={`/api/explore/research-news?${new URLSearchParams({ q: topic, recency })}`}
+    resultKey="items"
+    heading={`Recent Research on ${topic}`}
+  />
 );
 
 const ExploreVideosSection = ({ topic, query }: any) => (
-  <div className="p-3 bg-white dark:bg-[#12231C] rounded-xl border border-[#D5E0D8] dark:border-[#27403A] text-xs space-y-2">
-    <div className="font-bold text-[#0A5C45] dark:text-[#5BE0A5]">Video Lectures for {query || topic}</div>
-    <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query || topic)}`} target="_blank" rel="noreferrer" className="text-[#0A5C45] dark:text-[#5BE0A5] underline font-semibold flex items-center gap-1">
-      <span>Watch on YouTube</span> <ExternalLink className="w-3 h-3" />
-    </a>
-  </div>
+  <ExploreResultsSection endpoint={`/api/category/videos?q=${encodeURIComponent(query || topic)}`} resultKey="items" heading={`Video Lectures for ${query || topic}`} />
 );
 
 const ExploreNewsSection = ({ topic, query }: any) => (
-  <div className="p-3 bg-white dark:bg-[#12231C] rounded-xl border border-[#D5E0D8] dark:border-[#27403A] text-xs space-y-2">
-    <div className="font-bold text-[#0A5C45] dark:text-[#5BE0A5]">Articles &amp; News for {query || topic}</div>
-    <a href={`https://news.google.com/search?q=${encodeURIComponent(query || topic)}`} target="_blank" rel="noreferrer" className="text-[#0A5C45] dark:text-[#5BE0A5] underline font-semibold flex items-center gap-1">
-      <span>Read Articles</span> <ExternalLink className="w-3 h-3" />
-    </a>
-  </div>
+  <ExploreResultsSection endpoint={`/api/category/news?q=${encodeURIComponent(query || topic)}&page=1&limit=6&offset=0`} resultKey="items" heading={`Articles & News for ${query || topic}`} />
 );
 
 export const ChatStage: React.FC<ChatStageProps> = ({
@@ -189,6 +216,99 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
   const handleModeChange = (mode: ChatMode) => {
     // Mode changes handled via session/chat updates
+  };
+
+  const extractTopicForMessage = async (msgId: string, msgContent: string, msgIndex: number) => {
+    if (extractedTopics[msgId] && !extractedTopics[msgId].loading) return;
+
+    const userMessage = session?.messages
+      .slice(0, msgIndex)
+      .reverse()
+      .find((message) => message.role === 'user');
+    const cleanFallback = (value?: string) => value
+      ?.replace(/\b(hi|hello|hey|salam|assalam|aoa|greetings|please|pls|thanks|thank you|can you|explain|what is|tell me about|how to|i want to know|bro|sir|mam|help me with)\b/gi, '')
+      .replace(/[^\w\s-]/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim() || '';
+    const rawTopic = cleanFallback(userMessage?.content)
+      || cleanFallback(session?.title && session.title !== 'New Consultation' ? session.title : '')
+      || cleanFallback(msgContent.slice(0, 100))
+      || activePersona.specialties?.[0]
+      || activePersona.name
+      || 'Core Fundamentals';
+    const defaultTopic = rawTopic.length > 2 ? rawTopic.split(' ').slice(0, 4).join(' ') : 'Core Concepts';
+    const displayTopic = defaultTopic.charAt(0).toUpperCase() + defaultTopic.slice(1);
+
+    setExtractedTopics((previous) => ({
+      ...previous,
+      [msgId]: {
+        displayTopic,
+        videoQuery: `${defaultTopic} lecture guide`,
+        newsQuery: `${defaultTopic} research news`,
+        mcqTopic: defaultTopic,
+        loading: true,
+      },
+    }));
+
+    try {
+      const response = await fetch('/api/explore/extract-topic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userQuery: userMessage?.content || '',
+          assistantReply: msgContent,
+          sessionTitle: session?.title || '',
+          personaName: activePersona.name,
+          personaSpecialties: activePersona.specialties || [],
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.displayTopic) {
+          setExtractedTopics((previous) => ({
+            ...previous,
+            [msgId]: {
+              displayTopic: data.displayTopic,
+              videoQuery: data.videoQuery || `${data.displayTopic} lecture`,
+              newsQuery: data.newsQuery || `${data.displayTopic} news`,
+              mcqTopic: data.mcqTopic || data.displayTopic,
+              loading: false,
+            },
+          }));
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to extract AI topic:', error);
+    }
+
+    setExtractedTopics((previous) => ({
+      ...previous,
+      [msgId]: { ...previous[msgId], loading: false },
+    }));
+  };
+
+  const toggleExploreSection = (msgId: string, msgContent: string, msgIndex: number) => {
+    setExpandedExploreMsgIds((previous) => {
+      const willExpand = !previous[msgId];
+      if (willExpand) {
+        void extractTopicForMessage(msgId, msgContent, msgIndex);
+      } else if (activeExploreMsgId === msgId) {
+        setActiveExploreMsgId(null);
+        setActiveExploreTab(null);
+      }
+      return { ...previous, [msgId]: willExpand };
+    });
+  };
+
+  const handleToggleExploreTab = (msgId: string, tab: 'videos' | 'news' | 'mcqs' | 'papers' | 'repos' | 'research-news') => {
+    if (activeExploreMsgId === msgId && activeExploreTab === tab) {
+      setActiveExploreMsgId(null);
+      setActiveExploreTab(null);
+    } else {
+      setActiveExploreMsgId(msgId);
+      setActiveExploreTab(tab);
+    }
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
@@ -660,6 +780,79 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                         </div>
                       </div>
                     )}
+
+                    {!msg.content.startsWith('⚠️') && (() => {
+                      const topicData = extractedTopics[msg.id];
+                      const targetTopic = topicData?.displayTopic || session?.title || 'Core Fundamentals';
+                      const tabs = activeMode === 'research'
+                        ? [
+                            { id: 'papers', label: 'Papers', icon: <BookOpen className="h-4 w-4" /> },
+                            { id: 'repos', label: 'Repos', icon: <Code2 className="h-4 w-4" /> },
+                            { id: 'research-news', label: 'Research News', icon: <Newspaper className="h-4 w-4" /> },
+                          ]
+                        : [
+                            { id: 'videos', label: 'Videos', icon: <Play className="h-4 w-4" /> },
+                            { id: 'news', label: 'News', icon: <Newspaper className="h-4 w-4" /> },
+                            { id: 'mcqs', label: 'MCQs', icon: <GraduationCap className="h-4 w-4" /> },
+                          ];
+
+                      return (
+                        <div className="mt-3 border-t border-[#D5E0D8] pt-3 dark:border-[#27403A]">
+                          <button
+                            type="button"
+                            onClick={() => toggleExploreSection(msg.id, msg.content, idx)}
+                            aria-expanded={!!expandedExploreMsgIds[msg.id]}
+                            className="flex min-h-[44px] w-full items-center justify-between rounded-[12px] border border-[#D5E0D8] bg-[#F3F6F1] px-3 text-left text-sm font-semibold text-[#10231C] hover:bg-[#DDEFE6] dark:border-[#27403A] dark:bg-[#0B1612] dark:text-[#E8F2EC] dark:hover:bg-[#17352A]"
+                          >
+                            <span className="flex items-center gap-2">
+                              <Compass className="h-4 w-4 text-[#0A5C45] dark:text-[#5BE0A5]" />
+                              Explore More
+                            </span>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedExploreMsgIds[msg.id] ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {expandedExploreMsgIds[msg.id] && (
+                            <div className="mt-2.5 space-y-2.5">
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                {tabs.map(({ id, label, icon }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => handleToggleExploreTab(msg.id, id as 'videos' | 'news' | 'mcqs' | 'papers' | 'repos' | 'research-news')}
+                                    aria-pressed={activeExploreMsgId === msg.id && activeExploreTab === id}
+                                    className={`flex min-h-[44px] items-center gap-2 rounded-[12px] border px-3 text-left text-xs font-semibold transition-colors ${activeExploreMsgId === msg.id && activeExploreTab === id ? 'border-[#0A5C45] bg-[#DDEFE6] text-[#0A5C45] dark:border-[#5BE0A5] dark:bg-[#17352A] dark:text-[#5BE0A5]' : 'border-[#D5E0D8] bg-white text-[#10231C] hover:bg-[#F3F6F1] dark:border-[#27403A] dark:bg-[#12231C] dark:text-[#E8F2EC] dark:hover:bg-[#17352A]'}`}
+                                  >
+                                    {icon}
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {activeExploreMsgId === msg.id && activeExploreTab && (
+                                <div className="relative rounded-[12px] border border-[#D5E0D8] bg-white p-3 dark:border-[#27403A] dark:bg-[#12231C]">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setActiveExploreMsgId(null); setActiveExploreTab(null); }}
+                                    aria-label="Close Explore More results"
+                                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-[10px] text-[#4F6359] hover:bg-[#DDEFE6] dark:text-[#9DB5A8] dark:hover:bg-[#17352A]"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                  <div className="pr-9">
+                                    {activeExploreTab === 'papers' && <ExplorePapersSection topic={targetTopic} recency={session?.specs?.research?.recency || '5_years'} minCitations={session?.specs?.research?.minCitations || 'any'} />}
+                                    {activeExploreTab === 'repos' && <ExploreReposSection topic={targetTopic} />}
+                                    {activeExploreTab === 'research-news' && <ExploreResearchNewsSection topic={targetTopic} recency={session?.specs?.research?.recency || '5_years'} />}
+                                    {activeExploreTab === 'videos' && <ExploreVideosSection topic={targetTopic} query={topicData?.videoQuery} />}
+                                    {activeExploreTab === 'news' && <ExploreNewsSection topic={targetTopic} query={topicData?.newsQuery} />}
+                                    {activeExploreTab === 'mcqs' && <MCQCard topic={topicData?.mcqTopic || targetTopic} onSaveToNotes={onSaveToNotes} onClose={() => { setActiveExploreMsgId(null); setActiveExploreTab(null); }} onOpenPaywall={onOpenPaywall} />}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div>
