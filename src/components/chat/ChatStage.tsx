@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import type { PixelCrop } from 'react-image-crop';
 import {
   PanelLeft,
   PanelRight,
@@ -38,6 +39,8 @@ import { MCQCard } from '../cards/MCQCard';
 import { MultiLevelDefinitionCard } from '../MultiLevelDefinitionCard';
 import { ProExpiryBadge } from '../ProExpiryBadge';
 import { getBrandPersonaColor } from './ChatSidebar';
+import { ImageCropModal } from './ImageCropModal';
+import { cropImageToJpeg, validateImageFile } from '../../utils/imageProcessing';
 
 interface ChatStageProps {
   isLeftPanelOpen?: boolean;
@@ -172,6 +175,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [isPrivate, setIsPrivate] = useState(false);
   const [imageNotice, setImageNotice] = useState<string | null>(null);
   const [cropSource, setCropSource] = useState<string | null>(null);
+  const [isImageProcessing, setIsImageProcessing] = useState(false);
 
   const [showModeSwitcher, setShowModeSwitcher] = useState(false);
   const [showLangSwitcher, setShowLangSwitcher] = useState(false);
@@ -200,6 +204,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const imageQueueRef = useRef<File[]>([]);
 
   const isPaid = queryUsage.tier === 'paid' || queryUsage.tier === 'pro' || queryUsage.tier === 'unlimited';
   const activeMode = session?.mode || 'concept';
@@ -337,29 +342,64 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     else cameraInputRef.current?.click();
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    const file = files[0];
+  const readNextImageForCrop = () => {
+    const file = imageQueueRef.current.shift();
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const result = reader.result as string;
-      setCropSource(result);
+      if (typeof reader.result === 'string') {
+        setCropSource(reader.result);
+      } else {
+        setImageNotice('This image could not be opened. Choose another image.');
+        readNextImageForCrop();
+      }
+    };
+    reader.onerror = () => {
+      setImageNotice('This image could not be opened. Choose another image.');
+      readNextImageForCrop();
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
   };
 
-  const finishImageCrop = (croppedBase64?: string) => {
-    const imageToUse = croppedBase64 || cropSource;
-    if (imageToUse) {
-      setAttachedImages(prev => [...prev, imageToUse].slice(0, 4));
-    }
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+
+    const reservedSlots = attachedImages.length + imageQueueRef.current.length + Number(!!cropSource);
+    const availableSlots = Math.max(0, 4 - reservedSlots);
+    let notice = files.length > availableSlots ? 'You can attach up to 4 images per question.' : null;
+
+    const acceptedFiles = files.slice(0, availableSlots).filter((file) => {
+      const validationError = validateImageFile(file);
+      if (validationError && !notice) notice = validationError;
+      return !validationError;
+    });
+    imageQueueRef.current.push(...acceptedFiles);
+    setImageNotice(notice);
+    if (!cropSource && !isImageProcessing) readNextImageForCrop();
+  };
+
+  const finishImageCrop = async (crop?: PixelCrop) => {
+    if (!cropSource) return;
+    const source = cropSource;
     setCropSource(null);
+    setIsImageProcessing(true);
+    try {
+      const imageToUse = await cropImageToJpeg(source, crop);
+      setAttachedImages((current) => current.length < 4 ? [...current, imageToUse] : current);
+      setImageNotice(null);
+    } catch (error) {
+      setImageNotice(error instanceof Error ? error.message : 'This image could not be processed. Try another image.');
+    } finally {
+      setIsImageProcessing(false);
+      readNextImageForCrop();
+    }
   };
 
   const cancelCurrentImage = () => {
     setCropSource(null);
+    readNextImageForCrop();
   };
 
   const handleCopyMessage = (msgId: string, content: string) => {
@@ -1054,7 +1094,9 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               <span className="text-xs font-bold text-[#0A5C45] dark:text-[#5BE0A5]">{attachedImages.length}/4 PRO VISION</span>
             </div>
           )}
-          {imageNotice && <p role="status" className="text-xs text-rose-600 dark:text-rose-400 font-semibold">{imageNotice}</p>}
+          {imageNotice && <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-semibold">{imageNotice}</p>}
+          {isImageProcessing && <p role="status" className="text-xs text-[#4F6359] dark:text-[#9DB5A8]">Preparing image...</p>}
+          {isLoading && <p role="status" className="text-xs text-[#4F6359] dark:text-[#9DB5A8]">Sending your question...</p>}
 
           {/* Main Chat Input Bar + Buttons Row */}
           <div className="flex items-center gap-2 min-w-0">
@@ -1067,6 +1109,8 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 <button
                   type="button"
                   onClick={() => handleImageButtonClick('files')}
+                  aria-label="Attach image"
+                  disabled={isLoading || isImageProcessing || attachedImages.length >= 4}
                   className={`min-h-[44px] min-w-[44px] h-11 w-11 shrink-0 rounded-[12px] transition-all flex items-center justify-center cursor-pointer ${
                     attachedImages.length > 0
                       ? 'bg-[#0A5C45] dark:bg-[#0F8056] text-white'
@@ -1113,6 +1157,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
             <button
               type="button"
               onClick={() => handleImageButtonClick('camera')}
+              disabled={isLoading || isImageProcessing || attachedImages.length >= 4}
               className="min-h-[56px] min-w-[44px] sm:min-w-[56px] h-14 w-11 sm:w-14 shrink-0 rounded-[14px] bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] flex items-center justify-center transition-colors cursor-pointer"
               title={isPaid ? 'Take a photo (Pro Vision)' : 'Take a photo (Pro Feature)'}
               aria-label="Take a photo"
@@ -1152,6 +1197,14 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           </div>
         </div>
       </div>
+      {cropSource && (
+        <ImageCropModal
+          src={cropSource}
+          onUseCrop={(crop) => void finishImageCrop(crop)}
+          onUseFullImage={() => void finishImageCrop()}
+          onCancel={cancelCurrentImage}
+        />
+      )}
     </div>
   );
 };

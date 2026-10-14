@@ -52,7 +52,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
             Use full image
           </button>
           <button type="button" onClick={handleUseCrop} disabled={!crop || crop.width <= 0 || crop.height <= 0} className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40">
-            Use crop
+            Apply
           </button>
         </div>
       </section>

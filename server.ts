@@ -2792,6 +2792,11 @@ const OPENROUTER_DETAILED_MODELS = [
   "meta-llama/llama-3.3-70b-instruct",
 ];
 
+const OPENROUTER_VISION_MODELS = [
+  "google/gemini-2.5-flash",
+  "openai/gpt-4o-mini",
+];
+
 // Standard / Short / Quick QA: Ultra-low-cost & budget models first
 const OPENROUTER_BUDGET_MODELS = [
   "deepseek/deepseek-chat",
@@ -5507,16 +5512,26 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`;
       };
     });
 
-    const result = await callGeminiWithFallback({
-      contents,
-      systemInstruction: fullSystemInstruction,
-      models: responseLang === 'urdu' ? URDU_MODEL_CHAIN.gemini : undefined,
-      openRouterModels: responseLang === 'urdu' ? URDU_MODEL_CHAIN.openRouter : undefined,
-      temperature: responseLang === 'urdu' || mode === "exam" || mode === "research" || mode === "concept" ? 0.3 : undefined,
-      thinkingBudget: mode === "concept" ? 0 : undefined,
-      tools: liveInfoRequested ? [{ googleSearch: {} }] : undefined,
-      language: responseLang,
-    });
+    let result: GeminiFallbackResult;
+    try {
+      result = await callGeminiWithFallback({
+        contents,
+        systemInstruction: fullSystemInstruction,
+        models: responseLang === 'urdu' ? URDU_MODEL_CHAIN.gemini : undefined,
+        openRouterModels: hasImageAttachment
+          ? OPENROUTER_VISION_MODELS
+          : responseLang === 'urdu' ? URDU_MODEL_CHAIN.openRouter : undefined,
+        temperature: responseLang === 'urdu' || mode === "exam" || mode === "research" || mode === "concept" ? 0.3 : undefined,
+        thinkingBudget: mode === "concept" ? 0 : undefined,
+        tools: liveInfoRequested ? [{ googleSearch: {} }] : undefined,
+        language: responseLang,
+      });
+    } catch (error) {
+      if (hasImageAttachment) {
+        throw new Error('Image analysis is temporarily unavailable because no vision-capable model could process this image. Please try again later.');
+      }
+      throw error;
+    }
 
     let reply = result.text.trim();
     let urduQualityPass = true;

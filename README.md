@@ -5,6 +5,7 @@ G-AGE AI is a free AI tutor and study assistant for Pakistani students. It provi
 ## Features
 
 - Three chat modes: **Concept** for explanations, **Exam** for practice and problems, and **Research** for papers and citations.
+- Pro chat supports attaching or taking a photo, cropping it, and asking a vision question. Images are resized to at most 1600 px on the longest side before sending.
 - Pakistani and Global expert-persona variants.
 - A per-chat **Specifications & Filters** panel. Concept mode selects a learning level; Exam mode accepts board/university, subject, question nature, and class/grade; Research mode filters paper recency and citations and toggles repositories and datasets.
 - **Explore More** below assistant answers. Research mode has Papers, Repos, and Research News. Concept and Exam modes have Videos, News, and MCQs.
@@ -54,6 +55,10 @@ Visible filter controls:
 | Paid / Pro / unlimited tier | No daily query cap |
 
 Daily counters use UTC dates and reset at midnight UTC (05:00 Pakistan Standard Time). In-memory per-minute request limits are also applied: general API requests 150/minute; auth, AI ask, learning, and counseling/chat limiters 25/minute; admin requests 30/minute. These limiters are layered on applicable routes. Paid tiers receive a 10x burst allowance.
+
+### Image questions
+
+Image reading remains Pro-only and counts as one chat question. JPEG, PNG, and other browser-supported image types up to 20 MB are accepted; the browser crops/resizes them to a maximum 1600 px longest side and sends JPEG at approximately 0.85 quality. The Express JSON request limit is 25 MB.
 
 ## Stack and commands
 
