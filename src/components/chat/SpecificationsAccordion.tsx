@@ -55,7 +55,11 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
   useEffect(() => {
     const saved = loadSavedSpecs();
     if (saved) {
-      onChangeSpecs({ ...DEFAULT_SPECS, ...saved });
+      onChangeSpecs({
+        concept: { ...DEFAULT_SPECS.concept, ...saved.concept, ...specs.concept },
+        exam: { ...DEFAULT_SPECS.exam, ...saved.exam, ...specs.exam },
+        research: { ...DEFAULT_SPECS.research, ...saved.research, ...specs.research },
+      });
     }
   }, []);
 

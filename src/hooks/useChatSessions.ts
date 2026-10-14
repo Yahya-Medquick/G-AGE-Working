@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChatSession, ChatMessage, ChatMode } from '../types/chat';
 import { useUser } from '../context/UserContext';
 import { EXPERTS, EXPERTS_PK } from '../data/experts';
+import { mergeChatSpecs } from '../utils/chatSpecs';
 
 const SESSIONS_STORAGE_KEY = 'bifrost_chat_sessions_v2';
 const ACTIVE_SESSION_ID_KEY = 'bifrost_active_session_id_v2';
@@ -205,10 +206,7 @@ export function useChatSessions() {
               ? { ...message, personaVariant: current.variant }
               : message)
             : current.messages,
-          specs: {
-            ...current.specs,
-            ...(updates.specs || {}),
-          },
+          specs: updates.specs ? mergeChatSpecs(current.specs, updates.specs) : current.specs,
           updatedAt: new Date().toISOString(),
         };
 

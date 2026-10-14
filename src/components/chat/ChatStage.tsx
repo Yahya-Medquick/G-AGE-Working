@@ -209,10 +209,8 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [session?.messages.length, isLoading]);
 
-  const handleSpecsChange = (newSpecs: any) => {
-    if (session) {
-      session.specs = newSpecs;
-    }
+  const handleSpecsChange = (newSpecs: NonNullable<ChatSession['specs']>) => {
+    if (session) onUpdateSessionMeta?.(session.id, { specs: newSpecs });
   };
 
   const handleModeChange = (mode: ChatMode) => {
