@@ -163,6 +163,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   onOpenPersonaGroup,
   onEditMessage,
   onRegenerateMessage,
+  onUpdateSessionMeta,
   pendingReplyMessageIds = new Set(),
   isStreamingReply = false,
 }) => {
@@ -215,7 +216,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   };
 
   const handleModeChange = (mode: ChatMode) => {
-    // Mode changes handled via session/chat updates
+    if (session) onUpdateSessionMeta?.(session.id, { mode });
   };
 
   const extractTopicForMessage = async (msgId: string, msgContent: string, msgIndex: number) => {
