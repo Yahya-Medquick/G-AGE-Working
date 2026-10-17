@@ -424,7 +424,7 @@ export default function App() {
 
   // Synchronize active persona with browser URL query parameter for PWA shortcut capture
   useEffect(() => {
-    if (activePersona) {
+    if (activeSessionId && activePersona) {
       const personaKey = activePersona.slug || activePersona.id;
       const currentUrl = new URL(window.location.href);
       if (currentUrl.searchParams.get('persona') !== personaKey) {
@@ -432,7 +432,7 @@ export default function App() {
         window.history.replaceState(null, '', `${currentUrl.pathname}?${currentUrl.searchParams.toString()}`);
       }
     }
-  }, [activePersona?.id, activePersona?.slug]);
+  }, [activeSessionId, activePersona?.id, activePersona?.slug]);
 
   // Handle window resize to auto-adapt sidebars
   useEffect(() => {
