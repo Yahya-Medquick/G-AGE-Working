@@ -180,7 +180,7 @@ export const MCQCard: React.FC<MCQCardProps> = ({
   const selectedOpt = currentQ ? selectedAnswers[currentIndex] : undefined;
 
   return (
-    <div id="mcq-quiz-card" className="w-full rounded-2xl border border-slate-200 dark:border-[#27403A] bg-white dark:bg-[#12231C] shadow-sm overflow-hidden animate-in fade-in duration-200">
+    <div id="mcq-quiz-card" data-no-swipe className="w-full rounded-2xl border border-slate-200 dark:border-[#27403A] bg-white dark:bg-[#12231C] shadow-sm overflow-hidden animate-in fade-in duration-200">
       {/* Header */}
       <div className="px-4 py-3.5 border-b border-slate-200 dark:border-[#27403A] bg-slate-50/80 dark:bg-[#0B1612] flex items-center justify-between">
         <div className="flex items-center gap-2">

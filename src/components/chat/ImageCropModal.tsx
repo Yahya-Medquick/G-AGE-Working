@@ -36,6 +36,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="image-crop-title"
+        data-no-swipe
         className="w-full max-w-2xl rounded-xl bg-white p-4 shadow-2xl dark:bg-slate-900"
       >
         <h2 id="image-crop-title" className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Crop image</h2>
