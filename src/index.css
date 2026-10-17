@@ -3,6 +3,19 @@
 
 @variant dark (.dark &);
 
+@keyframes subject-panel-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(10, 92, 69, 0); }
+  45% { box-shadow: 0 0 0 6px rgba(244, 180, 0, 0.32); }
+}
+
+.subject-panel-highlight {
+  animation: subject-panel-pulse 3s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subject-panel-highlight { animation: none; }
+}
+
 @media (max-width: 768px) {
   .specifications-accordion {
     max-height: calc(100dvh - 220px);

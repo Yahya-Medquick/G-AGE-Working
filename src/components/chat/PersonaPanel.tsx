@@ -27,6 +27,8 @@ import { getBrandPersonaColor } from './ChatSidebar';
 
 interface PersonaPanelProps {
   isOpen: boolean;
+  showSubjectPrompt?: boolean;
+  onSkipPrompt?: () => void;
   onToggle: () => void;
   selectedPersonaId: string;
   onSelectPersona: (personaId: string, variant: 'global' | 'pk') => void;
@@ -61,6 +63,8 @@ function saveGuestRecent(slug: string) {
 
 export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   isOpen,
+  showSubjectPrompt = false,
+  onSkipPrompt,
   onToggle,
   selectedPersonaId,
   onSelectPersona,
@@ -78,8 +82,22 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [recentSlugs, setRecentSlugs] = useState<string[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [highlightPrompt, setHighlightPrompt] = useState(false);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showSubjectPrompt) {
+      setHighlightPrompt(false);
+      return;
+    }
+    setView('groups');
+    setActiveGroup(null);
+    setSearchQuery('');
+    setHighlightPrompt(true);
+    const timer = window.setTimeout(() => setHighlightPrompt(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [showSubjectPrompt]);
 
   const { user, profile } = useUser();
   const isPaid = user?.tier === 'paid' || user?.tier === 'pro' || user?.tier === 'unlimited';
@@ -250,9 +268,9 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
       )}
 
       <aside
-        className={`fixed lg:static top-0 bottom-0 right-0 z-40 flex flex-col w-[300px] sm:w-[320px] bg-[#FFFFFF] dark:bg-[#12231C] border-l border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+        className={`fixed lg:static top-0 bottom-0 right-0 z-40 flex flex-col w-[300px] sm:w-[320px] bg-[#FFFFFF] dark:bg-[#12231C] border-l border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out motion-reduce:transition-none shrink-0 overflow-hidden ${
           isOpen ? 'translate-x-0' : 'translate-x-full lg:w-0 lg:border-l-0'
-        }`}
+        } ${highlightPrompt ? 'subject-panel-highlight lg:ring-2 lg:ring-[#0A5C45] dark:lg:ring-[#F4B400]' : ''}`}
       >
         {/* Header */}
         <div className="h-16 px-4 border-b border-[#D5E0D8] dark:border-[#27403A] flex items-center justify-between shrink-0 bg-[#FFFFFF] dark:bg-[#12231C]">
@@ -270,22 +288,34 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
               </div>
             )}
             <div>
-              <h2 className="font-heading font-bold text-base tracking-tight text-[#10231C] dark:text-[#E8F2EC]">
-                {view === 'personas' && !isSearching && activeGroup ? activeGroup : 'Expert Personas'}
+              <h2 aria-live={showSubjectPrompt ? 'polite' : undefined} className="font-heading font-bold text-base tracking-tight text-[#10231C] dark:text-[#E8F2EC]">
+                {showSubjectPrompt ? 'Kya parhna hai?' : view === 'personas' && !isSearching && activeGroup ? activeGroup : 'Expert Personas'}
               </h2>
               {view === 'personas' && !isSearching && activeGroup && (
                 <p className="text-xs text-[#4F6359] dark:text-[#9DB5A8]">{groupPersonas.length} specialist{groupPersonas.length !== 1 ? 's' : ''}</p>
               )}
             </div>
           </div>
-          <button
-            onClick={onToggle}
-            className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
-            title="Collapse Persona Panel"
-            aria-label="Close expert panel"
-          >
-            <PanelRightClose className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {showSubjectPrompt && (
+              <button
+                type="button"
+                onClick={onSkipPrompt}
+                className="min-h-[44px] min-w-[56px] px-2 rounded-[12px] border border-[#F4B400]/70 bg-[#FFF3CC] text-[#10231C] text-xs font-bold hover:bg-[#F4B400] dark:border-[#F4B400]/50 dark:bg-[#3A2F0B] dark:text-[#F8E8B5] dark:hover:bg-[#51400B] transition-colors cursor-pointer"
+                aria-label="Skip for now"
+              >
+                Skip
+              </button>
+            )}
+            <button
+              onClick={onToggle}
+              className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"
+              title="Collapse Persona Panel"
+              aria-label="Close expert panel"
+            >
+              <PanelRightClose className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Region Toggle + Search */}

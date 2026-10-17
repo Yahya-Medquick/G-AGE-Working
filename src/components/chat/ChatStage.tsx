@@ -72,6 +72,7 @@ interface ChatStageProps {
   isStreamingReply?: boolean;
   onUpdateSessionMeta?: (sessionId: string, updates: Partial<Pick<ChatSession, 'title' | 'mode' | 'personaId' | 'variant' | 'specs'>>) => void;
   onOpenKnowledgeGraph?: () => void;
+  onDirectInput?: () => void;
 }
 
 const ExploreResultsSection: React.FC<{ endpoint: string; resultKey: string; heading: string }> = ({ endpoint, resultKey, heading }) => {
@@ -169,6 +170,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   onUpdateSessionMeta,
   pendingReplyMessageIds = new Set(),
   isStreamingReply = false,
+  onDirectInput,
 }) => {
   const [inputText, setInputText] = useState('');
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
@@ -856,7 +858,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
                           {expandedExploreMsgIds[msg.id] && (
                             <div className="mt-2.5 space-y-2.5">
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              <div data-no-swipe className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                                 {tabs.map(({ id, label, icon }) => (
                                   <button
                                     key={id}
@@ -1140,7 +1142,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                 ref={textareaRef}
                 rows={1}
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
+                onChange={(e) => {
+                  setInputText(e.target.value);
+                  if (e.target.value.trim()) onDirectInput?.();
+                }}
                 onKeyDown={handleKeyDown}
                 disabled={!!editingMessageId || isLoading}
                 placeholder={

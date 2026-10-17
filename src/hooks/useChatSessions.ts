@@ -34,6 +34,8 @@ export function useChatSessions() {
       return null;
     }
   });
+  const [loadedStorageUserPrefix, setLoadedStorageUserPrefix] = useState(storageUserPrefix);
+  const isLoadingSessions = loadedStorageUserPrefix !== storageUserPrefix;
 
   // Reload sessions when user changes (guest vs logged in)
   useEffect(() => {
@@ -51,6 +53,7 @@ export function useChatSessions() {
           } else {
             setActiveSessionId(null);
           }
+          setLoadedStorageUserPrefix(storageUserPrefix);
           return;
         }
       }
@@ -59,6 +62,7 @@ export function useChatSessions() {
     }
     setSessions([]);
     setActiveSessionId(null);
+    setLoadedStorageUserPrefix(storageUserPrefix);
   }, [storageUserPrefix]);
 
   // Persist sessions
@@ -309,6 +313,7 @@ export function useChatSessions() {
 
   return {
     sessions,
+    isLoadingSessions,
     activeSessionId,
     activeSession,
     selectSession,

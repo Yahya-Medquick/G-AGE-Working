@@ -7,6 +7,7 @@ G-AGE AI is a free AI tutor and study assistant for Pakistani students. It provi
 - Three chat modes: **Concept** for explanations, **Exam** for practice and problems, and **Research** for papers and citations.
 - Pro chat supports attaching or taking a photo, cropping it, and asking a vision question. Images are resized to at most 1600 px on the longest side before sending.
 - Pakistani and Global expert-persona variants.
+- New chats open the subject and expert picker; mobile users can also swipe between chat history and the expert panel.
 - A per-chat **Specifications & Filters** panel. Concept mode selects a learning level; Exam mode accepts board/university, subject, question nature, and class/grade; Research mode filters paper recency and citations and toggles repositories and datasets.
 - **Explore More** below assistant answers. Research mode has Papers, Repos, and Research News. Concept and Exam modes have Videos, News, and MCQs.
 - Save notes, export notes as PDF, and compile selected notes.
@@ -137,3 +138,5 @@ Fonts are Baloo 2 for headings, Nunito Sans for body text, and Noto Nastaliq Urd
 - Restored mobile sidebar and expert-panel buttons.
 - Made the mobile filters panel scroll within its available height.
 - Fixed filter selection, text entry, and session persistence after replacing direct mutation of session specifications.
+- Opened the subject and expert picker for new chats, with per-chat skip behavior.
+- Added mobile swipe gestures for the chat history and expert drawers.

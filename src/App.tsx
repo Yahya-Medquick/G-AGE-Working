@@ -5,6 +5,7 @@ import { useNotes } from './hooks/useNotes';
 import { useUser } from './context/UserContext';
 import { useChatSessions } from './hooks/useChatSessions';
 import { useQueryLimits } from './hooks/useQueryLimits';
+import { useSwipeDrawers } from './hooks/useSwipeDrawers';
 import { initPersistentDeviceId } from './utils/deviceFingerprint';
 import { getAuthHeaders } from './services/api';
 import { ChatSidebar } from './components/chat/ChatSidebar';
@@ -55,11 +56,12 @@ export default function App() {
 
   const { theme, toggleTheme } = useTheme();
   const { notes, addNote } = useNotes();
-  const { user, isLoggedIn } = useUser();
+  const { user, isLoggedIn, isLoadingAuth, hasSeenOnboarding, isTourOpen } = useUser();
 
   // Chat sessions state manager
   const {
     sessions,
+    isLoadingSessions,
     activeSessionId,
     activeSession,
     selectSession,
@@ -92,6 +94,48 @@ export default function App() {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(() => window.innerWidth >= 1024);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(() => window.innerWidth >= 1280);
   const [initialPersonaGroup, setInitialPersonaGroup] = useState<string | null>(null);
+  const [subjectPromptSessionId, setSubjectPromptSessionId] = useState<string | null>(null);
+  const subjectPromptStorageKey = `gage_subject_prompt_session_${user?.id ? `user_${user.id}` : 'guest'}`;
+  const setPendingSubjectPrompt = useCallback((sessionId: string) => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(subjectPromptStorageKey) || '[]');
+      const pendingIds = Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : [];
+      localStorage.setItem(subjectPromptStorageKey, JSON.stringify([...new Set([...pendingIds, sessionId])]));
+    } catch {}
+    setSubjectPromptSessionId(sessionId);
+  }, [subjectPromptStorageKey]);
+  const clearPendingSubjectPrompt = useCallback((sessionId: string) => {
+    let wasPending = false;
+    try {
+      const saved = JSON.parse(localStorage.getItem(subjectPromptStorageKey) || '[]');
+      const pendingIds = Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : [];
+      wasPending = pendingIds.includes(sessionId);
+      const nextIds = pendingIds.filter((id) => id !== sessionId);
+      if (nextIds.length) localStorage.setItem(subjectPromptStorageKey, JSON.stringify(nextIds));
+      else localStorage.removeItem(subjectPromptStorageKey);
+    } catch {}
+    setSubjectPromptSessionId((current) => current === sessionId ? null : current);
+    return wasPending;
+  }, [subjectPromptStorageKey]);
+  const dismissPendingSubjectPrompt = useCallback((sessionId: string | null) => {
+    if (!sessionId) return;
+    if (clearPendingSubjectPrompt(sessionId)) setIsRightPanelOpen(false);
+  }, [clearPendingSubjectPrompt]);
+  const swipeContainerRef = useSwipeDrawers({
+    isLeftOpen: isLeftPanelOpen,
+    isRightOpen: isRightPanelOpen,
+    isTourOpen,
+    onOpenLeft: () => {
+      setIsRightPanelOpen(false);
+      setIsLeftPanelOpen(true);
+    },
+    onCloseLeft: () => setIsLeftPanelOpen(false),
+    onOpenRight: () => {
+      setIsLeftPanelOpen(false);
+      setIsRightPanelOpen(true);
+    },
+    onCloseRight: () => setIsRightPanelOpen(false),
+  });
 
   // Active persona region variant ('global' | 'pk') - default to Pakistani first
   const [expertVariant, setExpertVariant] = useState<'global' | 'pk'>('pk');
@@ -164,8 +208,26 @@ export default function App() {
 
   const handleOpenPersonaGroup = (groupName: string) => {
     setInitialPersonaGroup(groupName);
+    if (window.innerWidth < 1024) setIsLeftPanelOpen(false);
     setIsRightPanelOpen(true);
   };
+
+  const handleSkipSubjectPrompt = useCallback(() => {
+    dismissPendingSubjectPrompt(activeSessionId);
+    setIsRightPanelOpen(false);
+  }, [activeSessionId, dismissPendingSubjectPrompt]);
+
+  const toggleLeftPanel = useCallback(() => {
+    const opening = !isLeftPanelOpen;
+    if (opening && window.innerWidth < 1024) setIsRightPanelOpen(false);
+    setIsLeftPanelOpen(opening);
+  }, [isLeftPanelOpen]);
+
+  const toggleRightPanel = useCallback(() => {
+    const opening = !isRightPanelOpen;
+    if (opening && window.innerWidth < 1024) setIsLeftPanelOpen(false);
+    setIsRightPanelOpen(opening);
+  }, [isRightPanelOpen]);
 
   const handleCloseDownload = useCallback(() => {
     setIsDownloadOpen(false);
@@ -255,15 +317,48 @@ export default function App() {
   const currentPersonaId = activeSession?.personaId || 'hamza';
   const activePersona: ExpertPersona =
     activeExpertSet[currentPersonaId] || Object.values(activeExpertSet)[0];
+  const isSubjectPromptVisible = Boolean(
+    subjectPromptSessionId &&
+    subjectPromptSessionId === activeSessionId &&
+    activeSession &&
+    !activeSession.messages.some((message) => message.role === 'user') &&
+    !isLoadingAuth &&
+    !isLoadingSessions &&
+    hasSeenOnboarding &&
+    !isTourOpen
+  );
+
+  useEffect(() => {
+    if (!activeSessionId) return;
+    let pendingIds: string[] = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem(subjectPromptStorageKey) || '[]');
+      if (Array.isArray(saved)) pendingIds = saved.filter((id): id is string => typeof id === 'string');
+    } catch {}
+    if (!pendingIds.includes(activeSessionId)) return;
+    const pendingSession = sessions.find((session) => session.id === activeSessionId);
+    if (!pendingSession) return;
+    if (pendingSession.messages.some((message) => message.role === 'user')) {
+      clearPendingSubjectPrompt(activeSessionId);
+    } else {
+      setSubjectPromptSessionId(activeSessionId);
+    }
+  }, [activeSessionId, clearPendingSubjectPrompt, sessions, subjectPromptStorageKey]);
+
+  useEffect(() => {
+    if (!isSubjectPromptVisible) return;
+    setIsRightPanelOpen(true);
+    if (window.innerWidth < 1024) setIsLeftPanelOpen(false);
+  }, [isSubjectPromptVisible]);
   const displayedSession = activeSession && revealingReply?.sessionId === activeSession.id
     ? { ...activeSession, messages: [...activeSession.messages, revealingReply.message] }
     : activeSession;
 
   const hasInitializedRef = useRef(false);
 
-  // Initial bootstrap: create initial session if none exists or parse URL params
+  // Initial bootstrap: create or restore the appropriate conversation.
   useEffect(() => {
-    if (hasInitializedRef.current) return;
+    if (hasInitializedRef.current || isLoadingAuth || isLoadingSessions) return;
     hasInitializedRef.current = true;
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -285,6 +380,7 @@ export default function App() {
 
         const existingSession = sessions.find((s) => s.personaId === matched.id);
         if (existingSession) {
+          clearPendingSubjectPrompt(existingSession.id);
           selectSession(existingSession.id);
           return;
         }
@@ -307,11 +403,24 @@ export default function App() {
 
     if (sessions.length === 0) {
       const initialPersonaId = urlPersona || 'hamza';
-      createSession(initialPersonaId, urlMode, 'General Discussion', 'General Discussion', expertVariant);
+      const session = createSession(initialPersonaId, urlMode, 'General Discussion', 'General Discussion', expertVariant);
+      if (!urlPersona) setPendingSubjectPrompt(session.id);
     } else if (!activeSessionId) {
       selectSession(sessions[0].id);
     }
-  }, []);
+  }, [
+    activeSessionId,
+    createSession,
+    clearPendingSubjectPrompt,
+    expertVariant,
+    globalExperts,
+    isLoadingAuth,
+    isLoadingSessions,
+    pkExperts,
+    selectSession,
+    sessions,
+    setPendingSubjectPrompt,
+  ]);
 
   // Synchronize active persona with browser URL query parameter for PWA shortcut capture
   useEffect(() => {
@@ -342,11 +451,13 @@ export default function App() {
   // Create new chat
   const handleNewChat = useCallback(() => {
     skipReveal();
-    createSession('hamza', 'concept', 'General Discussion', 'New Chat', activeVariant);
+    const session = createSession('hamza', 'concept', 'General Discussion', 'New Chat', activeVariant);
+    setPendingSubjectPrompt(session.id);
     if (window.innerWidth < 1024) {
       setIsLeftPanelOpen(false);
     }
-  }, [createSession, activeVariant, skipReveal]);
+    setIsRightPanelOpen(true);
+  }, [createSession, activeVariant, setPendingSubjectPrompt, skipReveal]);
 
   // Keyboard shortcut: Ctrl+K or Cmd+K for New Chat
   useEffect(() => {
@@ -363,6 +474,7 @@ export default function App() {
   // Switch persona in ongoing chat session
   const handleSelectPersona = useCallback(
     (personaId: string, variant: 'global' | 'pk') => {
+      dismissPendingSubjectPrompt(activeSessionId);
       setExpertVariant(variant);
       if (activeSessionId) {
         const expertSet = variant === 'pk' ? pkExperts : globalExperts;
@@ -376,7 +488,7 @@ export default function App() {
         setIsRightPanelOpen(false);
       }
     },
-    [activeSessionId, pkExperts, globalExperts, updateSessionMeta]
+    [activeSessionId, dismissPendingSubjectPrompt, pkExperts, globalExperts, updateSessionMeta]
   );
 
   const requestReplyAt = async (
@@ -561,6 +673,7 @@ export default function App() {
   // Normal sends append a user message, then share the indexed request flow.
   const handleSendMessage = async (content: string, modeOverride?: ChatMode, images?: string[], savePublic = true) => {
     if (!content.trim() && !images?.length) return;
+    dismissPendingSubjectPrompt(activeSessionId);
     const finalizedReveal = skipReveal();
     if (!canExecuteQuery()) {
       triggerPaywall();
@@ -668,7 +781,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen w-screen bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] flex overflow-hidden font-body selection:bg-[#0A5C45] dark:selection:bg-[#0F8056] selection:text-white transition-colors duration-200">
+    <div ref={swipeContainerRef} className="h-screen w-screen bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] flex overflow-hidden font-body selection:bg-[#0A5C45] dark:selection:bg-[#0F8056] selection:text-white transition-colors duration-200">
       {chatErrorToast && (
         <div role="alert" className="fixed top-4 right-4 z-[100] max-w-sm rounded-lg border border-rose-300 bg-white px-4 py-3 text-sm text-rose-700 shadow-lg dark:border-rose-900 dark:bg-slate-900 dark:text-rose-300">
           <div className="flex items-start gap-3">
@@ -680,7 +793,7 @@ export default function App() {
       {/* 1. LEFT PANEL: CHAT HISTORY SIDEBAR */}
       <ChatSidebar
         isOpen={isLeftPanelOpen}
-        onToggle={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+        onToggle={toggleLeftPanel}
         sessions={sessions}
         globalPersonas={globalExperts}
         pkPersonas={pkExperts}
@@ -688,7 +801,10 @@ export default function App() {
         onSelectSession={(id) => {
           skipReveal();
           selectSession(id);
-          if (window.innerWidth < 1024) setIsLeftPanelOpen(false);
+          if (window.innerWidth < 1024) {
+            setIsLeftPanelOpen(false);
+            setIsRightPanelOpen(false);
+          }
         }}
         onNewChat={handleNewChat}
         onRenameSession={renameSession}
@@ -712,7 +828,7 @@ export default function App() {
 
       {/* 2. CENTER PANEL: MAIN CHAT STAGE */}
       <div
-        className="flex-1 min-w-0 h-full"
+        className="flex-1 min-w-0 h-full touch-pan-y"
         onClickCapture={(event) => {
           if (event.target instanceof Element && event.target.closest('div.flex.flex-col.max-w-3xl.mx-auto.w-full')) {
             skipReveal();
@@ -733,9 +849,9 @@ export default function App() {
           onEditMessage={handleEditMessage}
           pendingReplyMessageIds={pendingReplyMessageIds}
           isLoading={!!activeSessionId && loadingSessionIds.has(activeSessionId)}
-          onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+          onToggleLeftPanel={toggleLeftPanel}
           isLeftPanelOpen={isLeftPanelOpen}
-          onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
+          onToggleRightPanel={toggleRightPanel}
           isRightPanelOpen={isRightPanelOpen}
           onUpdateSessionMeta={updateSessionMeta}
           onSaveToNotes={handleSaveToNotes}
@@ -743,15 +859,18 @@ export default function App() {
           onOpenPersonaGroup={handleOpenPersonaGroup}
           onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
           queryUsage={usage}
+          onDirectInput={() => dismissPendingSubjectPrompt(activeSessionId)}
         />
       </div>
 
       {/* 3. RIGHT PANEL: EXPERT PERSONA SELECTOR */}
       <PersonaPanel
         isOpen={isRightPanelOpen}
+        showSubjectPrompt={isSubjectPromptVisible}
+        onSkipPrompt={handleSkipSubjectPrompt}
         initialGroup={initialPersonaGroup}
         onGroupConsumed={() => setInitialPersonaGroup(null)}
-        onToggle={() => setIsRightPanelOpen(!isRightPanelOpen)}
+        onToggle={toggleRightPanel}
         selectedPersonaId={currentPersonaId}
         onSelectPersona={handleSelectPersona}
         variant={activeVariant}

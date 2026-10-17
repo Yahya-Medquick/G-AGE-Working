@@ -288,7 +288,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
       {/* Main Sidebar Panel */}
       <aside
-        className={`fixed lg:static top-0 bottom-0 left-0 z-40 flex flex-col w-[270px] bg-[#FFFFFF] dark:bg-[#12231C] border-r border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+        className={`fixed lg:static top-0 bottom-0 left-0 z-40 flex flex-col w-[270px] bg-[#FFFFFF] dark:bg-[#12231C] border-r border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out motion-reduce:transition-none shrink-0 overflow-hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:w-0 lg:border-r-0'
         }`}
       >

@@ -31,7 +31,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-3" role="presentation">
+    <div data-no-swipe className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-3" role="presentation">
       <section
         role="dialog"
         aria-modal="true"
