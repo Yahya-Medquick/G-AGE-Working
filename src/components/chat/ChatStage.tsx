@@ -856,7 +856,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
                           {expandedExploreMsgIds[msg.id] && (
                             <div className="mt-2.5 space-y-2.5">
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              <div data-no-swipe className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                                 {tabs.map(({ id, label, icon }) => (
                                   <button
                                     key={id}

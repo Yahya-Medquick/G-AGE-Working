@@ -95,6 +95,7 @@ export interface ChatSession {
   personaId: string;
   mode: ChatMode;
   variant: 'global' | 'pk';
+  subjectPromptStatus?: 'pending' | 'skipped' | 'chosen';
   isPinned?: boolean;
   createdAt: string;
   updatedAt: string;

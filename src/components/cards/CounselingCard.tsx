@@ -355,7 +355,7 @@ export const CounselingCard: React.FC<CounselingCardProps> = ({
             2. EXPERT SWITCHER ROW
             ───────────────────────────────────────────────────────────── */}
         <div className="pt-4 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 w-full sm:w-auto">
+          <div data-no-swipe className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 w-full sm:w-auto">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mr-1 shrink-0">
               Specialist:
             </span>
@@ -486,7 +486,7 @@ export const CounselingCard: React.FC<CounselingCardProps> = ({
             4. SUGGESTION QUESTIONS DERIVED FROM SPECIALTIES
             ───────────────────────────────────────────────────────────── */}
         {currentExpert.specialties && currentExpert.specialties.length > 0 && (
-          <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/60 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <div data-no-swipe className="px-4 py-2 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/60 flex items-center gap-2 overflow-x-auto no-scrollbar">
             <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 shrink-0">
               Specialties:
             </span>

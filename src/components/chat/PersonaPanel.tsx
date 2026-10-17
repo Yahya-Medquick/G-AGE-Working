@@ -38,6 +38,8 @@ interface PersonaPanelProps {
   onOpenPaywall?: () => void;
   initialGroup?: string | null;
   onGroupConsumed?: () => void;
+  subjectPromptActive?: boolean;
+  onSkipSubjectPrompt?: () => void;
 }
 
 type PanelView = 'groups' | 'personas';
@@ -72,6 +74,8 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   onOpenPaywall,
   initialGroup,
   onGroupConsumed,
+  subjectPromptActive = false,
+  onSkipSubjectPrompt,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [view, setView] = useState<PanelView>('groups');
@@ -105,6 +109,14 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
       onGroupConsumed?.();
     }
   }, [initialGroup, isOpen]);
+
+  useEffect(() => {
+    if (subjectPromptActive) {
+      setSearchQuery('');
+      setView('groups');
+      setActiveGroup(null);
+    }
+  }, [subjectPromptActive]);
 
   // Load recent personas
   useEffect(() => {
@@ -250,8 +262,9 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
       )}
 
       <aside
+        data-drawer="right"
         className={`fixed lg:static top-0 bottom-0 right-0 z-40 flex flex-col w-[300px] sm:w-[320px] bg-[#FFFFFF] dark:bg-[#12231C] border-l border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
-          isOpen ? 'translate-x-0' : 'translate-x-full lg:w-0 lg:border-l-0'
+          isOpen ? `translate-x-0${subjectPromptActive ? ' subject-panel-highlight' : ''}` : 'translate-x-full lg:w-0 lg:border-l-0'
         }`}
       >
         {/* Header */}
@@ -271,13 +284,25 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
             )}
             <div>
               <h2 className="font-heading font-bold text-base tracking-tight text-[#10231C] dark:text-[#E8F2EC]">
-                {view === 'personas' && !isSearching && activeGroup ? activeGroup : 'Expert Personas'}
+                {subjectPromptActive
+                  ? 'Kya parhna hai?'
+                  : view === 'personas' && !isSearching && activeGroup ? activeGroup : 'Expert Personas'}
               </h2>
-              {view === 'personas' && !isSearching && activeGroup && (
+              {!subjectPromptActive && view === 'personas' && !isSearching && activeGroup && (
                 <p className="text-xs text-[#4F6359] dark:text-[#9DB5A8]">{groupPersonas.length} specialist{groupPersonas.length !== 1 ? 's' : ''}</p>
               )}
             </div>
           </div>
+          {subjectPromptActive && onSkipSubjectPrompt && (
+            <button
+              type="button"
+              onClick={onSkipSubjectPrompt}
+              className="min-h-[44px] min-w-[52px] rounded-[12px] px-2 text-xs font-bold text-[#0A5C45] dark:text-[#F4B400] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors"
+              aria-label="Skip for now"
+            >
+              Skip
+            </button>
+          )}
           <button
             onClick={onToggle}
             className="min-h-[44px] min-w-[44px] p-2 rounded-[14px] text-[#4F6359] hover:text-[#10231C] dark:text-[#9DB5A8] dark:hover:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] transition-colors cursor-pointer flex items-center justify-center border border-transparent hover:border-[#D5E0D8] dark:hover:border-[#27403A]"

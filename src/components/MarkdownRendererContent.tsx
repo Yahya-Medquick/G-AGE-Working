@@ -126,9 +126,10 @@ export const MarkdownRendererContent = ({ content, className = '', isStreaming =
           ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-2.5 space-y-1 text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
           li: ({ ...props }) => <li className="mb-1 text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
           strong: ({ ...props }) => <strong className="font-bold text-[#10231C] dark:text-[#E8F2EC]" {...props} />,
+          pre: ({ ...props }) => <pre data-no-swipe className="overflow-x-auto" {...props} />,
           code: ({ ...props }) => <code className="bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] px-1.5 py-0.5 rounded font-mono text-xs border border-[#D5E0D8] dark:border-[#27403A]" {...props} />,
           table: ({ children, node: _node, ...props }) => (
-            <div className="my-3 max-w-full overflow-x-auto rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A]">
+            <div data-no-swipe className="my-3 max-w-full overflow-x-auto rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A]">
               <table
                 dir={containsUrdu ? 'rtl' : 'ltr'}
                 className={`w-max min-w-full border-collapse text-xs ${containsUrdu ? 'text-right' : 'text-left'}`}

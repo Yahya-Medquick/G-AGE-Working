@@ -7,6 +7,8 @@ G-AGE AI is a free AI tutor and study assistant for Pakistani students. It provi
 - Three chat modes: **Concept** for explanations, **Exam** for practice and problems, and **Research** for papers and citations.
 - Pro chat supports attaching or taking a photo, cropping it, and asking a vision question. Images are resized to at most 1600 px on the longest side before sending.
 - Pakistani and Global expert-persona variants.
+- New and first-ever chats open the existing subject/expert panel with a per-chat skip; first-run onboarding finishes before the prompt appears.
+- On mobile, horizontal swipes on the chat stage open chat history or the expert panel, and swipes on an open drawer toward its edge close it.
 - A per-chat **Specifications & Filters** panel. Concept mode selects a learning level; Exam mode accepts board/university, subject, question nature, and class/grade; Research mode filters paper recency and citations and toggles repositories and datasets.
 - **Explore More** below assistant answers. Research mode has Papers, Repos, and Research News. Concept and Exam modes have Videos, News, and MCQs.
 - Save notes, export notes as PDF, and compile selected notes.
@@ -24,7 +26,7 @@ Each chat stores specifications in separate `concept`, `exam`, and `research` ob
 
 The persona panel switches between Pakistani and Global variants. The PostgreSQL `expert_personas` table stores persona identity and presentation fields (`slug`, `name`, `initials`, `role`, `affiliation`, `badge`, `avatar_color`), expertise and prompt fields (`specialties`, `domains`, `description`, `personality`, `opener_template`, `system_prompt`), and status/order fields (`is_active`, `is_default`, `display_order`, `variant`, `group_name`, `created_at`, `updated_at`). `GET /api/v1/personas/recent` returns up to three recently used personas for the selected variant when the user is signed in. It is registered before `/api/v1/personas/:slug` so the literal `recent` path is handled as the recent-personas endpoint rather than as a slug.
 
-On narrow screens the chat header wraps, with **Open chats** and **Open expert panel** buttons when their panels are closed. The sidebar and persona panel open as slide-in drawers with a backdrop. The mobile sidebar includes the API Reference action. On screens up to 768px wide, the open Specifications & Filters content has its own vertical scroll area with a viewport-based maximum height.
+On narrow screens the chat header wraps, with **Open chats** and **Open expert panel** buttons when their panels are closed. The sidebar and persona panel open as slide-in drawers with a backdrop; horizontal swipes on the chat stage open either drawer, while swipes toward an open drawer's edge close it. New chats highlight the existing subject/expert panel and allow a per-chat skip. The mobile sidebar includes the API Reference action. On screens up to 768px wide, the open Specifications & Filters content has its own vertical scroll area with a viewport-based maximum height.
 
 Visible filter controls:
 
@@ -137,3 +139,5 @@ Fonts are Baloo 2 for headings, Nunito Sans for body text, and Noto Nastaliq Urd
 - Restored mobile sidebar and expert-panel buttons.
 - Made the mobile filters panel scroll within its available height.
 - Fixed filter selection, text entry, and session persistence after replacing direct mutation of session specifications.
+- Opened the existing subject/expert panel for new chats, with a per-chat skip and first-run tour sequencing.
+- Added touch swipe gestures to open and close the mobile chat-history and expert drawers.

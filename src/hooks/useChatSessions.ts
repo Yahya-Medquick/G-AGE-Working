@@ -34,6 +34,7 @@ export function useChatSessions() {
       return null;
     }
   });
+  const [loadedStorageUserPrefix, setLoadedStorageUserPrefix] = useState(storageUserPrefix);
 
   // Reload sessions when user changes (guest vs logged in)
   useEffect(() => {
@@ -51,6 +52,7 @@ export function useChatSessions() {
           } else {
             setActiveSessionId(null);
           }
+          setLoadedStorageUserPrefix(storageUserPrefix);
           return;
         }
       }
@@ -59,6 +61,7 @@ export function useChatSessions() {
     }
     setSessions([]);
     setActiveSessionId(null);
+    setLoadedStorageUserPrefix(storageUserPrefix);
   }, [storageUserPrefix]);
 
   // Persist sessions
@@ -192,7 +195,7 @@ export function useChatSessions() {
 
   // Update session mode or specs
   const updateSessionMeta = useCallback(
-    (sessionId: string, updates: Partial<Pick<ChatSession, 'mode' | 'personaId' | 'variant' | 'specs' | 'title'>>) => {
+    (sessionId: string, updates: Partial<Pick<ChatSession, 'mode' | 'personaId' | 'variant' | 'specs' | 'title' | 'subjectPromptStatus'>>) => {
       setSessions((prev) => {
         const index = prev.findIndex((s) => s.id === sessionId);
         if (index === -1) return prev;
@@ -309,6 +312,7 @@ export function useChatSessions() {
 
   return {
     sessions,
+    isSessionStorageReady: loadedStorageUserPrefix === storageUserPrefix,
     activeSessionId,
     activeSession,
     selectSession,

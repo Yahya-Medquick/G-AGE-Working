@@ -33,7 +33,7 @@ export const ProductTour: React.FC = () => {
         } catch (_) {}
       }
     };
-  }, [isLoadingAuth, hasSeenOnboarding, tourTriggerCount, isTourOpen]);
+  }, [isLoadingAuth, hasSeenOnboarding, tourTriggerCount]);
 
   const startTour = () => {
     if (isRunningRef.current) {
@@ -122,6 +122,13 @@ export const ProductTour: React.FC = () => {
     isRunningRef.current = true;
     setIsTourOpen(true);
 
+    const finishTour = () => {
+      if (!isRunningRef.current) return;
+      isRunningRef.current = false;
+      setIsTourOpen(false);
+      completeOnboarding();
+    };
+
     const driverObj = driver({
       showProgress: true,
       progressText: '{{current}} of {{total}}',
@@ -139,12 +146,9 @@ export const ProductTour: React.FC = () => {
       steps: availableSteps,
       onDestroyStarted: () => {
         driverObj.destroy();
+        finishTour();
       },
-      onDestroyed: () => {
-        isRunningRef.current = false;
-        setIsTourOpen(false);
-        completeOnboarding();
-      },
+      onDestroyed: finishTour,
       onPopoverRender: (popover) => {
         // Inject a dedicated "Skip Tour" button if not already present
         const footer = popover.footer;
@@ -157,6 +161,7 @@ export const ProductTour: React.FC = () => {
             e.preventDefault();
             e.stopPropagation();
             driverObj.destroy();
+            finishTour();
           };
           footer.prepend(skipBtn);
         }
