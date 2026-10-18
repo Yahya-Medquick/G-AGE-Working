@@ -11,6 +11,7 @@ G-AGE AI is a free AI tutor and study assistant for Pakistani students. It provi
 - On mobile, horizontal swipes on the chat stage open chat history or the expert panel, and swipes on an open drawer toward its edge close it.
 - A per-chat **Specifications & Filters** panel. Concept mode selects a learning level; Exam mode accepts board/university, subject, question nature, and class/grade; Research mode filters paper recency and citations and toggles repositories and datasets.
 - **Explore More** below assistant answers. Research mode has Papers, Repos, and Research News. Concept and Exam modes have Videos, News, and MCQs.
+- **Visualize as Image**: For AI answers of 30 words or more, a "Visualize" button generates a downloadable 1080px-wide portrait visual study card (flowchart for step-by-step processes, mindmap for hierarchical concepts, or concept map for labeled relationships). Features offscreen 2x PNG rasterization, RTL support for Urdu, card-shaped skeleton loading, in-memory caching, and instant PNG download.
 - Save notes, export notes as PDF, and compile selected notes.
 - Public Q&A pages at `/q/...` and persona question pages at `/persona/.../questions`.
 - Sidebar tools include Notes, an onboarding tour, the Admin modal, the Developer API modal/reference, and light/dark theme controls. The app also includes a TWA download page.
@@ -56,7 +57,7 @@ Visible filter controls:
 | Guest | 5 lifetime queries per device |
 | Paid / Pro / unlimited tier | No daily query cap |
 
-Daily counters use UTC dates and reset at midnight UTC (05:00 Pakistan Standard Time). In-memory per-minute request limits are also applied: general API requests 150/minute; auth, AI ask, learning, and counseling/chat limiters 25/minute; admin requests 30/minute. These limiters are layered on applicable routes. Paid tiers receive a 10x burst allowance.
+Daily counters use UTC dates and reset at midnight UTC (05:00 Pakistan Standard Time). In-memory per-minute request limits are also applied: general API requests 150/minute; auth, AI ask, learning, and counseling/chat limiters 25/minute; visual study card generator 5/minute; admin requests 30/minute. These limiters are layered on applicable routes. Paid tiers receive a 10x burst allowance.
 
 ### Image questions
 
@@ -89,12 +90,13 @@ The frontend also reads `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `V
 ## Project structure
 
 - `src/App.tsx` — selects public pages and mounts the main chat interface and modals.
-- `src/components/chat/` — chat sidebar, chat stage, expert-persona panel, and specifications.
+- `src/components/chat/` — chat sidebar, chat stage, expert-persona panel, specifications, and visual study card modal (`VisualCardModal.tsx`).
 - `src/components/` and `src/components/cards/` — other pages, modals, notes, and answer cards.
 - `src/hooks/`, `src/context/`, `src/stores/` — client state and data hooks.
-- `src/utils/`, `src/data/`, `src/types/` — shared utilities, persona data, and types.
+- `src/services/` — client API services, including `api.ts` and `visualCard.ts`.
+- `src/utils/`, `src/data/`, `src/types/` — shared utilities (including `cardRenderer.ts` SVG layout and 2x canvas rasterizer), persona data, and types (`visualCard.ts`).
 - `server.ts` — Express routes, server-side limits, database schema, and static-file serving.
-- `tests/` — Vitest tests, including `tests/queryLimitPolicy.test.ts`.
+- `tests/` — Vitest tests, including `tests/queryLimitPolicy.test.ts` and `tests/visualCard.test.ts`.
 - `public/` — static assets, manifest, and service worker.
 
 `Header.tsx`, `SearchBar.tsx`, and `CategoryViewer.tsx` are legacy components not imported by the mounted app. `HistoryViewer.tsx` is only referenced by the legacy `CategoryViewer`; the current chat-session history is shown in `ChatSidebar`. `MCQCard` remains used by Explore More.
@@ -141,3 +143,4 @@ Fonts are Baloo 2 for headings, Nunito Sans for body text, and Noto Nastaliq Urd
 - Fixed filter selection, text entry, and session persistence after replacing direct mutation of session specifications.
 - Opened the existing subject/expert panel for new chats, with a per-chat skip and first-run tour sequencing.
 - Added touch swipe gestures to open and close the mobile chat-history and expert drawers.
+- Added the lightweight "Visualize as Image" study-card feature: converts $\ge 30$-word explanations into downloadable 1080px-wide visual cards (flowcharts, mindmaps, and concept maps) with pure SVG arithmetic layout, offscreen 2x canvas PNG rasterization, RTL Urdu support, skeleton loading, and in-memory caching.
