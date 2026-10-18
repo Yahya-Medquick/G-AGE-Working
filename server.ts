@@ -3318,6 +3318,7 @@ const adminRateLimiter = createRateLimiter(30, "adm");
 const authRateLimiter = createRateLimiter(25, "ath");
 const learnRateLimiter = createRateLimiter(25, "learn");
 const counselRateLimiter = createRateLimiter(25, "counsel");
+const conceptMapRateLimiter = createRateLimiter(5, "cmap");
 
 app.use("/api/", generalRateLimiter);
 app.use("/api/auth", authRateLimiter);
@@ -7517,6 +7518,135 @@ Return valid JSON:
   }
 
   return res.json(fallbackResult);
+});
+
+// Endpoint for AI-powered Concept Map & Graph Generation (POST /api/concept-map)
+app.post("/api/concept-map", conceptMapRateLimiter, async (req: Request, res: Response) => {
+  const { text } = req.body || {};
+  if (!text || typeof text !== "string" || !text.trim()) {
+    return res.status(400).json({ error: "Text is required to generate a concept map." });
+  }
+
+  const truncatedText = text.trim().slice(0, 3000);
+
+  const conceptMapSchema = {
+    type: Type.OBJECT,
+    properties: {
+      type: {
+        type: Type.STRING,
+        enum: ["mindmap", "flowchart", "concept_map"],
+      },
+      title: {
+        type: Type.STRING,
+      },
+      nodes: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            label: { type: Type.STRING },
+            parent: { type: Type.STRING, nullable: true },
+          },
+          required: ["id", "label"],
+        },
+      },
+      edges: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            from: { type: Type.STRING },
+            to: { type: Type.STRING },
+            label: { type: Type.STRING, nullable: true },
+          },
+          required: ["from", "to"],
+        },
+      },
+    },
+    required: ["type", "title", "nodes", "edges"],
+  };
+
+  const systemInstruction = "Convert the given text into a concept graph. Return ONLY JSON that matches the schema. Use at most 12 nodes and at most 3 levels deep. Node labels must be 1 to 5 words. Do not invent facts that are not in the text. Choose type 'flowchart' for processes or how-to content, 'mindmap' for explanations of a topic and its subtopics, and 'concept_map' when relationships between ideas need labeled edges.";
+
+  const executeCall = async () => {
+    return await callGeminiWithFallback({
+      contents: `Text to analyze:\n\n${truncatedText}`,
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: conceptMapSchema,
+      models: GEMINI_UTILITY_MODELS,
+      temperature: 0.2,
+      customKeys: getWorkerGeminiApiKeys(),
+    });
+  };
+
+  let aiRes: any = null;
+  let parsedJson: any = null;
+
+  // Attempt 1
+  try {
+    aiRes = await executeCall();
+    if (aiRes?.text) {
+      const clean = aiRes.text.replace(/^```(?:json)?\s*|\s*```$/gi, "").trim();
+      parsedJson = JSON.parse(clean);
+    }
+  } catch (err1) {
+    console.warn("[ConceptMap] Attempt 1 failed, retrying once:", err1);
+  }
+
+  // If invalid or empty, retry once as specified
+  if (!parsedJson || !Array.isArray(parsedJson.nodes) || parsedJson.nodes.length === 0) {
+    try {
+      aiRes = await executeCall();
+      if (aiRes?.text) {
+        const clean = aiRes.text.replace(/^```(?:json)?\s*|\s*```$/gi, "").trim();
+        parsedJson = JSON.parse(clean);
+      }
+    } catch (err2) {
+      console.warn("[ConceptMap] Attempt 2 failed:", err2);
+    }
+  }
+
+  // If still invalid, return structured fallback outline
+  if (!parsedJson || !Array.isArray(parsedJson.nodes) || parsedJson.nodes.length === 0) {
+    const outlineLines = truncatedText
+      .replace(/^#+\s+/gm, "")
+      .split("\n")
+      .map((l: string) => l.trim())
+      .filter((l: string) => l.length > 0 && !l.startsWith("---"))
+      .slice(0, 8);
+
+    const fallbackOutline = outlineLines.length > 0 ? outlineLines : ["Key concept overview"];
+    const fallbackNodes = [
+      { id: "root", label: "Core Concept", parent: null },
+      ...fallbackOutline.slice(0, 6).map((item: string, idx: number) => ({
+        id: `node-${idx + 1}`,
+        label: item.slice(0, 35),
+        parent: "root",
+      })),
+    ];
+    const fallbackEdges = fallbackOutline.slice(0, 6).map((_: string, idx: number) => ({
+      from: "root",
+      to: `node-${idx + 1}`,
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        type: "mindmap",
+        title: "Concept Overview",
+        nodes: fallbackNodes,
+        edges: fallbackEdges,
+        fallbackOutline,
+      },
+    });
+  }
+
+  return res.json({
+    success: true,
+    data: parsedJson,
+  });
 });
 
 // Persistence Route: Automatic Search Persistence into Supabase PostgreSQL (Step 2)

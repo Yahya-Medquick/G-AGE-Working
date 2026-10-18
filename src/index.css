@@ -322,3 +322,34 @@ p.urdu-block,
   font-weight: 600;
   cursor: pointer;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   FEATURE A: NEW CHAT SUBJECT PANEL HIGHLIGHT (~3s pulse/ring)
+   ───────────────────────────────────────────────────────────── */
+@keyframes subjectPanelPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(10, 92, 69, 0.4), inset 0 0 0 2px #0A5C45;
+  }
+  30% {
+    box-shadow: 0 0 0 8px rgba(244, 180, 0, 0.35), inset 0 0 0 2px #F4B400;
+  }
+  70% {
+    box-shadow: 0 0 0 4px rgba(10, 92, 69, 0.25), inset 0 0 0 2px #0A5C45;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent, inset 0 0 0 0 transparent;
+  }
+}
+
+.panel-subject-highlight {
+  animation: subjectPanelPulse 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-subject-highlight {
+    animation: none !important;
+    box-shadow: none !important;
+    border-color: #0A5C45 !important;
+  }
+}
+
