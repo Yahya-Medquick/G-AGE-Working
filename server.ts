@@ -3318,7 +3318,7 @@ const adminRateLimiter = createRateLimiter(30, "adm");
 const authRateLimiter = createRateLimiter(25, "ath");
 const learnRateLimiter = createRateLimiter(25, "learn");
 const counselRateLimiter = createRateLimiter(25, "counsel");
-const conceptMapRateLimiter = createRateLimiter(5, "cmap");
+const visualCardRateLimiter = createRateLimiter(5, "vcard");
 
 app.use("/api/", generalRateLimiter);
 app.use("/api/auth", authRateLimiter);
@@ -7520,132 +7520,203 @@ Return valid JSON:
   return res.json(fallbackResult);
 });
 
-// Endpoint for AI-powered Concept Map & Graph Generation (POST /api/concept-map)
-app.post("/api/concept-map", conceptMapRateLimiter, async (req: Request, res: Response) => {
+// Endpoint for AI-powered Visual Study Card Generation (POST /api/visual-card)
+app.post("/api/visual-card", visualCardRateLimiter, async (req: Request, res: Response) => {
   const { text } = req.body || {};
   if (!text || typeof text !== "string" || !text.trim()) {
-    return res.status(400).json({ error: "Text is required to generate a concept map." });
+    return res.status(400).json({ error: "Text is required to generate a visual study card." });
   }
 
+  // Server-side enforcement of 3000-character limit
   const truncatedText = text.trim().slice(0, 3000);
 
-  const conceptMapSchema = {
+  const visualCardSchema = {
     type: Type.OBJECT,
     properties: {
       type: {
         type: Type.STRING,
-        enum: ["mindmap", "flowchart", "concept_map"],
+        enum: ["flowchart", "mindmap", "concept_map"],
       },
-      title: {
-        type: Type.STRING,
-      },
-      nodes: {
+      title: { type: Type.STRING },
+      summary: { type: Type.STRING },
+      steps: {
         type: Type.ARRAY,
         items: {
           type: Type.OBJECT,
           properties: {
-            id: { type: Type.STRING },
-            label: { type: Type.STRING },
-            parent: { type: Type.STRING, nullable: true },
+            title: { type: Type.STRING },
+            description: { type: Type.STRING },
           },
-          required: ["id", "label"],
+          required: ["title", "description"],
         },
       },
-      edges: {
+      groups: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            items: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                },
+                required: ["title", "description"],
+              },
+            },
+          },
+          required: ["title", "items"],
+        },
+      },
+      relations: {
         type: Type.ARRAY,
         items: {
           type: Type.OBJECT,
           properties: {
             from: { type: Type.STRING },
+            label: { type: Type.STRING },
             to: { type: Type.STRING },
-            label: { type: Type.STRING, nullable: true },
+            description: { type: Type.STRING },
           },
-          required: ["from", "to"],
+          required: ["from", "label", "to"],
         },
       },
     },
-    required: ["type", "title", "nodes", "edges"],
+    required: ["type", "title"],
   };
 
-  const systemInstruction = "Convert the given text into a concept graph. Return ONLY JSON that matches the schema. Use at most 12 nodes and at most 3 levels deep. Node labels must be 1 to 5 words. Do not invent facts that are not in the text. Choose type 'flowchart' for processes or how-to content, 'mindmap' for explanations of a topic and its subtopics, and 'concept_map' when relationships between ideas need labeled edges.";
+  const systemInstruction = "Convert the given text into a simple visual study card. Return ONLY JSON matching the schema. Choose 'flowchart' for processes, steps or how-to content, 'mindmap' for explaining a topic and its parts, 'concept_map' for comparisons or relationships between ideas. Every step or item gets a short title and a one-sentence plain-language description of what it means. Use only information from the text. Be concise.";
 
   const executeCall = async () => {
     return await callGeminiWithFallback({
-      contents: `Text to analyze:\n\n${truncatedText}`,
+      contents: `Text to convert into a visual study card:\n\n${truncatedText}`,
       systemInstruction,
       responseMimeType: "application/json",
-      responseSchema: conceptMapSchema,
+      responseSchema: visualCardSchema,
       models: GEMINI_UTILITY_MODELS,
       temperature: 0.2,
+      thinkingBudget: 0,
       customKeys: getWorkerGeminiApiKeys(),
     });
   };
 
-  let aiRes: any = null;
-  let parsedJson: any = null;
+  const validateCard = (raw: any): any | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const type = (raw.type === "flowchart" || raw.type === "mindmap" || raw.type === "concept_map") ? raw.type : "flowchart";
+    const title = typeof raw.title === "string" && raw.title.trim() ? raw.title.trim().slice(0, 80) : "";
+    if (!title) return null;
+
+    const summary = typeof raw.summary === "string" ? raw.summary.trim().slice(0, 160) : undefined;
+
+    if (type === "flowchart") {
+      const rawSteps = Array.isArray(raw.steps) ? raw.steps : [];
+      const steps = rawSteps
+        .filter((s: any) => s && typeof s.title === "string" && s.title.trim())
+        .slice(0, 8)
+        .map((s: any) => ({
+          title: s.title.trim().slice(0, 60),
+          description: typeof s.description === "string" ? s.description.trim().slice(0, 180) : "",
+        }));
+      if (steps.length === 0) return null;
+      return { type, title, summary, steps };
+    }
+
+    if (type === "mindmap") {
+      const rawGroups = Array.isArray(raw.groups) ? raw.groups : [];
+      const groups = rawGroups
+        .filter((g: any) => g && typeof g.title === "string" && g.title.trim() && Array.isArray(g.items))
+        .slice(0, 5)
+        .map((g: any) => ({
+          title: g.title.trim().slice(0, 50),
+          items: g.items
+            .filter((item: any) => item && typeof item.title === "string" && item.title.trim())
+            .slice(0, 4)
+            .map((item: any) => ({
+              title: item.title.trim().slice(0, 50),
+              description: typeof item.description === "string" ? item.description.trim().slice(0, 160) : "",
+            })),
+        }))
+        .filter((g: any) => g.items.length > 0);
+      if (groups.length === 0) return null;
+      return { type, title, summary, groups };
+    }
+
+    if (type === "concept_map") {
+      const rawRelations = Array.isArray(raw.relations) ? raw.relations : [];
+      const relations = rawRelations
+        .filter((r: any) => r && typeof r.from === "string" && typeof r.to === "string" && typeof r.label === "string")
+        .slice(0, 8)
+        .map((r: any) => ({
+          from: r.from.trim().slice(0, 30),
+          label: r.label.trim().slice(0, 24),
+          to: r.to.trim().slice(0, 30),
+          description: typeof r.description === "string" ? r.description.trim().slice(0, 160) : undefined,
+        }));
+      if (relations.length === 0) return null;
+      return { type, title, summary, relations };
+    }
+
+    return null;
+  };
+
+  let validatedCard: any = null;
 
   // Attempt 1
   try {
-    aiRes = await executeCall();
+    const aiRes = await executeCall();
     if (aiRes?.text) {
       const clean = aiRes.text.replace(/^```(?:json)?\s*|\s*```$/gi, "").trim();
-      parsedJson = JSON.parse(clean);
+      const parsed = JSON.parse(clean);
+      validatedCard = validateCard(parsed);
     }
   } catch (err1) {
-    console.warn("[ConceptMap] Attempt 1 failed, retrying once:", err1);
+    console.warn("[VisualCard] Attempt 1 failed, retrying once:", err1);
   }
 
-  // If invalid or empty, retry once as specified
-  if (!parsedJson || !Array.isArray(parsedJson.nodes) || parsedJson.nodes.length === 0) {
+  // If invalid, retry once
+  if (!validatedCard) {
     try {
-      aiRes = await executeCall();
+      const aiRes = await executeCall();
       if (aiRes?.text) {
         const clean = aiRes.text.replace(/^```(?:json)?\s*|\s*```$/gi, "").trim();
-        parsedJson = JSON.parse(clean);
+        const parsed = JSON.parse(clean);
+        validatedCard = validateCard(parsed);
       }
     } catch (err2) {
-      console.warn("[ConceptMap] Attempt 2 failed:", err2);
+      console.warn("[VisualCard] Attempt 2 failed:", err2);
     }
   }
 
-  // If still invalid, return structured fallback outline
-  if (!parsedJson || !Array.isArray(parsedJson.nodes) || parsedJson.nodes.length === 0) {
-    const outlineLines = truncatedText
+  // If still invalid, return clean fallback constructed from text headings & bullet points
+  if (!validatedCard) {
+    const cleanLines = truncatedText
+      .replace(/\[\[SUGGEST_GROUP:[^\]]*\]\]/g, "")
       .replace(/^#+\s+/gm, "")
       .split("\n")
-      .map((l: string) => l.trim())
-      .filter((l: string) => l.length > 0 && !l.startsWith("---"))
-      .slice(0, 8);
+      .map((l: string) => l.trim().replace(/^[-*•\d.)]\s*/, ""))
+      .filter((l: string) => l.length > 5 && !l.startsWith("---"))
+      .slice(0, 6);
 
-    const fallbackOutline = outlineLines.length > 0 ? outlineLines : ["Key concept overview"];
-    const fallbackNodes = [
-      { id: "root", label: "Core Concept", parent: null },
-      ...fallbackOutline.slice(0, 6).map((item: string, idx: number) => ({
-        id: `node-${idx + 1}`,
-        label: item.slice(0, 35),
-        parent: "root",
-      })),
-    ];
-    const fallbackEdges = fallbackOutline.slice(0, 6).map((_: string, idx: number) => ({
-      from: "root",
-      to: `node-${idx + 1}`,
+    const fallbackTitle = cleanLines[0]?.slice(0, 50) || "Visual Study Summary";
+    const fallbackSteps = (cleanLines.length > 1 ? cleanLines.slice(1) : [truncatedText.slice(0, 120)]).map((line, idx) => ({
+      title: `Key Point ${idx + 1}`,
+      description: line.slice(0, 160),
     }));
 
-    return res.json({
-      success: true,
-      data: {
-        type: "mindmap",
-        title: "Concept Overview",
-        nodes: fallbackNodes,
-        edges: fallbackEdges,
-        fallbackOutline,
-      },
-    });
+    validatedCard = {
+      type: "flowchart",
+      title: fallbackTitle,
+      summary: "Study overview generated from answer",
+      steps: fallbackSteps,
+    };
   }
 
   return res.json({
     success: true,
-    data: parsedJson,
+    data: validatedCard,
   });
 });
 

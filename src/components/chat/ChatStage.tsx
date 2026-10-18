@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { PixelCrop } from 'react-image-crop';
 import {
   PanelLeft,
@@ -30,8 +30,8 @@ import {
   EyeOff,
   Zap,
   Crown,
-  Network,
   Loader2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { ChatMessage, ChatSession, ChatMode } from '../../types/chat';
 import { ExpertPersona } from '../../data/experts';
@@ -43,9 +43,9 @@ import { ProExpiryBadge } from '../ProExpiryBadge';
 import { getBrandPersonaColor } from './ChatSidebar';
 import { ImageCropModal } from './ImageCropModal';
 import { cropImageToJpeg, validateImageFile } from '../../utils/imageProcessing';
-import { ConceptMapPanel } from '../concept/ConceptMapPanel';
-import { requestConceptMap, hasCachedConceptMap, getCachedConceptMap } from '../../services/conceptMap';
-import { ConceptMapData } from '../../types/conceptMap';
+import { VisualCardModal } from './VisualCardModal';
+import { requestVisualCard, hasCachedVisualCard, getCachedVisualCard, invalidateVisualCard } from '../../services/visualCard';
+import { VisualStudyCard } from '../../types/visualCard';
 
 interface ChatStageProps {
   isLeftPanelOpen?: boolean;
@@ -204,43 +204,45 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [activeExploreTab, setActiveExploreTab] = useState<string | null>(null);
   const [extractedTopics, setExtractedTopics] = useState<Record<string, { displayTopic: string; videoQuery: string; newsQuery: string; mcqTopic: string; loading?: boolean }>>({});
 
-  const [activeConceptMap, setActiveConceptMap] = useState<ConceptMapData | null>(null);
-  const [isConceptMapOpen, setIsConceptMapOpen] = useState(false);
-  const [generatingMapMsgIds, setGeneratingMapMsgIds] = useState<Set<string>>(new Set());
-  const [conceptMapToast, setConceptMapToast] = useState<string | null>(null);
+  const [activeVisualCard, setActiveVisualCard] = useState<VisualStudyCard | null>(null);
+  const [isVisualCardOpen, setIsVisualCardOpen] = useState(false);
+  const [isVisualCardLoading, setIsVisualCardLoading] = useState(false);
+  const [visualCardError, setVisualCardError] = useState<string | null>(null);
+  const [visualizingMsgId, setVisualizingMsgId] = useState<string | null>(null);
+  const [lastVisualizedContent, setLastVisualizedContent] = useState<string>('');
 
-  const handleVisualizeMessage = async (messageId: string, content: string) => {
-    const cached = getCachedConceptMap(messageId);
+  const handleVisualizeMessage = useCallback(async (messageId: string, content: string) => {
+    setVisualizingMsgId(messageId);
+    setLastVisualizedContent(content);
+    setVisualCardError(null);
+    setIsVisualCardOpen(true);
+
+    const cached = getCachedVisualCard(messageId);
     if (cached) {
-      setActiveConceptMap(cached);
-      setIsConceptMapOpen(true);
+      setActiveVisualCard(cached);
+      setIsVisualCardLoading(false);
       return;
     }
 
-    setGeneratingMapMsgIds((prev) => new Set(prev).add(messageId));
-    try {
-      const data = await requestConceptMap(messageId, content);
-      setActiveConceptMap(data);
-      setIsConceptMapOpen(true);
-    } catch (err: any) {
-      const msg = err?.message || 'Failed to generate concept map.';
-      setConceptMapToast(msg);
-      setTimeout(() => setConceptMapToast(null), 4000);
-    } finally {
-      setGeneratingMapMsgIds((prev) => {
-        const next = new Set(prev);
-        next.delete(messageId);
-        return next;
-      });
-    }
-  };
+    setActiveVisualCard(null);
+    setIsVisualCardLoading(true);
 
-  const handleAskAboutConceptNode = (nodeLabel: string) => {
-    setInputText(`Explain: ${nodeLabel}`);
-    setTimeout(() => {
-      textareaRef.current?.focus();
-    }, 100);
-  };
+    try {
+      const card = await requestVisualCard(messageId, content);
+      setActiveVisualCard(card);
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to generate visual study card.';
+      setVisualCardError(msg);
+    } finally {
+      setIsVisualCardLoading(false);
+    }
+  }, []);
+
+  const handleRetryVisualize = useCallback(() => {
+    if (visualizingMsgId && lastVisualizedContent) {
+      handleVisualizeMessage(visualizingMsgId, lastVisualizedContent);
+    }
+  }, [visualizingMsgId, lastVisualizedContent, handleVisualizeMessage]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const latestTurnRef = useRef<HTMLDivElement>(null);
@@ -471,6 +473,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
   const saveEditMessage = (msgId: string) => {
     if (!editText.trim() && editImages.length === 0) return;
+    invalidateVisualCard(msgId);
     if (onEditMessage) {
       onEditMessage(msgId, editText.trim(), editImages);
     }
@@ -1056,10 +1059,13 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                         )}
                       </button>
 
-                      {/* Concept Map Visualize / View Map Button */}
+                      {/* Visual Study Card "Visualize as Image" Button */}
                       {(() => {
-                        const isGenerating = generatingMapMsgIds.has(msg.id);
-                        const isCached = hasCachedConceptMap(msg.id);
+                        const wordCount = msg.content.trim().split(/\s+/).filter(Boolean).length;
+                        if (wordCount < 30) return null;
+
+                        const isGenerating = isVisualCardLoading && visualizingMsgId === msg.id;
+                        const isCached = hasCachedVisualCard(msg.id);
 
                         return (
                           <button
@@ -1070,7 +1076,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                                 ? 'border-[#0A5C45] dark:border-[#5BE0A5] bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5]'
                                 : 'border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5]'
                             }`}
-                            title={isCached ? 'View generated concept map' : 'Visualize this explanation as a structured concept graph'}
+                            title={isCached ? 'View generated study card image' : 'Generate a visual study card from this explanation'}
                           >
                             {isGenerating ? (
                               <>
@@ -1079,8 +1085,8 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                               </>
                             ) : isCached ? (
                               <>
-                                <Network className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5]" />
-                                <span>View map</span>
+                                <ImageIcon className="w-3.5 h-3.5 text-[#0A5C45] dark:text-[#5BE0A5]" />
+                                <span>View image</span>
                               </>
                             ) : (
                               <>
@@ -1104,7 +1110,10 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                                 break;
                               }
                             }
-                            if (userMessageIndex >= 0 && onRegenerateMessage) onRegenerateMessage(msg.id, userMessageIndex);
+                            if (userMessageIndex >= 0 && onRegenerateMessage) {
+                              invalidateVisualCard(msg.id);
+                              onRegenerateMessage(msg.id, userMessageIndex);
+                            }
                           }}
                           disabled={isLoading}
                           className="min-h-[44px] px-3 py-1.5 rounded-[12px] border border-[#D5E0D8] dark:border-[#27403A] bg-white dark:bg-[#12231C] text-[#10231C] dark:text-[#E8F2EC] hover:bg-[#DDEFE6] dark:hover:bg-[#17352A] hover:text-[#0A5C45] dark:hover:text-[#5BE0A5] transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer group disabled:opacity-40 disabled:pointer-events-none"
@@ -1285,17 +1294,13 @@ export const ChatStage: React.FC<ChatStageProps> = ({
         />
       )}
 
-      {conceptMapToast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-[12px] bg-red-600 text-white text-xs font-semibold shadow-lg animate-in fade-in duration-200 max-w-[90vw] text-center">
-          {conceptMapToast}
-        </div>
-      )}
-
-      <ConceptMapPanel
-        isOpen={isConceptMapOpen}
-        onClose={() => setIsConceptMapOpen(false)}
-        mapData={activeConceptMap}
-        onAskAboutNode={handleAskAboutConceptNode}
+      <VisualCardModal
+        isOpen={isVisualCardOpen}
+        isLoading={isVisualCardLoading}
+        error={visualCardError}
+        card={activeVisualCard}
+        onClose={() => setIsVisualCardOpen(false)}
+        onRetry={handleRetryVisualize}
       />
     </div>
   );
