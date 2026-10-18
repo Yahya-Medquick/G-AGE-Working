@@ -7522,9 +7522,14 @@ Return valid JSON:
 
 // Endpoint for AI-powered Visual Study Card Generation (POST /api/visual-card)
 app.post("/api/visual-card", visualCardRateLimiter, async (req: Request, res: Response) => {
-  const { text } = req.body || {};
+  const { text, mode } = req.body || {};
   if (!text || typeof text !== "string" || !text.trim()) {
     return res.status(400).json({ error: "Text is required to generate a visual study card." });
+  }
+
+  // Reject requests that don't come from Concept mode
+  if (mode && mode !== "concept") {
+    return res.status(400).json({ error: "Visual study cards are only available in Concept mode." });
   }
 
   // Server-side enforcement of 3000-character limit
@@ -7535,17 +7540,18 @@ app.post("/api/visual-card", visualCardRateLimiter, async (req: Request, res: Re
     properties: {
       type: {
         type: Type.STRING,
-        enum: ["flowchart", "mindmap", "concept_map"],
+        enum: ["list", "flowchart", "mindmap", "concept_map"],
       },
       title: { type: Type.STRING },
       summary: { type: Type.STRING },
-      steps: {
+      items: {
         type: Type.ARRAY,
         items: {
           type: Type.OBJECT,
           properties: {
             title: { type: Type.STRING },
             description: { type: Type.STRING },
+            key_fact: { type: Type.STRING },
           },
           required: ["title", "description"],
         },
@@ -7563,6 +7569,7 @@ app.post("/api/visual-card", visualCardRateLimiter, async (req: Request, res: Re
                 properties: {
                   title: { type: Type.STRING },
                   description: { type: Type.STRING },
+                  key_fact: { type: Type.STRING },
                 },
                 required: ["title", "description"],
               },
@@ -7588,7 +7595,7 @@ app.post("/api/visual-card", visualCardRateLimiter, async (req: Request, res: Re
     required: ["type", "title"],
   };
 
-  const systemInstruction = "Convert the given text into a simple visual study card. Return ONLY JSON matching the schema. Choose 'flowchart' for processes, steps or how-to content, 'mindmap' for explaining a topic and its parts, 'concept_map' for comparisons or relationships between ideas. Every step or item gets a short title and a one-sentence plain-language description of what it means. Use only information from the text. Be concise.";
+  const systemInstruction = "Convert the given text into a simple visual study card. Return ONLY JSON matching the schema. Choose 'flowchart' for processes or step-by-step ordered content, 'list' for parallel items such as tips, pillars, categories, or rules, 'mindmap' for explaining a topic and its parts/subtopics, and 'concept_map' for comparisons or relationships between ideas. Every item gets a short title (1-5 words), a one-to-two sentence plain-language description (max 25 words) explaining what it means or why it matters, and an optional key_fact (max 12 words) for the single most notable fact or rule. Never drop items to fit: if the source lists N items, include all N up to the cap. Use only facts that appear in the answer text. Be concise.";
 
   const executeCall = async () => {
     return await callGeminiWithFallback({
@@ -7605,23 +7612,24 @@ app.post("/api/visual-card", visualCardRateLimiter, async (req: Request, res: Re
 
   const validateCard = (raw: any): any | null => {
     if (!raw || typeof raw !== "object") return null;
-    const type = (raw.type === "flowchart" || raw.type === "mindmap" || raw.type === "concept_map") ? raw.type : "flowchart";
+    const type = (raw.type === "list" || raw.type === "flowchart" || raw.type === "mindmap" || raw.type === "concept_map") ? raw.type : "list";
     const title = typeof raw.title === "string" && raw.title.trim() ? raw.title.trim().slice(0, 80) : "";
     if (!title) return null;
 
     const summary = typeof raw.summary === "string" ? raw.summary.trim().slice(0, 160) : undefined;
 
-    if (type === "flowchart") {
-      const rawSteps = Array.isArray(raw.steps) ? raw.steps : [];
-      const steps = rawSteps
+    if (type === "list" || type === "flowchart") {
+      const rawItems = Array.isArray(raw.items) ? raw.items : Array.isArray(raw.steps) ? raw.steps : [];
+      const items = rawItems
         .filter((s: any) => s && typeof s.title === "string" && s.title.trim())
         .slice(0, 8)
         .map((s: any) => ({
           title: s.title.trim().slice(0, 60),
-          description: typeof s.description === "string" ? s.description.trim().slice(0, 180) : "",
+          description: typeof s.description === "string" ? s.description.trim().slice(0, 220) : "",
+          key_fact: typeof s.key_fact === "string" && s.key_fact.trim() ? s.key_fact.trim().slice(0, 100) : undefined,
         }));
-      if (steps.length === 0) return null;
-      return { type, title, summary, steps };
+      if (items.length === 0) return null;
+      return { type, title, summary, items };
     }
 
     if (type === "mindmap") {
@@ -7633,10 +7641,11 @@ app.post("/api/visual-card", visualCardRateLimiter, async (req: Request, res: Re
           title: g.title.trim().slice(0, 50),
           items: g.items
             .filter((item: any) => item && typeof item.title === "string" && item.title.trim())
-            .slice(0, 4)
+            .slice(0, 6) // Raised cap: up to 6 items per group
             .map((item: any) => ({
               title: item.title.trim().slice(0, 50),
-              description: typeof item.description === "string" ? item.description.trim().slice(0, 160) : "",
+              description: typeof item.description === "string" ? item.description.trim().slice(0, 200) : "",
+              key_fact: typeof item.key_fact === "string" && item.key_fact.trim() ? item.key_fact.trim().slice(0, 100) : undefined,
             })),
         }))
         .filter((g: any) => g.items.length > 0);
@@ -7653,7 +7662,7 @@ app.post("/api/visual-card", visualCardRateLimiter, async (req: Request, res: Re
           from: r.from.trim().slice(0, 30),
           label: r.label.trim().slice(0, 24),
           to: r.to.trim().slice(0, 30),
-          description: typeof r.description === "string" ? r.description.trim().slice(0, 160) : undefined,
+          description: typeof r.description === "string" ? r.description.trim().slice(0, 200) : undefined,
         }));
       if (relations.length === 0) return null;
       return { type, title, summary, relations };
@@ -7698,19 +7707,19 @@ app.post("/api/visual-card", visualCardRateLimiter, async (req: Request, res: Re
       .split("\n")
       .map((l: string) => l.trim().replace(/^[-*•\d.)]\s*/, ""))
       .filter((l: string) => l.length > 5 && !l.startsWith("---"))
-      .slice(0, 6);
+      .slice(0, 8);
 
     const fallbackTitle = cleanLines[0]?.slice(0, 50) || "Visual Study Summary";
-    const fallbackSteps = (cleanLines.length > 1 ? cleanLines.slice(1) : [truncatedText.slice(0, 120)]).map((line, idx) => ({
-      title: `Key Point ${idx + 1}`,
-      description: line.slice(0, 160),
+    const fallbackItems = (cleanLines.length > 1 ? cleanLines.slice(1) : [truncatedText.slice(0, 140)]).map((line, idx) => ({
+      title: `Item ${idx + 1}`,
+      description: line.slice(0, 180),
     }));
 
     validatedCard = {
-      type: "flowchart",
+      type: "list",
       title: fallbackTitle,
       summary: "Study overview generated from answer",
-      steps: fallbackSteps,
+      items: fallbackItems,
     };
   }
 

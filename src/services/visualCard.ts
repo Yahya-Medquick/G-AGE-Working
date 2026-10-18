@@ -45,7 +45,21 @@ export function invalidateVisualCard(messageId: string): void {
   visualCardMemoryCache.delete(messageId);
 }
 
-export async function requestVisualCard(messageId: string, answerText: string): Promise<VisualStudyCard> {
+/**
+ * VISIBILITY RULE: The Visualize button appears ONLY when the message was generated in Concept mode
+ * and is long enough (>= 30 words). It never appears for any other mode (Chat, Quiz, Notes, etc.).
+ */
+export function shouldShowVisualizeButton(
+  messageMode: string | undefined,
+  content: string
+): boolean {
+  if (messageMode !== 'concept') return false;
+  if (!content) return false;
+  const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
+  return wordCount >= 30;
+}
+
+export async function requestVisualCard(messageId: string, answerText: string, mode?: string): Promise<VisualStudyCard> {
   // Reopening uses the in-memory cache by message ID, instantly, with no new API call
   const cached = getCachedVisualCard(messageId);
   if (cached) {
@@ -74,6 +88,7 @@ export async function requestVisualCard(messageId: string, answerText: string): 
     body: JSON.stringify({
       messageId,
       text: truncatedText,
+      mode: mode || 'concept',
     }),
   });
 

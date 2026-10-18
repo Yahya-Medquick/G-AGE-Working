@@ -1,18 +1,14 @@
-export type VisualCardType = 'flowchart' | 'mindmap' | 'concept_map';
+export type VisualCardType = 'list' | 'flowchart' | 'mindmap' | 'concept_map';
 
-export interface VisualCardStep {
+export interface VisualCardItem {
   title: string;
   description: string;
-}
-
-export interface VisualCardGroupItem {
-  title: string;
-  description: string;
+  key_fact?: string;
 }
 
 export interface VisualCardGroup {
   title: string;
-  items: VisualCardGroupItem[];
+  items: VisualCardItem[];
 }
 
 export interface VisualCardRelation {
@@ -26,7 +22,9 @@ export interface VisualStudyCard {
   type: VisualCardType;
   title: string;
   summary?: string;
-  steps?: VisualCardStep[];
+  items?: VisualCardItem[];
+  // Backwards compatibility alias for flowchart steps
+  steps?: VisualCardItem[];
   groups?: VisualCardGroup[];
   relations?: VisualCardRelation[];
 }

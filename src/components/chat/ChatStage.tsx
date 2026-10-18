@@ -44,7 +44,7 @@ import { getBrandPersonaColor } from './ChatSidebar';
 import { ImageCropModal } from './ImageCropModal';
 import { cropImageToJpeg, validateImageFile } from '../../utils/imageProcessing';
 import { VisualCardModal } from './VisualCardModal';
-import { requestVisualCard, hasCachedVisualCard, getCachedVisualCard, invalidateVisualCard } from '../../services/visualCard';
+import { requestVisualCard, hasCachedVisualCard, getCachedVisualCard, invalidateVisualCard, shouldShowVisualizeButton } from '../../services/visualCard';
 import { VisualStudyCard } from '../../types/visualCard';
 
 interface ChatStageProps {
@@ -211,7 +211,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [visualizingMsgId, setVisualizingMsgId] = useState<string | null>(null);
   const [lastVisualizedContent, setLastVisualizedContent] = useState<string>('');
 
-  const handleVisualizeMessage = useCallback(async (messageId: string, content: string) => {
+  const handleVisualizeMessage = useCallback(async (messageId: string, content: string, mode?: string) => {
     setVisualizingMsgId(messageId);
     setLastVisualizedContent(content);
     setVisualCardError(null);
@@ -228,7 +228,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     setIsVisualCardLoading(true);
 
     try {
-      const card = await requestVisualCard(messageId, content);
+      const card = await requestVisualCard(messageId, content, mode);
       setActiveVisualCard(card);
     } catch (err: any) {
       const msg = err?.message || 'Failed to generate visual study card.';
@@ -1061,15 +1061,16 @@ export const ChatStage: React.FC<ChatStageProps> = ({
 
                       {/* Visual Study Card "Visualize as Image" Button */}
                       {(() => {
-                        const wordCount = msg.content.trim().split(/\s+/).filter(Boolean).length;
-                        if (wordCount < 30) return null;
+                        // VISIBILITY RULE: The button appears ONLY when the message was generated in Concept mode
+                        const messageMode = msg.mode || session?.mode;
+                        if (!shouldShowVisualizeButton(messageMode, msg.content)) return null;
 
                         const isGenerating = isVisualCardLoading && visualizingMsgId === msg.id;
                         const isCached = hasCachedVisualCard(msg.id);
 
                         return (
                           <button
-                            onClick={() => handleVisualizeMessage(msg.id, msg.content)}
+                            onClick={() => handleVisualizeMessage(msg.id, msg.content, messageMode)}
                             disabled={isGenerating}
                             className={`min-h-[44px] px-3 py-1.5 rounded-[12px] border transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
                               isCached
