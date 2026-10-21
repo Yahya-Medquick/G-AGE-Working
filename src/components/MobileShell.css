@@ -492,9 +492,9 @@
     border-left: 0;
   }
 
-  .mobile-screen-mentors > .fixed,
-  .mobile-screen-profile > .fixed,
-  .mobile-screen-profile .mobile-profile-content > .fixed {
+  .mobile-screen-mentors > .fixed:not([data-drawer]),
+  .mobile-screen-profile > .fixed:not([data-drawer]),
+  .mobile-screen-profile .mobile-profile-content > .fixed:not([data-drawer]) {
     display: none;
   }
 
