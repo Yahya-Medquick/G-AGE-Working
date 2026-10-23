@@ -131,7 +131,7 @@ export const AndroidDownloadPage: React.FC<AndroidDownloadPageProps> = ({
             <button
               id="btn-download-apk"
               onClick={handleDownload}
-              className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
+              className="w-full h-12 rounded-xl bg-[#0A5C45] hover:bg-[#084A38] active:bg-[#063C2E] text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>

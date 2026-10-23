@@ -348,7 +348,8 @@ export default function App() {
           urlMode,
           `${matched.name} Session`,
           `${matched.name} Session`,
-          isPk ? 'pk' : 'global'
+          isPk ? 'pk' : 'global',
+          matched
         );
         return;
       }
@@ -363,7 +364,7 @@ export default function App() {
     if (sessions.length === 0) {
       bootstrapStoragePrefixRef.current = storagePrefix;
       const initialPersonaId = urlPersona || 'hamza';
-      const initialSession = createSession(initialPersonaId, urlMode, 'General Discussion', 'General Discussion', expertVariant);
+      const initialSession = createSession(initialPersonaId, urlMode, 'General Discussion', 'General Discussion', expertVariant, activePersona);
       if (!urlPersona) {
         updateSessionMeta(initialSession.id, { subjectPromptStatus: 'pending' });
       }
@@ -375,10 +376,13 @@ export default function App() {
     }
   }, [
     activeSessionId,
+    activePersona,
     createSession,
     expertVariant,
+    globalExperts,
     isLoadingAuth,
     isSessionStorageReady,
+    pkExperts,
     selectSession,
     sessions,
     updateSessionMeta,
@@ -465,12 +469,28 @@ export default function App() {
           variant,
           ...(activeSession?.subjectPromptStatus === 'pending' ? { subjectPromptStatus: 'chosen' as const } : {}),
         });
+        if (
+          activeSession.messages.length === 1 &&
+          activeSession.messages[0].role === 'assistant'
+        ) {
+          const opener = persona.opener
+            ? persona.opener(activeSession.title)
+            : `Hello! How can I assist your ${activeSession.mode} exploration on ${activeSession.title}?`;
+          updateSessionMessages(activeSessionId, [{
+            ...activeSession.messages[0],
+            content: opener,
+            personaId: persona.id,
+            personaVariant: variant,
+            personaName: persona.name,
+            personaInitials: persona.initials,
+          }]);
+        }
       }
       if (window.innerWidth < 1024) {
         setIsRightPanelOpen(false);
       }
     },
-    [activeSession, activeSessionId, pkExperts, globalExperts, updateSessionMeta]
+    [activeSession, activeSessionId, pkExperts, globalExperts, updateSessionMeta, updateSessionMessages]
   );
 
   const requestReplyAt = async (
@@ -664,7 +684,7 @@ export default function App() {
       triggerPaywall();
       return;
     }
-    const currentSession = activeSession || createSession('hamza', 'concept', (content || 'Image Analysis').slice(0, 32));
+    const currentSession = activeSession || createSession('hamza', 'concept', (content || 'Image Analysis').slice(0, 32), undefined, activeVariant, activePersona);
     if (inFlightSessionsRef.current.has(currentSession.id)) return;
     const targetMode = modeOverride || currentSession.mode || 'concept';
     const userMessage: ChatMessage = {
@@ -792,7 +812,7 @@ export default function App() {
             if (screen === 'home') {
               const personaMap = new Map<string, ExpertPersona>();
               for (const persona of Object.values(activeExpertSet)) {
-                personaMap.set(persona.id || (persona as any).slug, persona);
+                personaMap.set(persona.slug || persona.id, persona);
               }
               const mentorGroups = Array.from(
                 new Set(
@@ -851,7 +871,7 @@ export default function App() {
                       </button>
                     </div>
                     <div className="mobile-home-carousel" dir="ltr">
-                      {Object.values(activeExpertSet).map((mentor) => (
+                      {Array.from(personaMap.values()).map((mentor) => (
                         <button
                           type="button"
                           className="mobile-mentor-card"
@@ -1026,7 +1046,7 @@ export default function App() {
                     void handleSendMessage(prompt);
                   }}
                   onSelectTopic={(topic) => {
-                    createSession(currentPersonaId, 'concept', topic, topic, activeVariant);
+                    createSession(currentPersonaId, 'concept', topic, topic, activeVariant, activePersona);
                     navigate('chat');
                   }}
                   onOpenPaywall={triggerPaywall}
@@ -1050,15 +1070,6 @@ export default function App() {
                     <option value="urdu">اردو</option>
                   </select>
                 </label>
-                <button
-                  type="button"
-                  className="mobile-profile-api"
-                  onClick={() => setIsApiDocsOpen(true)}
-                >
-                  <Code2 aria-hidden="true" />
-                  <span>Developer API</span>
-                  <ChevronRight aria-hidden="true" />
-                </button>
                 <ChatSidebar
                   isOpen
                   onToggle={() => navigate('home')}
@@ -1092,7 +1103,18 @@ export default function App() {
                   queryUsage={usage}
                   theme={theme}
                   toggleTheme={toggleTheme}
+                  showAdminButton={Boolean(localStorage.getItem('admin_token'))}
+                  showBrandHeader={false}
                 />
+                <button
+                  type="button"
+                  className="mobile-profile-api"
+                  onClick={() => setIsApiDocsOpen(true)}
+                >
+                  <Code2 aria-hidden="true" />
+                  <span>Developer API</span>
+                  <ChevronRight aria-hidden="true" />
+                </button>
               </div>
             );
           }}
@@ -1189,7 +1211,7 @@ export default function App() {
         }}
         onOpenPwaShortcut={(persona) => setPwaPersona(persona)}
         onSelectPrompt={(prompt) => handleSendMessage(prompt)}
-        onSelectTopic={(topic) => createSession(currentPersonaId, 'concept', topic, topic, activeVariant)}
+        onSelectTopic={(topic) => createSession(currentPersonaId, 'concept', topic, topic, activeVariant, activePersona)}
         onOpenPaywall={triggerPaywall}
       />
       </>
@@ -1238,7 +1260,7 @@ export default function App() {
           initialTopic={activeSession?.title || 'Quantum Mechanics'}
           onSelectTopic={(topic) => {
             setIsKnowledgeGraphOpen(false);
-            createSession(currentPersonaId, 'concept', topic, topic, expertVariant);
+            createSession(currentPersonaId, 'concept', topic, topic, expertVariant, activePersona);
           }}
         />
 
@@ -1261,7 +1283,7 @@ export default function App() {
           recentSearches={sessions.map((s) => s.title).slice(0, 10)}
           onSelectSearch={(topic) => {
             setIsProfileOpen(false);
-            createSession(currentPersonaId, 'concept', topic, topic, expertVariant);
+            createSession(currentPersonaId, 'concept', topic, topic, expertVariant, activePersona);
           }}
           onClearHistory={() => {}}
           onOpenDownload={handleOpenDownload}
@@ -1273,7 +1295,7 @@ export default function App() {
           defaultTopicA={activeSession?.title || 'Quantum Mechanics'}
           onSelectTopic={(topic) => {
             setIsCompareOpen(false);
-            createSession(currentPersonaId, 'concept', topic, topic, expertVariant);
+            createSession(currentPersonaId, 'concept', topic, topic, expertVariant, activePersona);
           }}
         />
 
