@@ -94,7 +94,7 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
   const personaList = useMemo(() => {
     const map = new Map<string, ExpertPersona>();
     for (const p of Object.values(activeExpertSet)) {
-      map.set(p.id || (p as any).slug, p);
+      map.set(p.slug || p.id, p);
     }
     return Array.from(map.values());
   }, [activeExpertSet]);

@@ -181,6 +181,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   const [imageNotice, setImageNotice] = useState<string | null>(null);
   const [cropSource, setCropSource] = useState<string | null>(null);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
+  const [isTakingLonger, setIsTakingLonger] = useState(false);
 
   const [showModeSwitcher, setShowModeSwitcher] = useState(false);
   const [showLangSwitcher, setShowLangSwitcher] = useState(false);
@@ -258,6 +259,13 @@ export const ChatStage: React.FC<ChatStageProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [session?.messages.length, isLoading]);
+
+  useEffect(() => {
+    setIsTakingLonger(false);
+    if (!isLoading) return;
+    const timer = setTimeout(() => setIsTakingLonger(true), 8000);
+    return () => clearTimeout(timer);
+  }, [isLoading, session?.id]);
 
   const handleSpecsChange = (newSpecs: NonNullable<ChatSession['specs']>) => {
     if (session) onUpdateSessionMeta?.(session.id, { specs: newSpecs });
@@ -536,7 +544,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               <div className="flex items-center gap-1 text-xs text-[#4F6359] dark:text-[#9DB5A8] truncate">
                 <span className="text-[#0A5C45] dark:text-[#5BE0A5] font-semibold">online</span>
                 <span>•</span>
-                <span className="truncate">{isLoading ? 'typing...' : activePersona.role}</span>
+                <span className="truncate">{isLoading ? (isTakingLonger ? 'Taking a bit longer than usual…' : 'typing...') : activePersona.role}</span>
               </div>
             </div>
           </div>
@@ -1145,7 +1153,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               <div className="w-2 h-2 rounded-full bg-[#0A5C45] dark:bg-[#0F8056] animate-bounce [animation-delay:0.2s]" />
               <div className="w-2 h-2 rounded-full bg-[#0A5C45] dark:bg-[#0F8056] animate-bounce [animation-delay:0.4s]" />
               <span className="font-semibold text-[#10231C] dark:text-[#E8F2EC]">
-                {activePersona.name} is typing...
+                {isTakingLonger ? 'Taking a bit longer than usual…' : `${activePersona.name} is typing...`}
               </span>
             </div>
           </div>
