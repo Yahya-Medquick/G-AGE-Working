@@ -4,6 +4,7 @@ import App from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { UserProvider } from "./context/UserContext";
 import "./index.css";
+import "./DesktopPolish.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
