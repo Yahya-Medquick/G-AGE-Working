@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense, useCallback, useRef } from 'react';
-import { Check } from 'lucide-react';
+import { BookOpen, Check, ChevronRight, Code2, FileText, MessageCircle, Send, Sparkles } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { useNotes } from './hooks/useNotes';
 import { useUser } from './context/UserContext';
@@ -20,6 +20,7 @@ import { usePersonas } from './hooks/usePersonas';
 import { ChatMode, ChatMessage, ChatSession } from './types/chat';
 import { PublicQAPage } from './components/PublicQAPage';
 import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
+import { MobileShell, type MobileScreen } from './components/MobileShell';
 
 // Lazy-loaded secondary modals for optimal performance
 const AdminDashboardModal = lazy(() =>
@@ -54,9 +55,17 @@ export default function App() {
   if (window.location.pathname.startsWith('/q/')) return <PublicQAPage />;
   if (/^\/persona\/[^/]+\/questions\/?$/.test(window.location.pathname)) return <PersonaQuestionsPage />;
 
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const handleChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   const { theme, toggleTheme } = useTheme();
-  const { notes, addNote } = useNotes();
-  const { user, isLoggedIn, isLoadingAuth, hasSeenOnboarding, isTourOpen } = useUser();
+  const { notes, addNote, loading: notesLoading, error: notesError } = useNotes();
+  const { user, profile, isLoggedIn, isLoadingAuth, hasSeenOnboarding, isTourOpen } = useUser();
 
   // Chat sessions state manager
   const {
@@ -137,6 +146,7 @@ export default function App() {
 
   // Loading state for Gemini stream
   const [loadingSessionIds, setLoadingSessionIds] = useState<Set<string>>(new Set());
+  const homePromptRef = useRef<{ sessionId: string; prompt: string } | null>(null);
   const inFlightSessionsRef = useRef(new Set<string>());
   const [pendingReplyMessageIds, setPendingReplyMessageIds] = useState<Set<string>>(new Set());
   const [chatErrorToast, setChatErrorToast] = useState('');
@@ -415,6 +425,7 @@ export default function App() {
     } else {
       setIsRightPanelOpen(true);
     }
+    return newSession.id;
   }, [createSession, activeVariant, skipReveal, updateSessionMeta]);
 
   useEffect(() => {
@@ -679,6 +690,17 @@ export default function App() {
     });
   };
 
+  useEffect(() => {
+    const pendingPrompt = homePromptRef.current;
+    if (!pendingPrompt || !activeSessionId) return;
+    if (pendingPrompt.sessionId !== activeSessionId) {
+      homePromptRef.current = null;
+      return;
+    }
+    homePromptRef.current = null;
+    void handleSendMessage(pendingPrompt.prompt);
+  }, [activeSessionId]);
+
   const handleRegenerateMessage = async (assistantId: string, userMessageIndex: number) => {
     const now = Date.now();
     if (now - lastRegenerateAtRef.current < 3000) return;
@@ -755,7 +777,7 @@ export default function App() {
   };
 
   return (
-    <div ref={swipeRootRef} className="h-screen w-screen bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] flex overflow-hidden font-body selection:bg-[#0A5C45] dark:selection:bg-[#0F8056] selection:text-white transition-colors duration-200">
+    <div ref={swipeRootRef} className={isMobile ? 'mobile-app-root' : 'h-screen w-screen bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] flex overflow-hidden font-body selection:bg-[#0A5C45] dark:selection:bg-[#0F8056] selection:text-white transition-colors duration-200'}>
       {chatErrorToast && (
         <div role="alert" className="fixed top-4 right-4 z-[100] max-w-sm rounded-lg border border-rose-300 bg-white px-4 py-3 text-sm text-rose-700 shadow-lg dark:border-rose-900 dark:bg-slate-900 dark:text-rose-300">
           <div className="flex items-start gap-3">
@@ -764,6 +786,319 @@ export default function App() {
           </div>
         </div>
       )}
+      {isMobile ? (
+        <MobileShell
+          renderScreen={(screen: MobileScreen, navigate) => {
+            if (screen === 'home') {
+              const personaMap = new Map<string, ExpertPersona>();
+              for (const persona of Object.values(activeExpertSet)) {
+                personaMap.set(persona.id || (persona as any).slug, persona);
+              }
+              const mentorGroups = Array.from(
+                new Set(
+                  Array.from(personaMap.values()).map(
+                    (mentor) => mentor.group_name || mentor.badge || 'General'
+                  )
+                )
+              )
+                .sort((a, b) => a.localeCompare(b))
+                .slice(0, 8);
+              const recentNotes = [...notes]
+                .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+                .slice(0, 3);
+              const recentSessions = [...sessions]
+                .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+                .slice(0, 3);
+
+              return (
+                <div className="mobile-home-content" dir={language === 'urdu' ? 'rtl' : 'ltr'}>
+                  <header className="mobile-home-greeting">
+                    <span>Assalam-o-Alaikum</span>
+                    <h1>{user?.name || profile.name}</h1>
+                    <p>How can I help you learn today?</p>
+                  </header>
+
+                  <form
+                    className="mobile-home-ask"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const input = event.currentTarget.elements.namedItem('home-prompt');
+                      const value = input instanceof HTMLInputElement ? input.value.trim() : '';
+                      if (!value) return;
+                      const sessionId = handleNewChat();
+                      homePromptRef.current = { sessionId, prompt: value };
+                      navigate('chat');
+                    }}
+                  >
+                    <Sparkles aria-hidden="true" className="mobile-home-ask-sparkle" />
+                    <input
+                      name="home-prompt"
+                      type="text"
+                      placeholder="Ask any study question..."
+                      aria-label="Ask a study question"
+                      dir={language === 'urdu' ? 'rtl' : 'auto'}
+                    />
+                    <button type="submit" aria-label="Send question">
+                      <Send aria-hidden="true" />
+                    </button>
+                  </form>
+
+                  <section className="mobile-home-section" aria-labelledby="mobile-mentors-heading">
+                    <div className="mobile-home-section-heading">
+                      <h2 id="mobile-mentors-heading">Specialist Mentors</h2>
+                      <button type="button" onClick={() => navigate('mentors')}>
+                        View all <ChevronRight aria-hidden="true" />
+                      </button>
+                    </div>
+                    <div className="mobile-home-carousel" dir="ltr">
+                      {Object.values(activeExpertSet).map((mentor) => (
+                        <button
+                          type="button"
+                          className="mobile-mentor-card"
+                          key={mentor.id}
+                          onClick={() => {
+                            handleSelectPersona(mentor.id, activeVariant);
+                            navigate('chat');
+                          }}
+                        >
+                          <span
+                            className="mobile-mentor-avatar"
+                            style={{ backgroundColor: mentor.avatar_color || 'var(--color-primary)' }}
+                            aria-hidden="true"
+                          >
+                            {mentor.initials}
+                          </span>
+                          <strong>{mentor.name}</strong>
+                          <span>{mentor.badge}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="mobile-home-section" aria-labelledby="mobile-subjects-heading">
+                    <div className="mobile-home-section-heading">
+                      <h2 id="mobile-subjects-heading">Quick Subjects</h2>
+                      <button type="button" onClick={() => navigate('mentors')}>
+                        See all subjects <ChevronRight aria-hidden="true" />
+                      </button>
+                    </div>
+                    <div className="mobile-subject-chips">
+                      {mentorGroups.map((group) => (
+                        <button
+                          type="button"
+                          className="mobile-subject-chip"
+                          key={group}
+                          onClick={() => {
+                            setInitialPersonaGroup(group);
+                            navigate('mentors');
+                          }}
+                        >
+                          <BookOpen aria-hidden="true" />
+                          <span>{group}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="mobile-home-section" aria-labelledby="mobile-notes-heading">
+                    <div className="mobile-home-section-heading">
+                      <h2 id="mobile-notes-heading">Recent Notes</h2>
+                      <button type="button" onClick={() => navigate('notes')}>
+                        View all <ChevronRight aria-hidden="true" />
+                      </button>
+                    </div>
+                    {notesError && <p className="mobile-home-message" role="status">{notesError}</p>}
+                    {notesLoading && notes.length === 0 ? (
+                      <p className="mobile-home-message">Loading notes...</p>
+                    ) : recentNotes.length === 0 ? (
+                      <p className="mobile-home-message">Your saved notes will appear here.</p>
+                    ) : (
+                      <div className="mobile-home-note-list">
+                        {recentNotes.map((note) => (
+                          <button
+                            type="button"
+                            className="mobile-home-note"
+                            key={note.id}
+                            onClick={() => navigate('notes')}
+                          >
+                            <FileText aria-hidden="true" />
+                            <span className="mobile-home-note-copy">
+                              <strong>{note.title}</strong>
+                              <span>{note.subject_tag || 'General'} · {new Date(note.updated_at).toLocaleDateString()}</span>
+                              <span className="mobile-home-note-preview">{note.content}</span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="mobile-home-section mobile-home-recent-chats" aria-labelledby="mobile-chats-heading">
+                    <div className="mobile-home-section-heading">
+                      <h2 id="mobile-chats-heading">Recent Chats</h2>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleNewChat();
+                          navigate('chat');
+                        }}
+                      >
+                        New chat <ChevronRight aria-hidden="true" />
+                      </button>
+                    </div>
+                    {recentSessions.length === 0 ? (
+                      <p className="mobile-home-message">Your recent chats will appear here.</p>
+                    ) : (
+                      recentSessions.map((session) => (
+                        <button
+                          type="button"
+                          className="mobile-home-chat"
+                          key={session.id}
+                          onClick={() => {
+                            skipReveal();
+                            selectSession(session.id);
+                            navigate('chat');
+                          }}
+                        >
+                          <MessageCircle aria-hidden="true" />
+                          <span>{session.title}</span>
+                          <ChevronRight aria-hidden="true" />
+                        </button>
+                      ))
+                    )}
+                  </section>
+                </div>
+              );
+            }
+            if (screen === 'chat') {
+              return (
+                <div className="mobile-chat-stage">
+                  <ChatStage
+                    session={displayedSession}
+                    activePersona={activePersona}
+                    variant={activeVariant}
+                    globalPersonas={globalExperts}
+                    pkPersonas={pkExperts}
+                    language={language}
+                    isStreamingReply={revealingReply?.sessionId === activeSessionId}
+                    onLanguageChange={handleLanguageChange}
+                    onSendMessage={handleSendMessage}
+                    onRegenerateMessage={handleRegenerateMessage}
+                    onEditMessage={handleEditMessage}
+                    pendingReplyMessageIds={pendingReplyMessageIds}
+                    isLoading={!!activeSessionId && loadingSessionIds.has(activeSessionId)}
+                    onToggleLeftPanel={() => navigate('profile')}
+                    isLeftPanelOpen={false}
+                    onToggleRightPanel={() => navigate('mentors')}
+                    isRightPanelOpen={false}
+                    onUpdateSessionMeta={updateSessionMeta}
+                    onSaveToNotes={handleSaveToNotes}
+                    onOpenPaywall={triggerPaywall}
+                    onOpenPersonaGroup={handleOpenPersonaGroup}
+                    onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
+                    queryUsage={usage}
+                  />
+                </div>
+              );
+            }
+            if (screen === 'mentors') {
+              return (
+                <PersonaPanel
+                  isOpen
+                  subjectPromptActive={isSubjectPromptActive}
+                  onSkipSubjectPrompt={handleSkipSubjectPrompt}
+                  initialGroup={initialPersonaGroup}
+                  onGroupConsumed={() => setInitialPersonaGroup(null)}
+                  onToggle={() => navigate('home')}
+                  selectedPersonaId={currentPersonaId}
+                  onSelectPersona={(id, variant) => {
+                    handleSelectPersona(id, variant);
+                    navigate('chat');
+                  }}
+                  variant={activeVariant}
+                  onToggleVariant={(variant) => {
+                    setExpertVariant(variant);
+                    if (activeSession) updateSessionMeta(activeSession.id, { variant });
+                  }}
+                  onOpenPwaShortcut={(persona) => setPwaPersona(persona)}
+                  onSelectPrompt={(prompt) => {
+                    navigate('chat');
+                    void handleSendMessage(prompt);
+                  }}
+                  onSelectTopic={(topic) => {
+                    createSession(currentPersonaId, 'concept', topic, topic, activeVariant);
+                    navigate('chat');
+                  }}
+                  onOpenPaywall={triggerPaywall}
+                />
+              );
+            }
+            if (screen === 'notes') {
+              return <NotesSidePanel isOpen onClose={() => navigate('home')} persona={activePersona} />;
+            }
+            return (
+              <div className="mobile-profile-content">
+                <label className="mobile-profile-language">
+                  <span>Language</span>
+                  <select
+                    value={language}
+                    onChange={(event) => handleLanguageChange(event.target.value as 'english' | 'roman-urdu' | 'urdu')}
+                    aria-label="Language"
+                  >
+                    <option value="english">English</option>
+                    <option value="roman-urdu">Roman Urdu</option>
+                    <option value="urdu">اردو</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="mobile-profile-api"
+                  onClick={() => setIsApiDocsOpen(true)}
+                >
+                  <Code2 aria-hidden="true" />
+                  <span>Developer API</span>
+                  <ChevronRight aria-hidden="true" />
+                </button>
+                <ChatSidebar
+                  isOpen
+                  onToggle={() => navigate('home')}
+                  sessions={sessions}
+                  globalPersonas={globalExperts}
+                  pkPersonas={pkExperts}
+                  activeSessionId={activeSessionId}
+                  onSelectSession={(id) => {
+                    skipReveal();
+                    selectSession(id);
+                    navigate('chat');
+                  }}
+                  onNewChat={() => {
+                    handleNewChat();
+                    navigate('chat');
+                  }}
+                  onRenameSession={renameSession}
+                  onDeleteSession={deleteSession}
+                  onPinSession={togglePinSession}
+                  onOpenNotes={() => {
+                    setSavedNotesCount(0);
+                    navigate('notes');
+                  }}
+                  notesCount={savedNotesCount}
+                  onOpenAdmin={() => setIsAdminOpen(true)}
+                  onOpenApiDocs={() => setIsApiDocsOpen(true)}
+                  onOpenProfile={() => setIsProfileOpen(true)}
+                  onOpenLogin={() => setIsLoginOpen(true)}
+                  onOpenPaywall={triggerPaywall}
+                  onOpenDownload={handleOpenDownload}
+                  queryUsage={usage}
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                />
+              </div>
+            );
+          }}
+        />
+      ) : (
+      <>
       {/* 1. LEFT PANEL: CHAT HISTORY SIDEBAR */}
       <ChatSidebar
         isOpen={isLeftPanelOpen}
@@ -857,6 +1192,8 @@ export default function App() {
         onSelectTopic={(topic) => createSession(currentPersonaId, 'concept', topic, topic, activeVariant)}
         onOpenPaywall={triggerPaywall}
       />
+      </>
+      )}
 
       {/* MODALS & OVERLAYS */}
       <PaywallModal
@@ -882,7 +1219,7 @@ export default function App() {
       />
 
       <NotesSidePanel
-        isOpen={isNotesOpen}
+        isOpen={!isMobile && isNotesOpen}
         onClose={() => setIsNotesOpen(false)}
         persona={activePersona}
       />

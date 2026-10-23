@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "../context/UserContext";
 import { getAuthHeaders } from "../services/api";
+import { getNotesSource, needsNotesLoad, NotesSource } from "../utils/notesLoad";
 
 export interface Note {
   id: string;
@@ -16,7 +17,7 @@ export interface Note {
 let globalNotes: Note[] = [];
 let globalLoading = false;
 let globalError: string | null = null;
-let initialized = false;
+let loadedFor: NotesSource | null = null;
 const listeners = new Set<() => void>();
 
 const notify = () => {
@@ -67,10 +68,10 @@ export const useNotes = () => {
     };
 
     listeners.add(handleUpdate);
+    handleUpdate();
 
-    // Initial load on first render or when login state transitions
-    if (!initialized || (isLoggedIn && globalNotes.some(n => n.id.startsWith("local-")))) {
-      initialized = true;
+    if (needsNotesLoad(loadedFor, isLoggedIn)) {
+      loadedFor = getNotesSource(isLoggedIn);
       fetchNotesFromServerOrLocal(isLoggedIn);
     }
 
