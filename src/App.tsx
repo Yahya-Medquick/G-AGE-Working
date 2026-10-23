@@ -790,9 +790,19 @@ export default function App() {
         <MobileShell
           renderScreen={(screen: MobileScreen, navigate) => {
             if (screen === 'home') {
+              const personaMap = new Map<string, ExpertPersona>();
+              for (const persona of Object.values(activeExpertSet)) {
+                personaMap.set(persona.id || (persona as any).slug, persona);
+              }
               const mentorGroups = Array.from(
-                new Set(Object.values(activeExpertSet).map((mentor) => mentor.group_name || mentor.badge || 'General'))
-              ).slice(0, 8);
+                new Set(
+                  Array.from(personaMap.values()).map(
+                    (mentor) => mentor.group_name || mentor.badge || 'General'
+                  )
+                )
+              )
+                .sort((a, b) => a.localeCompare(b))
+                .slice(0, 8);
               const recentNotes = [...notes]
                 .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
                 .slice(0, 3);
@@ -824,7 +834,7 @@ export default function App() {
                     <input
                       name="home-prompt"
                       type="text"
-                      placeholder="Ask any study question in English or Roman Urdu..."
+                      placeholder="Ask any study question..."
                       aria-label="Ask a study question"
                       dir={language === 'urdu' ? 'rtl' : 'auto'}
                     />

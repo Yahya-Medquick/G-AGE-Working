@@ -165,9 +165,10 @@
     display: flex;
     gap: 12px;
     margin-inline: -16px;
-    padding: 2px 16px 8px;
+    padding: 2px 16px 8px 32px;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
+    scroll-padding-inline: 16px;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
   }
@@ -231,30 +232,43 @@
 
   .mobile-subject-chips {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
-    gap: 9px;
+    gap: 8px 10px;
   }
 
   .mobile-subject-chip {
     display: inline-flex;
-    min-height: 48px;
-    max-width: 100%;
+    width: auto;
+    min-height: 40px;
+    max-width: min(100%, calc(50% - 5px));
+    flex: 0 0 auto;
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
     border: 1px solid var(--color-border);
-    border-radius: 20px;
+    border-radius: 14px;
     color: var(--color-text);
     background: var(--color-surface);
     font-size: 14px;
     font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .mobile-subject-chip svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     flex: 0 0 auto;
     color: var(--color-primary);
+  }
+
+  .mobile-subject-chip span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .mobile-home-note-list {
