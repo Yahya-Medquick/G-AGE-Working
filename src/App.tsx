@@ -1014,7 +1014,7 @@ export default function App() {
                     onUpdateSessionMeta={updateSessionMeta}
                     onSaveToNotes={handleSaveToNotes}
                     onOpenPaywall={triggerPaywall}
-                    onOpenPersonaGroup={handleOpenPersonaGroup}
+                    onOpenPersonaGroup={(group) => { setInitialPersonaGroup(group); navigate('mentors'); }}
                     onOpenKnowledgeGraph={() => setIsKnowledgeGraphOpen(true)}
                     queryUsage={usage}
                   />
