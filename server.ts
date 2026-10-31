@@ -22,6 +22,7 @@ import {
   type PersonaVariant,
 } from "./src/data/personaRegistry";
 import { extractSuggestedGroup, fetchActivePersonaGroups } from "./src/data/personaGroups";
+import { runHedgedRequests } from "./src/utils/hedgedRequests";
 
 const { Pool } = pg;
 
@@ -2764,6 +2765,29 @@ export const GEMINI_UTILITY_MODELS = [
 const GEMINI_MODEL_CHAIN = GEMINI_CHAT_MODELS;
 
 const exhaustedGeminiKeys = new Map<string, number>();
+const providerModelCooldowns = new Map<string, number>();
+
+function isProviderModelCoolingDown(provider: string, model: string): boolean {
+  const key = `${provider}:${model}`;
+  const retryAt = providerModelCooldowns.get(key) || 0;
+  if (retryAt <= Date.now()) {
+    providerModelCooldowns.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function recordProviderFailure(provider: string, model: string, error: any, timedOut = false): void {
+  const status = Number(error?.status || error?.statusCode || error?.code);
+  const isTimeout = timedOut || error?.name === "AbortError" || /timeout|timed out/i.test(String(error?.message || ""));
+  if (isTimeout || status >= 500) {
+    providerModelCooldowns.set(`${provider}:${model}`, Date.now() + 60_000);
+  }
+}
+
+function getFirstTokenTimeoutMs(options: GeminiFallbackOptions): number {
+  return options.tools?.some((tool: any) => tool && typeof tool === "object" && tool.googleSearch) ? 8000 : 4000;
+}
 
 function getGeminiQuotaRetryAt(error: any): number | null {
   const message = `${error?.status || error?.code || ""} ${error?.message || error || ""}`;
@@ -2961,87 +2985,100 @@ async function callOpenRouterFallback(options: GeminiFallbackOptions): Promise<G
   const candidateModels = options.openRouterModels?.length
     ? options.openRouterModels
     : requiresDetailed ? OPENROUTER_DETAILED_MODELS : OPENROUTER_BUDGET_MODELS;
+  const firstTokenTimeoutMs = getFirstTokenTimeoutMs(options);
 
   console.log(`[OpenRouter Router] Query complexity: ${requiresDetailed ? "DETAILED/COMPLEX" : "BUDGET/SHORT"} -> Candidate models: ${candidateModels.join(", ")}`);
 
-  for (const model of candidateModels) {
-    const attemptStartedAt = Date.now();
-    let firstTokenMs: number | null = null;
-    const controller = new AbortController();
-    const totalTimeout = setTimeout(() => controller.abort(), 12000);
-    const firstTokenTimeout = setTimeout(() => controller.abort(), 8000);
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Authorization": `Bearer ${openRouterKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://project-atlas.app",
-          "X-Title": "Project Atlas",
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: options.temperature ?? 0.7,
-          stream: true,
-        }),
-      });
+  const candidates = candidateModels.flatMap((model) => {
+    if (isProviderModelCoolingDown("openrouter", model)) {
+      console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=circuit_cooldown ms=0`);
+      return [];
+    }
+    return [{
+      id: `openrouter:${model}`,
+      run: async (signal: AbortSignal, onFirstToken: () => void): Promise<GeminiFallbackResult> => {
+        const attemptStartedAt = Date.now();
+        let firstTokenMs: number | null = null;
+        let firstTokenTimedOut = false;
+        const controller = new AbortController();
+        const abortFromScheduler = () => controller.abort();
+        signal.addEventListener("abort", abortFromScheduler, { once: true });
+        const totalTimeout = setTimeout(() => controller.abort(), 12000);
+        const firstTokenTimeout = setTimeout(() => {
+          firstTokenTimedOut = true;
+          controller.abort();
+        }, firstTokenTimeoutMs);
+        try {
+          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            signal: controller.signal,
+            headers: {
+              "Authorization": `Bearer ${openRouterKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://project-atlas.app",
+              "X-Title": "Project Atlas",
+            },
+            body: JSON.stringify({ model, messages, temperature: options.temperature ?? 0.7, stream: true }),
+          });
+          if (!res.ok) {
+            const errText = await res.text().catch(() => "");
+            const error: any = new Error(`OpenRouter returned HTTP ${res.status}: ${errText.slice(0, 120)}`);
+            error.status = res.status;
+            throw error;
+          }
 
-      if (res.ok) {
-        let text = "";
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error("OpenRouter returned no response stream");
-        const decoder = new TextDecoder();
-        let pending = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          pending += decoder.decode(value, { stream: true });
-          const lines = pending.split("\n");
-          pending = lines.pop() || "";
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const payload = line.slice(6).trim();
-            if (!payload || payload === "[DONE]") continue;
-            const data = JSON.parse(payload);
-            const token = data.choices?.[0]?.delta?.content;
-            if (typeof token === "string" && token) {
-              if (firstTokenMs === null) {
-                firstTokenMs = Date.now() - attemptStartedAt;
-                clearTimeout(firstTokenTimeout);
+          let text = "";
+          const reader = res.body?.getReader();
+          if (!reader) throw new Error("OpenRouter returned no response stream");
+          const decoder = new TextDecoder();
+          let pending = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            pending += decoder.decode(value, { stream: true });
+            const lines = pending.split("\n");
+            pending = lines.pop() || "";
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const payload = line.slice(6).trim();
+              if (!payload || payload === "[DONE]") continue;
+              const data = JSON.parse(payload);
+              const token = data.choices?.[0]?.delta?.content;
+              if (typeof token === "string" && token) {
+                if (firstTokenMs === null) {
+                  firstTokenMs = Date.now() - attemptStartedAt;
+                  clearTimeout(firstTokenTimeout);
+                  onFirstToken();
+                }
+                text += token;
               }
-              text += token;
             }
           }
-        }
-        if (text && typeof text === "string" && text.trim()) {
+          if (!text.trim()) throw new Error("OpenRouter returned an empty response");
           console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=200 ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
           console.log(`[AI Success] language=${options.language || "english"} model=${model} keyIndex=1`);
           console.log(`[OpenRouter Fallback Success] Generated response via model '${model}' (Tier: ${requiresDetailed ? "Detailed" : "Budget"}).`);
-          return {
-            text: text.trim(),
-            modelUsed: `openrouter:${model}`,
-            isBackupModel: true,
-            keyIndexUsed: 99,
-            totalKeysTried: 1,
-          };
+          return { text: text.trim(), modelUsed: `openrouter:${model}`, isBackupModel: true, keyIndexUsed: 99, totalKeysTried: 1 };
+        } catch (err: any) {
+          if (!signal.aborted) recordProviderFailure("openrouter", model, err, firstTokenTimedOut);
+          console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=${getProviderStatus(err)} ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
+          console.warn(`[OpenRouter Fallback Error] Model '${model}' request failed:`, err?.message || err);
+          throw err;
+        } finally {
+          clearTimeout(totalTimeout);
+          clearTimeout(firstTokenTimeout);
+          signal.removeEventListener("abort", abortFromScheduler);
         }
-      } else {
-        const errText = await res.text().catch(() => "");
-        console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=${res.status} ms=${Date.now() - attemptStartedAt} first_token_ms=unavailable`);
-        console.warn(`[OpenRouter Fallback Warning] Model '${model}' failed with status ${res.status}: ${errText.slice(0, 120)}`);
-      }
-    } catch (err: any) {
-      console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=${getProviderStatus(err)} ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
-      console.warn(`[OpenRouter Fallback Error] Model '${model}' request failed:`, err?.message || err);
-    } finally {
-      clearTimeout(totalTimeout);
-      clearTimeout(firstTokenTimeout);
-    }
-  }
+      },
+    }];
+  });
 
-  return null;
+  if (candidates.length === 0) return null;
+  try {
+    return await runHedgedRequests(candidates);
+  } catch {
+    return null;
+  }
 }
 
 async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<GeminiFallbackResult> {
@@ -3050,13 +3087,12 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
   const fallbackDeadline = Date.now() + 18000;
   let lastError: any = null;
   let totalKeysTried = 0;
+  const firstTokenTimeoutMs = getFirstTokenTimeoutMs(options);
 
   if (keys.length > 0) {
+    const candidates: Array<{ id: string; run: (signal: AbortSignal, onFirstToken: () => void) => Promise<GeminiFallbackResult> }> = [];
     for (const modelName of modelsToTry) {
-      if (Date.now() >= fallbackDeadline) break;
       for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
-        const remainingMs = fallbackDeadline - Date.now();
-        if (remainingMs <= 0) break;
         const apiKey = keys[keyIdx];
         const quotaKey = `${modelName}:${crypto.createHash("sha256").update(apiKey).digest("hex").slice(0, 12)}`;
         const exhaustedUntil = exhaustedGeminiKeys.get(quotaKey) || 0;
@@ -3065,100 +3101,118 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
           continue;
         }
         exhaustedGeminiKeys.delete(quotaKey);
-        totalKeysTried++;
-        const attemptStartedAt = Date.now();
-        let firstTokenMs: number | null = null;
-        try {
-          const client = new GoogleGenAI({
-            apiKey,
-            httpOptions: {
-              timeout: remainingMs,
-              headers: {
-                "User-Agent": "aistudio-build",
-              },
-            },
-          });
-
-          apiCallStats.gemini++;
-
-          const reqConfig: any = {};
-          if (options.responseMimeType) {
-            reqConfig.responseMimeType = options.responseMimeType;
-          }
-          if (options.systemInstruction) {
-            reqConfig.systemInstruction = options.systemInstruction;
-          }
-          if (options.responseSchema) {
-            reqConfig.responseSchema = options.responseSchema;
-          }
-          if (options.tools) {
-            reqConfig.tools = options.tools;
-          }
-          if (options.thinkingBudget !== undefined && /gemini-2\.5/.test(modelName)) {
-            reqConfig.thinkingConfig = { thinkingBudget: options.thinkingBudget };
-          }
-          if (options.temperature !== undefined) {
-            reqConfig.temperature = options.temperature;
-          }
-
-          const responseStream = await client.models.generateContentStream({
-            model: modelName,
-            contents: options.contents,
-            config: Object.keys(reqConfig).length > 0 ? reqConfig : undefined,
-          });
-          const iterator = responseStream[Symbol.asyncIterator]();
-          let firstTokenTimer: ReturnType<typeof setTimeout> | undefined;
-          const firstTokenTimeoutMs = Math.min(8000, remainingMs);
-          const firstChunk = await Promise.race([
-            iterator.next(),
-            new Promise<never>((_, reject) => {
-              firstTokenTimer = setTimeout(() => reject(new Error(`First token timeout after ${firstTokenTimeoutMs}ms`)), firstTokenTimeoutMs);
-            }),
-          ]).finally(() => {
-            if (firstTokenTimer) clearTimeout(firstTokenTimer);
-          });
-          let responseText = "";
-          const groundingSources = new Map<string, string>();
-          let chunk = firstChunk;
-          while (!chunk.done) {
-            const groundingChunks = (chunk.value as any)?.candidates?.[0]?.groundingMetadata?.groundingChunks;
-            if (Array.isArray(groundingChunks)) {
-              for (const groundingChunk of groundingChunks) {
-                const webSource = groundingChunk?.web;
-                if (typeof webSource?.uri === "string" && webSource.uri.startsWith("http")) {
-                  groundingSources.set(webSource.uri, typeof webSource.title === "string" ? webSource.title : webSource.uri);
-                }
-              }
-            }
-            if (typeof chunk.value?.text === "string") {
-              if (firstTokenMs === null && chunk.value.text.length > 0) firstTokenMs = Date.now() - attemptStartedAt;
-              responseText += chunk.value.text;
-            }
-            chunk = await iterator.next();
-          }
-
-          if (responseText.trim()) {
-            if (groundingSources.size > 0) {
-              responseText += `\n\nSources:\n${[...groundingSources].map(([uri, title]) => `- [${title}](${uri})`).join("\n")}`;
-            }
-            console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=success ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
-            const isBackupModel = modelName !== modelsToTry[0] || keyIdx > 0;
-            console.log(`[AI Success] language=${options.language || "english"} model=${modelName} keyIndex=${keyIdx + 1}`);
-            return {
-              text: responseText,
-              modelUsed: modelName,
-              isBackupModel,
-              keyIndexUsed: keyIdx,
-              totalKeysTried,
-            };
-          }
-        } catch (err: any) {
-          lastError = err;
-          const retryAt = getGeminiQuotaRetryAt(err);
-          if (retryAt) exhaustedGeminiKeys.set(quotaKey, retryAt);
-          console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=${getProviderStatus(err)} ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}${retryAt ? ` retry_at=${new Date(retryAt).toISOString()}` : ""}`);
-          console.warn(`[Gemini Fallback Chain] Model '${modelName}' with Key #${keyIdx + 1} failed: ${err?.message || err}`);
+        if (isProviderModelCoolingDown("gemini", modelName)) {
+          console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=circuit_cooldown ms=0`);
+          continue;
         }
+        candidates.push({
+          id: `gemini:${modelName}:${keyIdx}`,
+          run: async (signal, onFirstToken) => {
+            if (Date.now() >= fallbackDeadline) throw new Error("Gemini fallback deadline exceeded");
+            totalKeysTried++;
+            const attemptStartedAt = Date.now();
+            let firstTokenMs: number | null = null;
+            let firstTokenTimedOut = false;
+            const remainingMs = fallbackDeadline - attemptStartedAt;
+            const attemptController = new AbortController();
+            const abortFromScheduler = () => attemptController.abort();
+            signal.addEventListener("abort", abortFromScheduler, { once: true });
+            const firstTokenTimer = setTimeout(() => {
+              firstTokenTimedOut = true;
+              attemptController.abort();
+            }, Math.min(firstTokenTimeoutMs, remainingMs));
+            try {
+              const client = new GoogleGenAI({
+                apiKey,
+                httpOptions: {
+                  timeout: remainingMs,
+                  headers: {
+                    "User-Agent": "aistudio-build",
+                  },
+                },
+              });
+
+              apiCallStats.gemini++;
+
+              const reqConfig: any = {};
+              if (options.responseMimeType) reqConfig.responseMimeType = options.responseMimeType;
+              if (options.systemInstruction) reqConfig.systemInstruction = options.systemInstruction;
+              if (options.responseSchema) reqConfig.responseSchema = options.responseSchema;
+              if (options.tools) reqConfig.tools = options.tools;
+              if (options.thinkingBudget !== undefined && /gemini-2\.5/.test(modelName)) {
+                reqConfig.thinkingConfig = { thinkingBudget: options.thinkingBudget };
+              }
+              if (options.temperature !== undefined) reqConfig.temperature = options.temperature;
+              reqConfig.abortSignal = attemptController.signal;
+
+              const responseStream = await client.models.generateContentStream({
+                model: modelName,
+                contents: options.contents,
+                config: reqConfig,
+              });
+              const iterator = responseStream[Symbol.asyncIterator]();
+              let responseText = "";
+              const groundingSources = new Map<string, string>();
+              let chunk = await iterator.next();
+              while (!chunk.done) {
+                const groundingChunks = (chunk.value as any)?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+                if (Array.isArray(groundingChunks)) {
+                  for (const groundingChunk of groundingChunks) {
+                    const webSource = groundingChunk?.web;
+                    if (typeof webSource?.uri === "string" && webSource.uri.startsWith("http")) {
+                      groundingSources.set(webSource.uri, typeof webSource.title === "string" ? webSource.title : webSource.uri);
+                    }
+                  }
+                }
+                if (typeof chunk.value?.text === "string") {
+                  if (firstTokenMs === null && chunk.value.text.length > 0) {
+                    firstTokenMs = Date.now() - attemptStartedAt;
+                    clearTimeout(firstTokenTimer);
+                    onFirstToken();
+                  }
+                  responseText += chunk.value.text;
+                }
+                chunk = await iterator.next();
+              }
+
+              if (responseText.trim()) {
+                if (groundingSources.size > 0) {
+                  responseText += `\n\nSources:\n${[...groundingSources].map(([uri, title]) => `- [${title}](${uri})`).join("\n")}`;
+                }
+                console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=success ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
+                const isBackupModel = modelName !== modelsToTry[0] || keyIdx > 0;
+                console.log(`[AI Success] language=${options.language || "english"} model=${modelName} keyIndex=${keyIdx + 1}`);
+                return {
+                  text: responseText,
+                  modelUsed: modelName,
+                  isBackupModel,
+                  keyIndexUsed: keyIdx,
+                  totalKeysTried,
+                };
+              }
+              throw new Error("Gemini returned an empty response");
+            } catch (err: any) {
+              lastError = err;
+              const retryAt = getGeminiQuotaRetryAt(err);
+              if (retryAt) exhaustedGeminiKeys.set(quotaKey, retryAt);
+              if (!signal.aborted) recordProviderFailure("gemini", modelName, err, firstTokenTimedOut);
+              console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=${getProviderStatus(err)} ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}${retryAt ? ` retry_at=${new Date(retryAt).toISOString()}` : ""}`);
+              console.warn(`[Gemini Fallback Chain] Model '${modelName}' with Key #${keyIdx + 1} failed: ${err?.message || err}`);
+              throw err;
+            } finally {
+              clearTimeout(firstTokenTimer);
+              signal.removeEventListener("abort", abortFromScheduler);
+            }
+          },
+        });
+      }
+    }
+
+    if (candidates.length > 0) {
+      try {
+        return await runHedgedRequests(candidates, 2500, 18000);
+      } catch (err) {
+        lastError = err;
       }
     }
   }
