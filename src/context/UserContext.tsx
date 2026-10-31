@@ -10,6 +10,7 @@ import {
   verifyNewDevice,
   LoginResult,
   updatePreferencesMode,
+  updateUserPreferences,
   updateOnboardingStatus,
 } from "../services/api";
 import { readExamDefaults, writeExamDefaults } from "../utils/examDefaults";
@@ -137,6 +138,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (authUser.preferred_mode) {
           setMode(authUser.preferred_mode);
         }
+        const savedExamDefaults = readExamDefaults({
+          level: authUser.default_exam_level,
+          board: authUser.default_exam_board,
+        });
+        writeExamDefaults(savedExamDefaults);
         if (typeof authUser.has_seen_onboarding === "boolean") {
           setHasSeenOnboarding(authUser.has_seen_onboarding);
           if (authUser.has_seen_onboarding) {
@@ -150,6 +156,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: authUser.username || prev.username,
           phone: authUser.phone || prev.phone,
           email: authUser.email || prev.email,
+          preferences: {
+            ...prev.preferences,
+            defaultExamLevel: savedExamDefaults.level,
+            defaultExamBoard: savedExamDefaults.board,
+          },
         }));
       } else {
         setUser(null);
@@ -254,11 +265,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (result.user.preferred_mode) {
           setMode(result.user.preferred_mode);
         }
+        const savedExamDefaults = readExamDefaults({
+          level: result.user.default_exam_level,
+          board: result.user.default_exam_board,
+        });
+        writeExamDefaults(savedExamDefaults);
         setProfile((prev) => ({
           ...prev,
           name: result.user?.name || result.user?.username || prev.name,
           username: result.user?.username || prev.username,
           phone: result.user?.phone || prev.phone,
+          preferences: {
+            ...prev.preferences,
+            defaultExamLevel: savedExamDefaults.level,
+            defaultExamBoard: savedExamDefaults.board,
+          },
         }));
       }
       return result;
@@ -361,6 +382,19 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       board: next.preferences.defaultExamBoard || profile.preferences.defaultExamBoard,
     };
     writeExamDefaults(nextDefaults);
+
+    if (user) {
+      const payload: {
+        preferred_mode?: "research" | "learning";
+        default_exam_level?: string;
+        default_exam_board?: string;
+      } = {};
+      if (typeof next.preferences.defaultExamLevel === "string") payload.default_exam_level = next.preferences.defaultExamLevel;
+      if (typeof next.preferences.defaultExamBoard === "string") payload.default_exam_board = next.preferences.defaultExamBoard;
+      if (Object.keys(payload).length > 0) {
+        await updateUserPreferences(payload);
+      }
+    }
   };
 
   return (

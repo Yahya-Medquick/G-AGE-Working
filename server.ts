@@ -717,7 +717,9 @@ async function initDatabaseSchema() {
         trusted_devices TEXT[] DEFAULT '{}',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        preferred_mode VARCHAR(20) DEFAULT 'research'
+        preferred_mode VARCHAR(20) DEFAULT 'research',
+        default_exam_level VARCHAR(32) DEFAULT '10th',
+        default_exam_board VARCHAR(128) DEFAULT 'Punjab Board'
       );
     `);
 
@@ -751,6 +753,8 @@ async function initDatabaseSchema() {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS trusted_devices TEXT[] DEFAULT '{}';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_mode VARCHAR(20) DEFAULT 'research';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS default_exam_level VARCHAR(32) DEFAULT '10th';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS default_exam_board VARCHAR(128) DEFAULT 'Punjab Board';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_expires_at TIMESTAMPTZ;
         ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
       `);
@@ -4063,9 +4067,9 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
         const avatarUrl = verifiedAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(finalUsername)}`;
 
         await dbPool.query(
-          `INSERT INTO users (id, username, name, email, google_id, avatar_url, tier, has_seen_onboarding, trusted_devices, created_at, last_active_at, preferred_mode)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10)`,
-          [userId, finalUsername, verifiedName || finalUsername, cleanEmail, verifiedGoogleId, avatarUrl, "free", false, [cleanDeviceId], "research"]
+          `INSERT INTO users (id, username, name, email, google_id, avatar_url, tier, has_seen_onboarding, trusted_devices, created_at, last_active_at, preferred_mode, default_exam_level, default_exam_board)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10, $11, $12)`,
+          [userId, finalUsername, verifiedName || finalUsername, cleanEmail, verifiedGoogleId, avatarUrl, "free", false, [cleanDeviceId], "research", "10th", "Punjab Board"]
         );
 
         user = {
@@ -4078,6 +4082,8 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
           tier: "free",
           has_seen_onboarding: false,
           preferred_mode: "research",
+          default_exam_level: "10th",
+          default_exam_board: "Punjab Board",
         };
       }
     } else {
@@ -4102,6 +4108,8 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
           has_seen_onboarding: false,
           trusted_devices: [cleanDeviceId],
           preferred_mode: "research",
+          default_exam_level: "10th",
+          default_exam_board: "Punjab Board",
         };
         inMemoryUsers.set(userId, user);
       }
@@ -4117,6 +4125,8 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
       tier: user.tier || "free",
       has_seen_onboarding: Boolean(user.has_seen_onboarding),
       preferred_mode: user.preferred_mode || "research",
+      default_exam_level: user.default_exam_level || "10th",
+      default_exam_board: user.default_exam_board || "Punjab Board",
     };
 
     const sessionToken = jwt.sign(
@@ -4396,6 +4406,8 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
       has_seen_onboarding: Boolean(user.has_seen_onboarding),
       created_at: user.created_at,
       preferred_mode: user.preferred_mode || "research",
+      default_exam_level: user.default_exam_level || "10th",
+      default_exam_board: user.default_exam_board || "Punjab Board",
     };
 
     // 90-day persistent session JWT
@@ -4493,6 +4505,8 @@ app.post("/api/auth/verify-new-device", async (req: Request, res: Response) => {
       has_seen_onboarding: Boolean(user.has_seen_onboarding),
       created_at: user.created_at,
       preferred_mode: user.preferred_mode || "research",
+      default_exam_level: user.default_exam_level || "10th",
+      default_exam_board: user.default_exam_board || "Punjab Board",
     };
 
     const sessionToken = jwt.sign(
@@ -4540,7 +4554,7 @@ app.get("/api/auth/me", async (req: Request, res: Response) => {
   let fullUser = userPayload;
   if (dbPool && userPayload.id) {
     try {
-      const resDb = await dbPool.query("SELECT id, username, name, phone, avatar_url, tier, pro_expires_at, has_seen_onboarding, created_at, preferred_mode FROM users WHERE id = $1", [userPayload.id]);
+      const resDb = await dbPool.query("SELECT id, username, name, phone, avatar_url, tier, pro_expires_at, has_seen_onboarding, created_at, preferred_mode, default_exam_level, default_exam_board FROM users WHERE id = $1", [userPayload.id]);
       if (resDb.rows.length > 0) {
         fullUser = {
           ...userPayload,
@@ -4636,17 +4650,28 @@ app.patch("/api/user/preferences", (req: Request, res: Response) => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const { preferred_mode } = req.body || {};
-  if (preferred_mode !== "research" && preferred_mode !== "learning") {
-    return res.status(400).json({ error: "Invalid preferred_mode option." });
-  }
-  const updatedUser = { ...user, preferred_mode };
+
+  const { preferred_mode, default_exam_level, default_exam_board } = req.body || {};
+  const nextPreferredMode = preferred_mode === "research" || preferred_mode === "learning" ? preferred_mode : user.preferred_mode || "research";
+  const trimmedLevel = typeof default_exam_level === "string" ? default_exam_level.trim() : user.default_exam_level || "10th";
+  const trimmedBoard = typeof default_exam_board === "string" ? default_exam_board.trim() : user.default_exam_board || "Punjab Board";
+
+  const updatedUser = {
+    ...user,
+    preferred_mode: nextPreferredMode,
+    default_exam_level: trimmedLevel,
+    default_exam_board: trimmedBoard,
+  };
+
   if (dbPool) {
-    dbPool.query("UPDATE users SET preferred_mode = $1 WHERE id = $2", [preferred_mode, user.id])
-      .catch((err) => console.warn("Failed to update preferred_mode in DB:", err));
+    dbPool.query(
+      "UPDATE users SET preferred_mode = $1, default_exam_level = $2, default_exam_board = $3 WHERE id = $4",
+      [nextPreferredMode, trimmedLevel, trimmedBoard, user.id]
+    ).catch((err) => console.warn("Failed to update user preferences in DB:", err));
   } else {
     inMemoryUsers.set(user.id, updatedUser);
   }
+
   res.json({ success: true, user: updatedUser });
 });
 

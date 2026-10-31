@@ -27,6 +27,8 @@ export interface UserAuth {
   created_at?: string;
   pro_expires_at?: string | null;
   preferred_mode?: 'research' | 'learning';
+  default_exam_level?: string;
+  default_exam_board?: string;
   is_guest?: boolean;
 }
 
