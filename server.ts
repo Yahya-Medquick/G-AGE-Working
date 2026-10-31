@@ -10,10 +10,12 @@ import type { PoolClient } from "pg";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { Resend } from "resend";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { XMLParser } from "fast-xml-parser";
 import { sanitizeInput, evaluateContentQuality } from "./src/utils/security";
+import { validateProRequestInput } from "./src/utils/proRequestValidation";
 import { getQueryLimitDenial, type QueryLimitDenial } from "./src/utils/queryLimitPolicy";
 import {
   buildPersonaRegistry,
@@ -717,6 +719,21 @@ async function initDatabaseSchema() {
         last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         preferred_mode VARCHAR(20) DEFAULT 'research'
       );
+    `);
+
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS pro_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+        name VARCHAR(100) NOT NULL,
+        phone VARCHAR(30) NOT NULL,
+        email VARCHAR(254),
+        feature VARCHAR(80) NOT NULL,
+        message TEXT NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'new',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_pro_requests_status_created ON pro_requests(status, created_at DESC);
     `);
 
     // Ensure columns exist on already created databases
@@ -1480,6 +1497,7 @@ function isValidAdminSession(token: string): boolean {
 
 // In-memory fallback structures for development
 const inMemoryUsers = new Map<string, any>();
+const inMemoryProRequests: Array<Record<string, any>> = [];
 const inMemoryTabUsage = new Map<string, { count: number; date: string }>();
 const inMemoryHistory = new Map<string, any[]>();
 const inMemoryPhoneOtpLogs: Array<{ phone: string; ip: string; device_id: string; attempt_type: string; created_at: number }> = [];
@@ -3373,6 +3391,7 @@ const authRateLimiter = createRateLimiter(25, "ath");
 const learnRateLimiter = createRateLimiter(25, "learn");
 const counselRateLimiter = createRateLimiter(25, "counsel");
 const visualCardRateLimiter = createRateLimiter(5, "vcard");
+const proRequestRateLimiter = createRateLimiter(5, "proreq");
 
 app.use("/api/", generalRateLimiter);
 app.use("/api/auth", authRateLimiter);
@@ -3409,6 +3428,101 @@ app.post("/api/admin/verify", (req: Request, res: Response) => {
     return res.json({ success: true, token: adminSessionToken, message: "Admin authenticated successfully." });
   }
   return res.status(401).json({ error: "Invalid administrative password. Access denied." });
+});
+
+app.post("/api/pro-requests", proRequestRateLimiter, async (req: Request, res: Response) => {
+  const validation = validateProRequestInput(req.body);
+  if (validation.valid === false) return res.status(400).json({ error: validation.error });
+
+  const user = await getCurrentUserWithFreshState(req);
+  const request = {
+    id: crypto.randomUUID(),
+    user_id: user?.id || null,
+    ...validation.value,
+    status: "new",
+    created_at: new Date().toISOString(),
+  };
+
+  let saved = false;
+  if (dbPool) {
+    try {
+      await dbPool.query(
+        `INSERT INTO pro_requests (id, user_id, name, phone, email, feature, message, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [request.id, request.user_id, request.name, request.phone, request.email || null, request.feature, request.message, request.status, request.created_at]
+      );
+      saved = true;
+    } catch (error: any) {
+      console.warn("[Pro requests] Database save failed; using in-memory fallback:", error?.message);
+    }
+  }
+  if (!saved) inMemoryProRequests.unshift(request);
+
+  const notifyEmail = process.env.PRO_REQUEST_NOTIFY_EMAIL?.trim();
+  const resendKey = process.env.RESEND_API_KEY?.trim();
+  if (!notifyEmail || !resendKey) {
+    console.warn("[Pro requests] Email notification skipped: PRO_REQUEST_NOTIFY_EMAIL or RESEND_API_KEY is not configured.");
+  } else {
+    try {
+      const resend = new Resend(resendKey);
+      const { error } = await resend.emails.send({
+        from: "G-AGE Pro requests <onboarding@resend.dev>",
+        to: [notifyEmail],
+        subject: "New G-AGE Pro request",
+        text: [
+          `Name: ${request.name}`,
+          `Phone: ${request.phone}`,
+          `Email: ${request.email || "Not provided"}`,
+          `Feature: ${request.feature}`,
+          `Message: ${request.message || "Not provided"}`,
+          `User ID: ${request.user_id || "Guest"}`,
+        ].join("\n"),
+      });
+      if (error) console.warn("[Pro requests] Email notification failed:", error.message);
+    } catch (error: any) {
+      console.warn("[Pro requests] Email notification failed:", error?.message || error);
+    }
+  }
+
+  return res.status(201).json({ success: true, request: { id: request.id, status: request.status } });
+});
+
+app.get("/api/admin/pro-requests", async (_req: Request, res: Response) => {
+  if (dbPool) {
+    try {
+      const result = await dbPool.query("SELECT * FROM pro_requests ORDER BY created_at DESC LIMIT 500");
+      const persistedIds = new Set(result.rows.map((row: any) => row.id));
+      const fallbackRequests = inMemoryProRequests.filter((row) => !persistedIds.has(row.id));
+      return res.json({ requests: [...fallbackRequests, ...result.rows] });
+    } catch (error: any) {
+      console.warn("[Pro requests] Database list failed; using in-memory fallback:", error?.message);
+    }
+  }
+  return res.json({ requests: inMemoryProRequests });
+});
+
+app.patch("/api/admin/pro-requests/:id", async (req: Request, res: Response) => {
+  const status = req.body?.status;
+  if (!['new', 'contacted', 'closed'].includes(status)) {
+    return res.status(400).json({ error: "Status must be new, contacted, or closed." });
+  }
+
+  if (dbPool) {
+    try {
+      const result = await dbPool.query(
+        "UPDATE pro_requests SET status = $1 WHERE id = $2 RETURNING *",
+        [status, req.params.id]
+      );
+      if (result.rows[0]) return res.json({ request: result.rows[0] });
+    } catch (error: any) {
+      console.warn("[Pro requests] Database status update failed; using in-memory fallback:", error?.message);
+    }
+  }
+
+  const request = inMemoryProRequests.find((row) => row.id === req.params.id);
+  if (!request) return res.status(404).json({ error: "Pro request not found." });
+  request.status = status;
+  return res.json({ request });
 });
 
 // Timeline Data Map for Key Science/Tech Topics

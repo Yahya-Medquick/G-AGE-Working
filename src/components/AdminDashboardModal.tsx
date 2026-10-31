@@ -50,6 +50,17 @@ interface AdminDashboardModalProps {
   onRefreshEntityData?: (slug: string) => void;
 }
 
+type ProRequest = {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string | null;
+  feature: string;
+  message?: string;
+  status: 'new' | 'contacted' | 'closed';
+  created_at: string;
+};
+
 export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   isOpen,
   onClose,
@@ -59,12 +70,13 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [personas, setPersonas] = useState<ExpertPersona[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [proRequests, setProRequests] = useState<ProRequest[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userTierFilter, setUserTierFilter] = useState<"all" | "free" | "paid">("all");
   const [updatingUserTierId, setUpdatingUserTierId] = useState<string | null>(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "entities" | "cache" | "apikeys" | "personas" | "users">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "entities" | "cache" | "apikeys" | "personas" | "users" | "prorequests">("overview");
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
 
   // New Expert Persona form state
@@ -174,10 +186,37 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
       } catch (uErr) {
         console.warn("Failed to fetch users for admin:", uErr);
       }
+
+      try {
+        const requestsRes = await fetch("/api/admin/pro-requests", { headers: authHeaders });
+        if (requestsRes.ok) {
+          const requestsData = await requestsRes.json();
+          setProRequests(requestsData.requests || []);
+        }
+      } catch (requestError) {
+        console.warn("Failed to fetch Pro requests:", requestError);
+      }
     } catch (err) {
       console.warn("Error fetching admin stats:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleUpdateProRequestStatus = async (id: string, status: ProRequest['status']) => {
+    try {
+      const response = await fetch(`/api/admin/pro-requests/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-Admin-Token": adminToken },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Failed to update request status.");
+      }
+      setProRequests((requests) => requests.map((request) => request.id === id ? { ...request, status } : request));
+    } catch (error: any) {
+      alert(error?.message || "Failed to update request status.");
     }
   };
 
@@ -757,6 +796,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           >
             <Users className="w-4 h-4 text-blue-500" />
             <span>User Management ({usersList.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("prorequests")}
+            className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === "prorequests"
+                ? "border-emerald-600 text-emerald-600 dark:text-emerald-400 font-semibold"
+                : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+            }`}
+          >
+            <Mail className="w-4 h-4 text-emerald-500" />
+            <span>Pro Requests ({proRequests.length})</span>
           </button>
         </div>
 
@@ -2104,6 +2154,53 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === "prorequests" && (
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <table className="w-full min-w-[760px] text-left text-xs text-slate-600 dark:text-slate-300">
+                <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-400 uppercase text-[10px] font-bold">
+                  <tr>
+                    <th className="px-4 py-3">Request</th>
+                    <th className="px-4 py-3">Contact</th>
+                    <th className="px-4 py-3">Message</th>
+                    <th className="px-4 py-3">Submitted</th>
+                    <th className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {proRequests.map((request) => (
+                    <tr key={request.id}>
+                      <td className="px-4 py-3 align-top">
+                        <div className="font-semibold text-slate-900 dark:text-white">{request.name}</div>
+                        <div className="text-slate-500">{request.feature}</div>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <div>{request.phone}</div>
+                        {request.email && <div className="text-slate-500">{request.email}</div>}
+                      </td>
+                      <td className="px-4 py-3 align-top whitespace-pre-wrap">{request.message || 'No message'}</td>
+                      <td className="px-4 py-3 align-top whitespace-nowrap">{new Date(request.created_at).toLocaleString()}</td>
+                      <td className="px-4 py-3 align-top">
+                        <select
+                          aria-label={`Status for ${request.name}`}
+                          value={request.status}
+                          onChange={(event) => handleUpdateProRequestStatus(request.id, event.target.value as ProRequest['status'])}
+                          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-xs"
+                        >
+                          <option value="new">New</option>
+                          <option value="contacted">Contacted</option>
+                          <option value="closed">Closed</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                  {proRequests.length === 0 && (
+                    <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-400">No Pro requests yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
 
