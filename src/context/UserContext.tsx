@@ -45,22 +45,27 @@ interface UserContextType {
 
 const defaultExamDefaults = readExamDefaults();
 
-const defaultProfile: UserProfile = {
-  name: "Guest Explorer",
-  username: "guest",
-  phone: "",
-  email: "",
-  role: "Explorer",
-  savedSearches: [],
-  recentSearches: [],
-  preferences: {
-    defaultSort: "relevance",
-    autoExpandSynonyms: true,
-    compactView: false,
-    defaultExamLevel: defaultExamDefaults.level,
-    defaultExamBoard: defaultExamDefaults.board,
-  },
+const buildDefaultProfile = (): UserProfile => {
+  const examDefaults = readExamDefaults();
+  return {
+    name: "Guest Explorer",
+    username: "guest",
+    phone: "",
+    email: "",
+    role: "Explorer",
+    savedSearches: [],
+    recentSearches: [],
+    preferences: {
+      defaultSort: "relevance",
+      autoExpandSynonyms: true,
+      compactView: false,
+      defaultExamLevel: examDefaults.level,
+      defaultExamBoard: examDefaults.board,
+    },
+  };
 };
+
+const defaultProfile: UserProfile = buildDefaultProfile();
 
 function readProExpiryFromJwt(): string | null {
   try {
@@ -167,6 +172,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const wasGuest = localStorage.getItem("bifrost_guest_mode") === "true";
         setIsGuest(wasGuest);
         const savedMode = localStorage.getItem("bifrost_mode");
+        const guestExamDefaults = readExamDefaults();
         if (savedMode === "research" || savedMode === "learning") {
           setMode(savedMode);
         }
@@ -174,6 +180,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.getItem("gage_has_seen_onboarding") === "true" ||
           localStorage.getItem("has_seen_onboarding") === "true";
         setHasSeenOnboarding(localOnboarding);
+        setProfile((prev) => ({
+          ...prev,
+          ...buildDefaultProfile(),
+          preferences: {
+            ...prev.preferences,
+            ...buildDefaultProfile().preferences,
+            defaultExamLevel: guestExamDefaults.level,
+            defaultExamBoard: guestExamDefaults.board,
+          },
+        }));
       }
     } catch (err) {
       console.warn("User session load error:", err);
@@ -338,11 +354,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsGuest(true);
     setUser(null);
     localStorage.setItem("bifrost_guest_mode", "true");
+    const guestExamDefaults = readExamDefaults();
     setProfile((prev) => ({
       ...prev,
       name: "Guest Explorer",
       username: "guest",
       role: "Explorer",
+      preferences: {
+        ...prev.preferences,
+        defaultExamLevel: guestExamDefaults.level,
+        defaultExamBoard: guestExamDefaults.board,
+      },
     }));
   };
 

@@ -126,7 +126,7 @@ Fonts are Baloo 2 for headings, Nunito Sans for body text, and Noto Nastaliq Urd
 
 ## Known caveat
 
-`public/sw.js` uses a fixed `gage-ai-v1` cache name and cache-first behavior for `/assets/` requests. A cached response can therefore be returned for an asset URL after deployment if that URL is reused. Other same-origin GET requests try the network first and use a cache/offline page on failure.
+`public/sw.js` uses a fixed `gage-ai-v4` cache name and cache-first behavior for `/assets/` requests. A cached response can therefore be returned for an asset URL after deployment if that URL is reused. Other same-origin GET requests try the network first and use a cache/offline page on failure.
 
 ## Recent changes
 

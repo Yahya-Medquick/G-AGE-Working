@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gage-ai-v3';
+const CACHE_NAME = 'gage-ai-v4';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_ASSETS = ['/', '/offline.html', '/manifest.json', '/icons/icon-192x192.png', '/icons/icon-512x512.png'];
 

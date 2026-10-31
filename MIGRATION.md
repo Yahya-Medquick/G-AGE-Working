@@ -91,4 +91,4 @@ From `docs/target-mobile.png`, top to bottom:
 
 ## 9. PHASE 5
 
-- [x] Phase 5 done: confirmed all relocation rows are checked and exposed from the mobile UI; verified the desktop rendering branch remains unchanged apart from shared root wiring; removed hardcoded colors from the new mobile shell styles; bumped the service worker cache to `gage-ai-v2`; lint, tests, and build pass.
+- [x] Phase 5 done: confirmed all relocation rows are checked and exposed from the mobile UI; verified the desktop rendering branch remains unchanged apart from shared root wiring; removed hardcoded colors from the new mobile shell styles; bumped the service worker cache to `gage-ai-v4`; lint, tests, and build pass.
