@@ -12,6 +12,7 @@ import {
   updatePreferencesMode,
   updateOnboardingStatus,
 } from "../services/api";
+import { readExamDefaults, writeExamDefaults } from "../utils/examDefaults";
 
 interface UserContextType {
   user: UserAuth | null;
@@ -41,6 +42,8 @@ interface UserContextType {
   proExpiresAt: string | null;
 }
 
+const defaultExamDefaults = readExamDefaults();
+
 const defaultProfile: UserProfile = {
   name: "Guest Explorer",
   username: "guest",
@@ -53,6 +56,8 @@ const defaultProfile: UserProfile = {
     defaultSort: "relevance",
     autoExpandSynonyms: true,
     compactView: false,
+    defaultExamLevel: defaultExamDefaults.level,
+    defaultExamBoard: defaultExamDefaults.board,
   },
 };
 
@@ -350,6 +355,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     };
     setProfile(next);
+
+    const nextDefaults = {
+      level: next.preferences.defaultExamLevel || profile.preferences.defaultExamLevel,
+      board: next.preferences.defaultExamBoard || profile.preferences.defaultExamBoard,
+    };
+    writeExamDefaults(nextDefaults);
   };
 
   return (

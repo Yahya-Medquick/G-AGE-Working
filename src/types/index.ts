@@ -313,6 +313,8 @@ export interface UserProfile {
     defaultSort: 'citations' | 'relevance' | 'freshness';
     autoExpandSynonyms: boolean;
     compactView: boolean;
+    defaultExamLevel: string;
+    defaultExamBoard: string;
   };
 }
 

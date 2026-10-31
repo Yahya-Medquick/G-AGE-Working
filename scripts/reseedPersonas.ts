@@ -3,21 +3,18 @@ import { EXPERTS, EXPERTS_PK } from '../src/data/experts';
 
 const { Pool } = pg;
 
-async function runMigration() {
-  console.log('[Migration] Starting expert_personas table reseed...');
+async function upsertPersonas() {
+  console.log('[Migration] Starting expert_personas upsert...');
 
   const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/gage';
   const pool = new Pool({
     connectionString,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   });
 
   try {
     const client = await pool.connect();
     try {
-      console.log('[Migration] Connected to database. Ensuring expert_personas schema...');
-
-      // Ensure variant column exists
       await client.query(`
         CREATE TABLE IF NOT EXISTS expert_personas (
           id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -47,83 +44,76 @@ async function runMigration() {
         ALTER TABLE expert_personas ADD COLUMN IF NOT EXISTS variant VARCHAR(16) DEFAULT 'global';
       `);
 
-      console.log('[Migration] Clearing existing expert_personas table...');
-      await client.query('DELETE FROM expert_personas;');
+      const personaSets = [
+        { variant: 'global', experts: EXPERTS },
+        { variant: 'pk', experts: EXPERTS_PK },
+      ] as const;
 
-      let order = 1;
+      let count = 0;
+      for (const { variant, experts } of personaSets) {
+        for (const [key, expert] of Object.entries(experts)) {
+          const slug = variant === 'pk' ? `${expert.id || key}_pk` : (expert.id || key);
+          const openerTemplate = expert.opener ? expert.opener('{topic}') : `I see you are exploring **{topic}**. How can I assist your research or learning on this subject?`;
 
-      // Seed global personas
-      for (const [key, expert] of Object.entries(EXPERTS)) {
-        const slug = expert.id || key;
-        const openerTemplate = expert.opener
-          ? expert.opener('{topic}')
-          : `I see you are exploring **{topic}**. How can I assist your research or learning on this subject?`;
-
-        await client.query(
-          `INSERT INTO expert_personas 
-           (slug, name, initials, role, affiliation, badge, avatar_color, specialties, domains, description, personality, opener_template, system_prompt, is_active, is_default, display_order, variant)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, $14, $15, 'global')`,
-          [
-            slug,
-            expert.name,
-            expert.initials,
-            expert.role,
-            expert.affiliation,
-            expert.badge,
-            expert.avatar_color,
-            expert.specialties,
-            expert.domains,
-            expert.description,
-            expert.personality,
-            openerTemplate,
-            expert.system_prompt,
-            slug === 'aisha', // default persona
-            order++
-          ]
-        );
+          await client.query(
+            `INSERT INTO expert_personas (
+              slug, name, initials, role, affiliation, badge, avatar_color, specialties, domains,
+              description, personality, opener_template, system_prompt, is_active, is_default,
+              display_order, variant
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, $14, $15, $16)
+            ON CONFLICT (slug) DO UPDATE SET
+              name = EXCLUDED.name,
+              initials = EXCLUDED.initials,
+              role = EXCLUDED.role,
+              affiliation = EXCLUDED.affiliation,
+              badge = EXCLUDED.badge,
+              avatar_color = EXCLUDED.avatar_color,
+              specialties = EXCLUDED.specialties,
+              domains = EXCLUDED.domains,
+              description = EXCLUDED.description,
+              personality = EXCLUDED.personality,
+              opener_template = EXCLUDED.opener_template,
+              system_prompt = EXCLUDED.system_prompt,
+              is_active = EXCLUDED.is_active,
+              is_default = EXCLUDED.is_default,
+              display_order = EXCLUDED.display_order,
+              variant = EXCLUDED.variant,
+              updated_at = now()
+            `,
+            [
+              slug,
+              expert.name,
+              expert.initials,
+              expert.role,
+              expert.affiliation,
+              expert.badge,
+              expert.avatar_color,
+              expert.specialties,
+              expert.domains,
+              expert.description,
+              expert.personality,
+              openerTemplate,
+              expert.system_prompt,
+              slug === 'aisha' || slug === 'aisha_pk',
+              count + 1,
+              variant,
+            ]
+          );
+          count += 1;
+        }
       }
 
-      // Seed Pakistani personas
-      for (const [key, expert] of Object.entries(EXPERTS_PK)) {
-        const slug = `${expert.id || key}_pk`;
-        const openerTemplate = expert.opener
-          ? expert.opener('{topic}')
-          : `I see you are exploring **{topic}**. How can I assist your research or learning on this subject?`;
-
-        await client.query(
-          `INSERT INTO expert_personas 
-           (slug, name, initials, role, affiliation, badge, avatar_color, specialties, domains, description, personality, opener_template, system_prompt, is_active, is_default, display_order, variant)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, false, $14, 'pk')`,
-          [
-            slug,
-            expert.name,
-            expert.initials,
-            expert.role,
-            expert.affiliation,
-            expert.badge,
-            expert.avatar_color,
-            expert.specialties,
-            expert.domains,
-            expert.description,
-            expert.personality,
-            openerTemplate,
-            expert.system_prompt,
-            order++
-          ]
-        );
-      }
-
-      console.log(`[Migration] Successfully reseeded ${order - 1} personas into expert_personas table!`);
+      console.log(`[Migration] Upserted ${count} expert personas successfully.`);
     } finally {
       client.release();
     }
   } catch (err: any) {
-    console.warn('[Migration] Note: Database not running or connection refused during CLI script run:', err.message);
+    console.warn('[Migration] Database not running or connection refused:', err.message);
   } finally {
     await pool.end();
   }
 }
 
-runMigration().catch((err) => {
+upsertPersonas().catch((err) => {
   console.error('[Migration] Failed:', err);
 });
