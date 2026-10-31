@@ -20,8 +20,6 @@ import {
   BookOpen,
   ChevronDown,
   ExternalLink,
-  Code2,
-  Newspaper,
   Play,
   CheckCheck,
   Edit2,
@@ -131,24 +129,8 @@ const ExplorePapersSection = ({ topic, recency, minCitations }: any) => (
   />
 );
 
-const ExploreReposSection = ({ topic }: any) => (
-  <ExploreResultsSection endpoint={`/api/explore/repos?q=${encodeURIComponent(topic)}`} resultKey="repos" heading={`Open Source Repositories for ${topic}`} />
-);
-
-const ExploreResearchNewsSection = ({ topic, recency }: any) => (
-  <ExploreResultsSection
-    endpoint={`/api/explore/research-news?${new URLSearchParams({ q: topic, recency })}`}
-    resultKey="items"
-    heading={`Recent Research on ${topic}`}
-  />
-);
-
 const ExploreVideosSection = ({ topic, query }: any) => (
   <ExploreResultsSection endpoint={`/api/category/videos?q=${encodeURIComponent(query || topic)}`} resultKey="items" heading={`Video Lectures for ${query || topic}`} />
-);
-
-const ExploreNewsSection = ({ topic, query }: any) => (
-  <ExploreResultsSection endpoint={`/api/category/news?q=${encodeURIComponent(query || topic)}&page=1&limit=6&offset=0`} resultKey="items" heading={`Articles & News for ${query || topic}`} />
 );
 
 export const ChatStage: React.FC<ChatStageProps> = ({
@@ -358,7 +340,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     });
   };
 
-  const handleToggleExploreTab = (msgId: string, tab: 'videos' | 'news' | 'mcqs' | 'papers' | 'repos' | 'research-news') => {
+  const handleToggleExploreTab = (msgId: string, tab: 'videos' | 'mcqs' | 'papers') => {
     if (activeExploreMsgId === msgId && activeExploreTab === tab) {
       setActiveExploreMsgId(null);
       setActiveExploreTab(null);
@@ -881,17 +863,11 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                     {!msg.content.startsWith('⚠️') && (() => {
                       const topicData = extractedTopics[msg.id];
                       const targetTopic = topicData?.displayTopic || session?.title || 'Core Fundamentals';
-                      const tabs = activeMode === 'research'
-                        ? [
-                            { id: 'papers', label: 'Papers', icon: <BookOpen className="h-4 w-4" /> },
-                            { id: 'repos', label: 'Repos', icon: <Code2 className="h-4 w-4" /> },
-                            { id: 'research-news', label: 'Research News', icon: <Newspaper className="h-4 w-4" /> },
-                          ]
-                        : [
-                            { id: 'videos', label: 'Videos', icon: <Play className="h-4 w-4" /> },
-                            { id: 'news', label: 'News', icon: <Newspaper className="h-4 w-4" /> },
-                            { id: 'mcqs', label: 'MCQs', icon: <GraduationCap className="h-4 w-4" /> },
-                          ];
+                      const tabs = [
+                        { id: 'videos', label: 'Videos', icon: <Play className="h-4 w-4" /> },
+                        { id: 'mcqs', label: 'MCQs', icon: <GraduationCap className="h-4 w-4" /> },
+                        ...(activeMode === 'research' ? [{ id: 'papers', label: 'Papers', icon: <BookOpen className="h-4 w-4" /> }] : []),
+                      ];
 
                       return (
                         <div className="mt-3 border-t border-[#D5E0D8] pt-3 dark:border-[#27403A]">
@@ -915,7 +891,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                                   <button
                                     key={id}
                                     type="button"
-                                    onClick={() => handleToggleExploreTab(msg.id, id as 'videos' | 'news' | 'mcqs' | 'papers' | 'repos' | 'research-news')}
+                                    onClick={() => handleToggleExploreTab(msg.id, id as 'videos' | 'mcqs' | 'papers')}
                                     aria-pressed={activeExploreMsgId === msg.id && activeExploreTab === id}
                                     className={`flex min-h-[44px] items-center gap-2 rounded-[12px] border px-3 text-left text-xs font-semibold transition-colors ${activeExploreMsgId === msg.id && activeExploreTab === id ? 'border-[#0A5C45] bg-[#DDEFE6] text-[#0A5C45] dark:border-[#5BE0A5] dark:bg-[#17352A] dark:text-[#5BE0A5]' : 'border-[#D5E0D8] bg-white text-[#10231C] hover:bg-[#F3F6F1] dark:border-[#27403A] dark:bg-[#12231C] dark:text-[#E8F2EC] dark:hover:bg-[#17352A]'}`}
                                   >
@@ -939,10 +915,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
                                   </div>
                                   <div className="w-full">
                                     {activeExploreTab === 'papers' && <ExplorePapersSection topic={targetTopic} recency={session?.specs?.research?.recency || '5_years'} minCitations={session?.specs?.research?.minCitations || 'any'} />}
-                                    {activeExploreTab === 'repos' && <ExploreReposSection topic={targetTopic} />}
-                                    {activeExploreTab === 'research-news' && <ExploreResearchNewsSection topic={targetTopic} recency={session?.specs?.research?.recency || '5_years'} />}
                                     {activeExploreTab === 'videos' && <ExploreVideosSection topic={targetTopic} query={topicData?.videoQuery} />}
-                                    {activeExploreTab === 'news' && <ExploreNewsSection topic={targetTopic} query={topicData?.newsQuery} />}
                                     {activeExploreTab === 'mcqs' && <MCQCard topic={topicData?.mcqTopic || targetTopic} onSaveToNotes={onSaveToNotes} onClose={() => { setActiveExploreMsgId(null); setActiveExploreTab(null); }} onOpenPaywall={onOpenPaywall} />}
                                   </div>
                                 </div>

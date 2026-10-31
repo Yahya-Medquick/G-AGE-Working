@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense, useCallback, useRef } from 'react';
-import { BookOpen, Check, ChevronRight, Code2, FileText, MessageCircle, Send, Sparkles } from 'lucide-react';
+import { Check, ChevronRight, MessageCircle, Send, Sparkles } from 'lucide-react';
 import { useTheme } from './hooks/useTheme';
 import { useNotes } from './hooks/useNotes';
 import { useUser } from './context/UserContext';
@@ -65,7 +65,7 @@ export default function App() {
   }, []);
 
   const { theme, toggleTheme } = useTheme();
-  const { notes, addNote, loading: notesLoading, error: notesError } = useNotes();
+  const { addNote } = useNotes();
   const { user, profile, isLoggedIn, isLoadingAuth, hasSeenOnboarding, isTourOpen } = useUser();
 
   // Chat sessions state manager
@@ -837,18 +837,6 @@ export default function App() {
               for (const persona of Object.values(activeExpertSet)) {
                 personaMap.set(persona.slug || persona.id, persona);
               }
-              const mentorGroups = Array.from(
-                new Set(
-                  Array.from(personaMap.values()).map(
-                    (mentor) => mentor.group_name || mentor.badge || 'General'
-                  )
-                )
-              )
-                .sort((a, b) => a.localeCompare(b))
-                .slice(0, 8);
-              const recentNotes = [...notes]
-                .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-                .slice(0, 3);
               const recentSessions = [...sessions]
                 .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
                 .slice(0, 3);
@@ -915,64 +903,6 @@ export default function App() {
                         </button>
                       ))}
                     </div>
-                  </section>
-
-                  <section className="mobile-home-section" aria-labelledby="mobile-subjects-heading">
-                    <div className="mobile-home-section-heading">
-                      <h2 id="mobile-subjects-heading">Quick Subjects</h2>
-                      <button type="button" onClick={() => navigate('mentors')}>
-                        See all subjects <ChevronRight aria-hidden="true" />
-                      </button>
-                    </div>
-                    <div className="mobile-subject-chips">
-                      {mentorGroups.map((group) => (
-                        <button
-                          type="button"
-                          className="mobile-subject-chip"
-                          key={group}
-                          onClick={() => {
-                            setInitialPersonaGroup(group);
-                            navigate('mentors');
-                          }}
-                        >
-                          <BookOpen aria-hidden="true" />
-                          <span>{group}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="mobile-home-section" aria-labelledby="mobile-notes-heading">
-                    <div className="mobile-home-section-heading">
-                      <h2 id="mobile-notes-heading">Recent Notes</h2>
-                      <button type="button" onClick={() => navigate('notes')}>
-                        View all <ChevronRight aria-hidden="true" />
-                      </button>
-                    </div>
-                    {notesError && <p className="mobile-home-message" role="status">{notesError}</p>}
-                    {notesLoading && notes.length === 0 ? (
-                      <p className="mobile-home-message">Loading notes...</p>
-                    ) : recentNotes.length === 0 ? (
-                      <p className="mobile-home-message">Your saved notes will appear here.</p>
-                    ) : (
-                      <div className="mobile-home-note-list">
-                        {recentNotes.map((note) => (
-                          <button
-                            type="button"
-                            className="mobile-home-note"
-                            key={note.id}
-                            onClick={() => navigate('notes')}
-                          >
-                            <FileText aria-hidden="true" />
-                            <span className="mobile-home-note-copy">
-                              <strong>{note.title}</strong>
-                              <span>{note.subject_tag || 'General'} · {new Date(note.updated_at).toLocaleDateString()}</span>
-                              <span className="mobile-home-note-preview">{note.content}</span>
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </section>
 
                   <section className="mobile-home-section mobile-home-recent-chats" aria-labelledby="mobile-chats-heading">
@@ -1127,15 +1057,6 @@ export default function App() {
                   showAdminButton={Boolean(localStorage.getItem('admin_token'))}
                   showBrandHeader={false}
                 />
-                <button
-                  type="button"
-                  className="mobile-profile-api"
-                  onClick={() => setIsApiDocsOpen(true)}
-                >
-                  <Code2 aria-hidden="true" />
-                  <span>Developer API</span>
-                  <ChevronRight aria-hidden="true" />
-                </button>
               </div>
             );
           }}
