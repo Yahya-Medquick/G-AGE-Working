@@ -18,6 +18,7 @@ import { NotesSidePanel } from './components/NotesSidePanel';
 import { ExpertPersona } from './data/experts';
 import { usePersonas } from './hooks/usePersonas';
 import { ChatMode, ChatMessage, ChatSession } from './types/chat';
+import { isOpenerOnlySession } from './utils/personaSession';
 import { PublicQAPage } from './components/PublicQAPage';
 import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
 import { MobileShell, type MobileScreen } from './components/MobileShell';
@@ -332,7 +333,7 @@ export default function App() {
           setExpertVariant('pk');
         }
 
-        const existingSession = sessions.find((s) => s.personaId === matched.id);
+        const existingSession = sessions.find((s) => s.personaId === matched.id && isOpenerOnlySession(s));
         if (existingSession) {
           bootstrapStoragePrefixRef.current = storagePrefix;
           selectSession(existingSession.id);
@@ -809,6 +810,28 @@ export default function App() {
       {isMobile ? (
         <MobileShell
           renderScreen={(screen: MobileScreen, navigate) => {
+            const startPersonaChat = (personaId: string, variant: 'global' | 'pk') => {
+              const expertSet = variant === 'pk' ? pkExperts : globalExperts;
+              const persona = expertSet[personaId] || Object.values(expertSet)[0];
+              if (!persona) return;
+
+              if (isOpenerOnlySession(activeSession)) {
+                handleSelectPersona(persona.id, variant);
+              } else {
+                const session = createSession(
+                  persona.id,
+                  'concept',
+                  'General Discussion',
+                  `${persona.name} Chat`,
+                  variant,
+                  persona
+                );
+                updateSessionMeta(session.id, { subjectPromptStatus: 'chosen' });
+                skipReveal();
+              }
+              navigate('chat');
+            };
+
             if (screen === 'home') {
               const personaMap = new Map<string, ExpertPersona>();
               for (const persona of Object.values(activeExpertSet)) {
@@ -877,8 +900,7 @@ export default function App() {
                           className="mobile-mentor-card"
                           key={mentor.id}
                           onClick={() => {
-                            handleSelectPersona(mentor.id, activeVariant);
-                            navigate('chat');
+                            startPersonaChat(mentor.id, activeVariant);
                           }}
                         >
                           <span
@@ -1032,8 +1054,7 @@ export default function App() {
                   onToggle={() => navigate('home')}
                   selectedPersonaId={currentPersonaId}
                   onSelectPersona={(id, variant) => {
-                    handleSelectPersona(id, variant);
-                    navigate('chat');
+                    startPersonaChat(id, variant);
                   }}
                   variant={activeVariant}
                   onToggleVariant={(variant) => {
