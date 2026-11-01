@@ -3,7 +3,7 @@ import { X, User, History, Settings, Check, Shield, Search, Sparkles, Compass, S
 import { UserProfile } from "../types";
 import { useUser } from "../context/UserContext";
 import { ProExpiryBadge } from "./ProExpiryBadge";
-import { readExamDefaults } from "../utils/examDefaults";
+import { DEFAULT_EXAM_DEFAULTS } from "../utils/examDefaults";
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -37,10 +37,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   const handleResetExamDefaults = () => {
-    const defaults = readExamDefaults();
     updatePreferences({
-      defaultExamLevel: defaults.level,
-      defaultExamBoard: defaults.board,
+      defaultExamLevel: DEFAULT_EXAM_DEFAULTS.level,
+      defaultExamBoard: DEFAULT_EXAM_DEFAULTS.board,
     });
   };
 
