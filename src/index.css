@@ -14,11 +14,8 @@
 /* ─────────────────────────────────────────────────────────────
    FONTS DEFINITIONS
    ───────────────────────────────────────────────────────────── */
-@font-face {
-  font-family: "Jameel Noori Nastaleeq";
-  src: url("/fonts/JameelNooriNastaleeq.woff2") format("woff2");
-  font-display: swap;
-}
+/* Jameel Noori Nastaleeq @font-face removed: the woff2 file is not in the repo (the URL served index.html).
+   Urdu text falls back to Noto Nastaliq Urdu from Google Fonts. Re-add with a real file in public/fonts/ if wanted. */
 
 /* ─────────────────────────────────────────────────────────────
    COLOR DESIGN TOKENS (LIGHT & DARK THEMES)
@@ -353,3 +350,22 @@ p.urdu-block,
   }
 }
 
+
+
+/* ─────────────────────────────────────────────────────────────
+   LITE MODE (set in index.html for weak devices / slow networks)
+   Removes the costliest effects; layout and colours are unchanged.
+   ───────────────────────────────────────────────────────────── */
+html[data-lite] [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+}
+html[data-lite] {
+  scroll-behavior: auto !important;
+}
+html[data-lite] *:not(.animate-spin):not(.animate-pulse),
+html[data-lite] *:not(.animate-spin):not(.animate-pulse)::before,
+html[data-lite] *:not(.animate-spin):not(.animate-pulse)::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

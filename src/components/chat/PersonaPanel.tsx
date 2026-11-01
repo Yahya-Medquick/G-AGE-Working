@@ -257,14 +257,14 @@ export const PersonaPanel: React.FC<PersonaPanelProps> = ({
       {isOpen && (
         <div
           onClick={onToggle}
-          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs lg:hidden animate-in fade-in"
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs xl:hidden animate-in fade-in"
         />
       )}
 
       <aside
         data-drawer="right"
-        className={`fixed lg:static top-0 bottom-0 right-0 z-40 flex flex-col w-[300px] sm:w-[320px] bg-[#FFFFFF] dark:bg-[#12231C] border-l border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
-          isOpen ? `translate-x-0${subjectPromptActive ? ' subject-panel-highlight' : ''}` : 'translate-x-full lg:w-0 lg:border-l-0'
+        className={`fixed xl:static top-0 bottom-0 right-0 z-40 flex flex-col w-[300px] sm:w-[320px] bg-[#FFFFFF] dark:bg-[#12231C] border-l border-[#D5E0D8] dark:border-[#27403A] transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+          isOpen ? `translate-x-0${subjectPromptActive ? ' subject-panel-highlight' : ''}` : 'translate-x-full xl:w-0 xl:border-l-0'
         }`}
       >
         {/* Header */}

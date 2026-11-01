@@ -13,7 +13,6 @@ import { PersonaPanel } from './components/chat/PersonaPanel';
 import { ChatStage } from './components/chat/ChatStage';
 import { PaywallModal } from './components/chat/PaywallModal';
 import { PwaShortcutModal } from './components/chat/PwaShortcutModal';
-import { AuthModal } from './components/AuthModal';
 import { NotesSidePanel } from './components/NotesSidePanel';
 import { ExpertPersona } from './data/experts';
 import { usePersonas } from './hooks/usePersonas';
@@ -24,6 +23,9 @@ import { PersonaQuestionsPage } from './components/PersonaQuestionsPage';
 import { MobileShell, type MobileScreen } from './components/MobileShell';
 
 // Lazy-loaded secondary modals for optimal performance
+const AuthModal = lazy(() =>
+  import('./components/AuthModal').then((m) => ({ default: m.AuthModal }))
+);
 const AdminDashboardModal = lazy(() =>
   import('./components/AdminDashboardModal').then((m) => ({ default: m.AdminDashboardModal }))
 );
@@ -1177,10 +1179,14 @@ export default function App() {
         onOpenDownload={handleOpenDownload}
       />
 
-      <AuthModal
-        isOpen={isLoginOpen}
-        onClose={() => setIsLoginOpen(false)}
-      />
+      {isLoginOpen && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={isLoginOpen}
+            onClose={() => setIsLoginOpen(false)}
+          />
+        </Suspense>
+      )}
 
       <NotesSidePanel
         isOpen={!isMobile && isNotesOpen}
@@ -1196,67 +1202,83 @@ export default function App() {
           />
         )}
 
-        <KnowledgeGraphModal
-          isOpen={isKnowledgeGraphOpen}
-          onClose={() => setIsKnowledgeGraphOpen(false)}
-          initialTopic={activeSession?.title || 'Quantum Mechanics'}
-          onSelectTopic={(topic) => {
-            setIsKnowledgeGraphOpen(false);
-            createSession(currentPersonaId, 'concept', topic, topic, expertVariant, activePersona);
-          }}
-        />
+        {isKnowledgeGraphOpen && (
+          <KnowledgeGraphModal
+            isOpen={isKnowledgeGraphOpen}
+            onClose={() => setIsKnowledgeGraphOpen(false)}
+            initialTopic={activeSession?.title || 'Quantum Mechanics'}
+            onSelectTopic={(topic) => {
+              setIsKnowledgeGraphOpen(false);
+              createSession(currentPersonaId, 'concept', topic, topic, expertVariant, activePersona);
+            }}
+          />
+        )}
 
-        <CompiledNotesModal
-          isOpen={compiledNotesModalState.isOpen}
-          onClose={() => setCompiledNotesModalState({ isOpen: false, compiledText: '', subjectTags: [] })}
-          compiledText={compiledNotesModalState.compiledText}
-          subjectTags={compiledNotesModalState.subjectTags}
-          persona={activePersona}
-        />
+        {compiledNotesModalState.isOpen && (
+          <CompiledNotesModal
+            isOpen={compiledNotesModalState.isOpen}
+            onClose={() => setCompiledNotesModalState({ isOpen: false, compiledText: '', subjectTags: [] })}
+            compiledText={compiledNotesModalState.compiledText}
+            subjectTags={compiledNotesModalState.subjectTags}
+            persona={activePersona}
+          />
+        )}
 
-        <AdminDashboardModal
-          isOpen={isAdminOpen}
-          onClose={() => setIsAdminOpen(false)}
-        />
+        {isAdminOpen && (
+          <AdminDashboardModal
+            isOpen={isAdminOpen}
+            onClose={() => setIsAdminOpen(false)}
+          />
+        )}
 
-        <UserProfileModal
-          isOpen={isProfileOpen}
-          onClose={() => setIsProfileOpen(false)}
-          recentSearches={sessions.map((s) => s.title).slice(0, 10)}
-          onSelectSearch={(topic) => {
-            setIsProfileOpen(false);
-            createSession(currentPersonaId, 'concept', topic, topic, expertVariant, activePersona);
-          }}
-          onClearHistory={() => {}}
-          onOpenDownload={handleOpenDownload}
-        />
+        {isProfileOpen && (
+          <UserProfileModal
+            isOpen={isProfileOpen}
+            onClose={() => setIsProfileOpen(false)}
+            recentSearches={sessions.map((s) => s.title).slice(0, 10)}
+            onSelectSearch={(topic) => {
+              setIsProfileOpen(false);
+              createSession(currentPersonaId, 'concept', topic, topic, expertVariant, activePersona);
+            }}
+            onClearHistory={() => {}}
+            onOpenDownload={handleOpenDownload}
+          />
+        )}
 
-        <TopicCompareModal
-          isOpen={isCompareOpen}
-          onClose={() => setIsCompareOpen(false)}
-          defaultTopicA={activeSession?.title || 'Quantum Mechanics'}
-          onSelectTopic={(topic) => {
-            setIsCompareOpen(false);
-            createSession(currentPersonaId, 'concept', topic, topic, expertVariant, activePersona);
-          }}
-        />
+        {isCompareOpen && (
+          <TopicCompareModal
+            isOpen={isCompareOpen}
+            onClose={() => setIsCompareOpen(false)}
+            defaultTopicA={activeSession?.title || 'Quantum Mechanics'}
+            onSelectTopic={(topic) => {
+              setIsCompareOpen(false);
+              createSession(currentPersonaId, 'concept', topic, topic, expertVariant, activePersona);
+            }}
+          />
+        )}
 
-        <TopicTimelineModal
-          isOpen={isTimelineOpen}
-          onClose={() => setIsTimelineOpen(false)}
-          topic={activeSession?.title || 'Quantum Mechanics'}
-        />
+        {isTimelineOpen && (
+          <TopicTimelineModal
+            isOpen={isTimelineOpen}
+            onClose={() => setIsTimelineOpen(false)}
+            topic={activeSession?.title || 'Quantum Mechanics'}
+          />
+        )}
 
-        <DeveloperApiModal
-          isOpen={isApiDocsOpen}
-          onClose={() => setIsApiDocsOpen(false)}
-        />
+        {isApiDocsOpen && (
+          <DeveloperApiModal
+            isOpen={isApiDocsOpen}
+            onClose={() => setIsApiDocsOpen(false)}
+          />
+        )}
       </Suspense>
 
       {/* Guided Product Tour */}
-      <Suspense fallback={null}>
-        <ProductTour />
-      </Suspense>
+      {(!hasSeenOnboarding || isTourOpen) && (
+        <Suspense fallback={null}>
+          <ProductTour />
+        </Suspense>
+      )}
 
       {/* Subtle Save Note Toast Notification */}
       {saveNoteToast && (

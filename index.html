@@ -74,6 +74,21 @@
     <meta name="apple-mobile-web-app-title" content="G-AGE AI" />
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
 
+    <!-- LITE MODE: weak phones / slow or data-saver connections get no blur or decorative motion -->
+    <script>
+      (function () {
+        try {
+          var c = navigator.connection || {};
+          var lite = c.saveData === true ||
+            /^(slow-2g|2g|3g)$/.test(c.effectiveType || '') ||
+            (navigator.deviceMemory && navigator.deviceMemory <= 2) ||
+            (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2) ||
+            /[?&]lite=1(&|$)/.test(location.search);
+          if (lite) document.documentElement.setAttribute('data-lite', '1');
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- GOOGLE ANALYTICS -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z7W2DYR0KF"></script>
     <script>
@@ -96,7 +111,9 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;1,6..12,400;1,6..12,600;1,6..12,700&display=swap" rel="stylesheet" />
+    <!-- Fonts load without blocking first paint -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;1,6..12,400;1,6..12,600;1,6..12,700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;1,6..12,400;1,6..12,600;1,6..12,700&display=swap" rel="stylesheet" /></noscript>
   </head>
   <body class="bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] antialiased selection:bg-[#0A5C45] dark:selection:bg-[#0F8056] selection:text-white">
     <div id="root"></div>

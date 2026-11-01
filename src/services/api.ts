@@ -1,5 +1,5 @@
 import { CategoryApiResponse, CategoryType, UserAuth } from "../types";
-import { getOrCreateDeviceId } from "./firebaseAuth";
+import { getOrCreateDeviceId } from "../utils/deviceFingerprint";
 
 // In-Memory Caches
 const clientMemoryCache = new Map<string, { data: CategoryApiResponse; expiresAt: number }>();
