@@ -4,12 +4,13 @@ import { useUser } from '../context/UserContext';
 import { EXPERTS, EXPERTS_PK } from '../data/experts';
 import type { ExpertPersona } from '../data/experts';
 import { mergeChatSpecs } from '../utils/chatSpecs';
+import { applyExamDefaults, normalizeExamDefaults } from '../utils/examDefaults';
 
 const SESSIONS_STORAGE_KEY = 'bifrost_chat_sessions_v2';
 const ACTIVE_SESSION_ID_KEY = 'bifrost_active_session_id_v2';
 
 export function useChatSessions() {
-  const { user } = useUser();
+  const { user, profile } = useUser();
   const storageUserPrefix = user?.id ? `user_${user.id}` : 'guest';
 
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
@@ -135,6 +136,17 @@ export function useChatSessions() {
         personaInitials: persona.initials,
       };
 
+      const savedExamDefaults = normalizeExamDefaults({
+        level: profile?.preferences?.defaultExamLevel,
+        board: profile?.preferences?.defaultExamBoard,
+      });
+      const examDefaults = applyExamDefaults({
+        exam: {
+          targetExam: savedExamDefaults.board,
+          className: savedExamDefaults.level,
+        },
+      }, savedExamDefaults);
+
       const newSession: ChatSession = {
         id: sessionId,
         title: customTitle || initialTopic || `Chat with ${persona.name}`,
@@ -147,7 +159,12 @@ export function useChatSessions() {
         messages: [initialMessage],
         specs: {
           concept: { level: 'intermediate', mathRigor: 'standard', explanationStyle: 'socratic' },
-          exam: { targetExam: 'University / AP', difficulty: 'standard', questionFormat: 'step_by_step' },
+          exam: {
+            targetExam: examDefaults.targetExam || 'Punjab Board',
+            className: examDefaults.className || '10th',
+            difficulty: 'standard',
+            questionFormat: 'step_by_step',
+          },
           research: { recency: '5_years', minCitations: 'any', includeCode: true, includeDatasets: false },
         },
       };
@@ -164,7 +181,7 @@ export function useChatSessions() {
       selectSession(sessionId);
       return newSession;
     },
-    [selectSession, storageUserPrefix]
+    [profile?.preferences?.defaultExamBoard, profile?.preferences?.defaultExamLevel, selectSession, storageUserPrefix]
   );
 
   // Update session messages

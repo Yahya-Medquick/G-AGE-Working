@@ -7,6 +7,7 @@ import {
   Check,
 } from 'lucide-react';
 import { ChatMode, ConceptSpecs, ExamSpecs, ResearchSpecs } from '../../types/chat';
+import { useUser } from '../../context/UserContext';
 
 interface SpecificationsAccordionProps {
   mode: ChatMode;
@@ -41,7 +42,7 @@ function saveSpecs(specs: any) {
 
 const DEFAULT_SPECS = {
   concept: { level: 'intermediate' as const },
-  exam: { targetExam: '', subject: '', questionNature: 'short', className: '' },
+  exam: { targetExam: 'Punjab Board', subject: '', questionNature: 'short', className: '10th' },
   research: { recency: '5_years' as const, minCitations: 'any' as const, includeCode: true, includeDatasets: false },
 };
 
@@ -52,6 +53,8 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
   isOpen,
   onToggle,
 }) => {
+  const { updatePreferences, profile } = useUser();
+
   useEffect(() => {
     const saved = loadSavedSpecs();
     if (saved) {
@@ -66,6 +69,8 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
   const concept = specs.concept || DEFAULT_SPECS.concept;
   const exam = specs.exam || DEFAULT_SPECS.exam;
   const research = specs.research || DEFAULT_SPECS.research;
+  const boardOptions = ['Punjab Board', 'Federal Board', 'Sindh Board', 'KPK Board', 'Balochistan Board', 'A-Level', 'Cambridge', 'MDCAT', 'University / AP'];
+  const levelOptions = ['9th', '10th', '11th', '12th', 'Undergrad', 'Postgrad'];
 
   const handleConceptChange = (key: keyof ConceptSpecs, val: any) => {
     const next = { ...specs, concept: { ...concept, [key]: val } };
@@ -74,9 +79,24 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
   };
 
   const handleExamChange = (key: keyof ExamSpecs, val: any) => {
-    const next = { ...specs, exam: { ...exam, [key]: val } };
+    const nextExam = { ...exam, [key]: val };
+    const next = { ...specs, exam: nextExam };
     onChangeSpecs(next);
     saveSpecs(next);
+
+    if (key === 'targetExam' && typeof val === 'string') {
+      updatePreferences({
+        ...profile.preferences,
+        defaultExamBoard: val || profile.preferences.defaultExamBoard,
+      });
+    }
+
+    if (key === 'className' && typeof val === 'string') {
+      updatePreferences({
+        ...profile.preferences,
+        defaultExamLevel: val || profile.preferences.defaultExamLevel,
+      });
+    }
   };
 
   const handleResearchChange = (key: keyof ResearchSpecs, val: any) => {
@@ -142,15 +162,32 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
-                  Target Board / University
+                  Level
                 </label>
-                <input
-                  type="text"
-                  value={exam.targetExam || ''}
+                <select
+                  value={exam.className || '10th'}
+                  onChange={(e) => handleExamChange('className', e.target.value)}
+                  className="w-full min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] text-sm focus:border-[#0A5C45] dark:focus:border-[#0F8056] focus:outline-none"
+                >
+                  {levelOptions.map((level) => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
+                  Board / University
+                </label>
+                <select
+                  value={exam.targetExam || 'Punjab Board'}
                   onChange={(e) => handleExamChange('targetExam', e.target.value)}
-                  placeholder="e.g. Federal Board, Cambridge, NUST..."
-                  className="w-full min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] placeholder:text-[#4F6359] dark:placeholder:text-[#9DB5A8] text-sm focus:border-[#0A5C45] dark:focus:border-[#0F8056] focus:outline-none"
-                />
+                  className="w-full min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] text-sm focus:border-[#0A5C45] dark:focus:border-[#0F8056] focus:outline-none"
+                >
+                  {boardOptions.map((board) => (
+                    <option key={board} value={board}>{board}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-1.5">
@@ -189,19 +226,6 @@ export const SpecificationsAccordion: React.FC<SpecificationsAccordionProps> = (
                     </button>
                   ))}
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#4F6359] dark:text-[#9DB5A8]">
-                  Class / Grade Level
-                </label>
-                <input
-                  type="text"
-                  value={exam.className || ''}
-                  onChange={(e) => handleExamChange('className', e.target.value)}
-                  placeholder="e.g. 9th, 10th, FSc, BS / Undergrad..."
-                  className="w-full min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] placeholder:text-[#4F6359] dark:placeholder:text-[#9DB5A8] text-sm focus:border-[#0A5C45] dark:focus:border-[#0F8056] focus:outline-none"
-                />
               </div>
             </div>
           )}

@@ -238,20 +238,28 @@ export async function fetchCurrentUser(): Promise<UserAuth | null> {
   }
 }
 
-export async function updatePreferencesMode(mode: "research" | "learning") {
+export async function updateUserPreferences(payload: {
+  preferred_mode?: "research" | "learning";
+  default_exam_level?: string;
+  default_exam_board?: string;
+}) {
   try {
     const res = await fetch("/api/user/preferences", {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      body: JSON.stringify({ preferred_mode: mode }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error("Failed to update preferences");
     return await res.json();
   } catch (err) {
-    console.error("updatePreferencesMode error:", err);
+    console.error("updateUserPreferences error:", err);
     throw err;
   }
+}
+
+export async function updatePreferencesMode(mode: "research" | "learning") {
+  return updateUserPreferences({ preferred_mode: mode });
 }
 
 export async function updateOnboardingStatus(hasSeenOnboarding = true) {

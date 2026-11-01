@@ -281,3 +281,17 @@ INSERT INTO expert_personas (slug, name, initials, role, affiliation, badge, ava
 ('alex', 'Alex Romero', 'AR', 'Data Scientist & ML Engineer', 'Lead Data Scientist, formerly Netflix · Kaggle Grandmaster', 'Data Science & AI', '#8b5cf6', ARRAY['ML pipelines','Recommendation systems','Feature engineering','Statistical modeling','NLP'], ARRAY['machine learning','data science','AI','statistics','Python','NLP','recommendation systems','neural networks','deep learning','data analysis','pandas','SQL'], 'Led personalization modeling at Netflix, building recommendation systems for 250M+ users.', 'hands-on, code-first, competitive but collaborative', '{topic} — are you understanding the theory, implementing something, or debugging a model? Show me what you have.', 'You are Alex Romero, a Lead Data Scientist. Be hands-on and practical. Ask for code or data when relevant. Prefer concrete examples. Write clean Python when asked.', true, false, 7),
 ('aisha', 'Dr. Aisha Patel', 'AP', 'AI Safety Researcher', 'Research Scientist, CHAI, UC Berkeley', 'AI Safety & Ethics', '#f97316', ARRAY['AI alignment','Value learning','Interpretability','AI governance','Existential risk'], ARRAY['AI safety','alignment','ethics','AI governance','interpretability','reward modeling','existential risk','philosophy of AI','AGI','bias','fairness','responsible AI'], 'Research scientist at UC Berkeley working on the value alignment problem for advanced AI systems.', 'philosophically rigorous, optimistic about solutions, loves thought experiments', '{topic} connects to the most important open questions in AI. Are you coming from a technical, governance, or philosophical angle?', 'You are Dr. Aisha Patel, an AI Safety Researcher. Be philosophically rigorous. Show genuine concern for long-term AI risks without alarmism. Engage with counterarguments.', true, true, 8)
 ON CONFLICT (slug) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS pro_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  name VARCHAR(100) NOT NULL,
+  phone VARCHAR(30) NOT NULL,
+  email VARCHAR(254),
+  feature VARCHAR(80) NOT NULL,
+  message TEXT NOT NULL DEFAULT '',
+  status VARCHAR(20) NOT NULL DEFAULT 'new',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pro_requests_status_created ON pro_requests(status, created_at DESC);

@@ -10,8 +10,10 @@ import {
   verifyNewDevice,
   LoginResult,
   updatePreferencesMode,
+  updateUserPreferences,
   updateOnboardingStatus,
 } from "../services/api";
+import { readExamDefaults, writeExamDefaults } from "../utils/examDefaults";
 
 interface UserContextType {
   user: UserAuth | null;
@@ -41,20 +43,29 @@ interface UserContextType {
   proExpiresAt: string | null;
 }
 
-const defaultProfile: UserProfile = {
-  name: "Guest Explorer",
-  username: "guest",
-  phone: "",
-  email: "",
-  role: "Explorer",
-  savedSearches: [],
-  recentSearches: [],
-  preferences: {
-    defaultSort: "relevance",
-    autoExpandSynonyms: true,
-    compactView: false,
-  },
+const defaultExamDefaults = readExamDefaults();
+
+const buildDefaultProfile = (): UserProfile => {
+  const examDefaults = readExamDefaults();
+  return {
+    name: "Guest Explorer",
+    username: "guest",
+    phone: "",
+    email: "",
+    role: "Explorer",
+    savedSearches: [],
+    recentSearches: [],
+    preferences: {
+      defaultSort: "relevance",
+      autoExpandSynonyms: true,
+      compactView: false,
+      defaultExamLevel: examDefaults.level,
+      defaultExamBoard: examDefaults.board,
+    },
+  };
 };
+
+const defaultProfile: UserProfile = buildDefaultProfile();
 
 function readProExpiryFromJwt(): string | null {
   try {
@@ -132,6 +143,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (authUser.preferred_mode) {
           setMode(authUser.preferred_mode);
         }
+        const savedExamDefaults = readExamDefaults({
+          level: authUser.default_exam_level,
+          board: authUser.default_exam_board,
+        });
+        writeExamDefaults(savedExamDefaults);
         if (typeof authUser.has_seen_onboarding === "boolean") {
           setHasSeenOnboarding(authUser.has_seen_onboarding);
           if (authUser.has_seen_onboarding) {
@@ -145,12 +161,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: authUser.username || prev.username,
           phone: authUser.phone || prev.phone,
           email: authUser.email || prev.email,
+          preferences: {
+            ...prev.preferences,
+            defaultExamLevel: savedExamDefaults.level,
+            defaultExamBoard: savedExamDefaults.board,
+          },
         }));
       } else {
         setUser(null);
         const wasGuest = localStorage.getItem("bifrost_guest_mode") === "true";
         setIsGuest(wasGuest);
         const savedMode = localStorage.getItem("bifrost_mode");
+        const guestExamDefaults = readExamDefaults();
         if (savedMode === "research" || savedMode === "learning") {
           setMode(savedMode);
         }
@@ -158,6 +180,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.getItem("gage_has_seen_onboarding") === "true" ||
           localStorage.getItem("has_seen_onboarding") === "true";
         setHasSeenOnboarding(localOnboarding);
+        setProfile((prev) => ({
+          ...prev,
+          ...buildDefaultProfile(),
+          preferences: {
+            ...prev.preferences,
+            ...buildDefaultProfile().preferences,
+            defaultExamLevel: guestExamDefaults.level,
+            defaultExamBoard: guestExamDefaults.board,
+          },
+        }));
       }
     } catch (err) {
       console.warn("User session load error:", err);
@@ -249,11 +281,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (result.user.preferred_mode) {
           setMode(result.user.preferred_mode);
         }
+        const savedExamDefaults = readExamDefaults({
+          level: result.user.default_exam_level,
+          board: result.user.default_exam_board,
+        });
+        writeExamDefaults(savedExamDefaults);
         setProfile((prev) => ({
           ...prev,
           name: result.user?.name || result.user?.username || prev.name,
           username: result.user?.username || prev.username,
           phone: result.user?.phone || prev.phone,
+          preferences: {
+            ...prev.preferences,
+            defaultExamLevel: savedExamDefaults.level,
+            defaultExamBoard: savedExamDefaults.board,
+          },
         }));
       }
       return result;
@@ -312,11 +354,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsGuest(true);
     setUser(null);
     localStorage.setItem("bifrost_guest_mode", "true");
+    const guestExamDefaults = readExamDefaults();
     setProfile((prev) => ({
       ...prev,
       name: "Guest Explorer",
       username: "guest",
       role: "Explorer",
+      preferences: {
+        ...prev.preferences,
+        defaultExamLevel: guestExamDefaults.level,
+        defaultExamBoard: guestExamDefaults.board,
+      },
     }));
   };
 
@@ -350,6 +398,25 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     };
     setProfile(next);
+
+    const nextDefaults = {
+      level: next.preferences.defaultExamLevel || profile.preferences.defaultExamLevel,
+      board: next.preferences.defaultExamBoard || profile.preferences.defaultExamBoard,
+    };
+    writeExamDefaults(nextDefaults);
+
+    if (user) {
+      const payload: {
+        preferred_mode?: "research" | "learning";
+        default_exam_level?: string;
+        default_exam_board?: string;
+      } = {};
+      if (typeof next.preferences.defaultExamLevel === "string") payload.default_exam_level = next.preferences.defaultExamLevel;
+      if (typeof next.preferences.defaultExamBoard === "string") payload.default_exam_board = next.preferences.defaultExamBoard;
+      if (Object.keys(payload).length > 0) {
+        await updateUserPreferences(payload);
+      }
+    }
   };
 
   return (

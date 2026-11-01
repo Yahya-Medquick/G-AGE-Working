@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { X, User, History, Settings, Check, Shield, Search, Sparkles, Compass, Smartphone, Download } from "lucide-react";
+import { X, User, History, Settings, Check, Shield, Search, Sparkles, Compass, Smartphone, Download, RotateCcw } from "lucide-react";
 import { UserProfile } from "../types";
 import { useUser } from "../context/UserContext";
 import { ProExpiryBadge } from "./ProExpiryBadge";
+import { DEFAULT_EXAM_DEFAULTS } from "../utils/examDefaults";
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -33,6 +34,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     setTimeout(() => {
       replayTour();
     }, 150);
+  };
+
+  const handleResetExamDefaults = () => {
+    updatePreferences({
+      defaultExamLevel: DEFAULT_EXAM_DEFAULTS.level,
+      defaultExamBoard: DEFAULT_EXAM_DEFAULTS.board,
+    });
   };
 
   return (
@@ -192,6 +200,46 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     className="w-5 h-5 accent-[#0A5C45] cursor-pointer"
                   />
                 </div>
+              </div>
+
+              <div className="p-4 rounded-[14px] bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] space-y-3">
+                <div className="font-bold text-[#10231C] dark:text-[#E8F2EC]">Default Exam Settings</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="space-y-1.5 text-xs">
+                    <span className="block font-semibold text-[#4F6359] dark:text-[#9DB5A8]">Default Level</span>
+                    <select
+                      value={profile.preferences.defaultExamLevel}
+                      onChange={(e) => updatePreferences({ defaultExamLevel: e.target.value })}
+                      className="w-full min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] text-sm focus:border-[#0A5C45] dark:focus:border-[#0F8056] focus:outline-none"
+                    >
+                      {['9th', '10th', '11th', '12th', 'Undergrad', 'Postgrad'].map((level) => (
+                        <option key={level} value={level}>{level}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-1.5 text-xs">
+                    <span className="block font-semibold text-[#4F6359] dark:text-[#9DB5A8]">Default Board</span>
+                    <select
+                      value={profile.preferences.defaultExamBoard}
+                      onChange={(e) => updatePreferences({ defaultExamBoard: e.target.value })}
+                      className="w-full min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] text-sm focus:border-[#0A5C45] dark:focus:border-[#0F8056] focus:outline-none"
+                    >
+                      {['Punjab Board', 'Federal Board', 'Sindh Board', 'KPK Board', 'Balochistan Board', 'A-Level', 'Cambridge', 'MDCAT', 'University / AP'].map((board) => (
+                        <option key={board} value={board}>{board}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleResetExamDefaults}
+                  className="min-h-[44px] px-3 py-2 rounded-[14px] border border-[#D5E0D8] dark:border-[#27403A] bg-[#F3F6F1] dark:bg-[#0B1612] text-[#10231C] dark:text-[#E8F2EC] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer hover:border-[#0A5C45] dark:hover:border-[#0F8056]"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Reset to app defaults
+                </button>
               </div>
 
               <div className="p-4 rounded-[14px] bg-[#FFFFFF] dark:bg-[#12231C] border border-[#D5E0D8] dark:border-[#27403A] flex items-center justify-between gap-3">

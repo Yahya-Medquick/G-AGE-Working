@@ -10,10 +10,12 @@ import type { PoolClient } from "pg";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { Resend } from "resend";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { XMLParser } from "fast-xml-parser";
 import { sanitizeInput, evaluateContentQuality } from "./src/utils/security";
+import { validateProRequestInput } from "./src/utils/proRequestValidation";
 import { getQueryLimitDenial, type QueryLimitDenial } from "./src/utils/queryLimitPolicy";
 import {
   buildPersonaRegistry,
@@ -22,6 +24,7 @@ import {
   type PersonaVariant,
 } from "./src/data/personaRegistry";
 import { extractSuggestedGroup, fetchActivePersonaGroups } from "./src/data/personaGroups";
+import { runHedgedRequests } from "./src/utils/hedgedRequests";
 
 const { Pool } = pg;
 
@@ -714,8 +717,25 @@ async function initDatabaseSchema() {
         trusted_devices TEXT[] DEFAULT '{}',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        preferred_mode VARCHAR(20) DEFAULT 'research'
+        preferred_mode VARCHAR(20) DEFAULT 'research',
+        default_exam_level VARCHAR(32) DEFAULT '10th',
+        default_exam_board VARCHAR(128) DEFAULT 'Punjab Board'
       );
+    `);
+
+    await dbPool.query(`
+      CREATE TABLE IF NOT EXISTS pro_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+        name VARCHAR(100) NOT NULL,
+        phone VARCHAR(30) NOT NULL,
+        email VARCHAR(254),
+        feature VARCHAR(80) NOT NULL,
+        message TEXT NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'new',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_pro_requests_status_created ON pro_requests(status, created_at DESC);
     `);
 
     // Ensure columns exist on already created databases
@@ -733,6 +753,8 @@ async function initDatabaseSchema() {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS trusted_devices TEXT[] DEFAULT '{}';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_mode VARCHAR(20) DEFAULT 'research';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS default_exam_level VARCHAR(32) DEFAULT '10th';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS default_exam_board VARCHAR(128) DEFAULT 'Punjab Board';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_expires_at TIMESTAMPTZ;
         ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
       `);
@@ -1479,6 +1501,7 @@ function isValidAdminSession(token: string): boolean {
 
 // In-memory fallback structures for development
 const inMemoryUsers = new Map<string, any>();
+const inMemoryProRequests: Array<Record<string, any>> = [];
 const inMemoryTabUsage = new Map<string, { count: number; date: string }>();
 const inMemoryHistory = new Map<string, any[]>();
 const inMemoryPhoneOtpLogs: Array<{ phone: string; ip: string; device_id: string; attempt_type: string; created_at: number }> = [];
@@ -2764,6 +2787,29 @@ export const GEMINI_UTILITY_MODELS = [
 const GEMINI_MODEL_CHAIN = GEMINI_CHAT_MODELS;
 
 const exhaustedGeminiKeys = new Map<string, number>();
+const providerModelCooldowns = new Map<string, number>();
+
+function isProviderModelCoolingDown(provider: string, model: string): boolean {
+  const key = `${provider}:${model}`;
+  const retryAt = providerModelCooldowns.get(key) || 0;
+  if (retryAt <= Date.now()) {
+    providerModelCooldowns.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function recordProviderFailure(provider: string, model: string, error: any, timedOut = false): void {
+  const status = Number(error?.status || error?.statusCode || error?.code);
+  const isTimeout = timedOut || error?.name === "AbortError" || /timeout|timed out/i.test(String(error?.message || ""));
+  if (isTimeout || status >= 500) {
+    providerModelCooldowns.set(`${provider}:${model}`, Date.now() + 60_000);
+  }
+}
+
+function getFirstTokenTimeoutMs(options: GeminiFallbackOptions): number {
+  return options.tools?.some((tool: any) => tool && typeof tool === "object" && tool.googleSearch) ? 8000 : 4000;
+}
 
 function getGeminiQuotaRetryAt(error: any): number | null {
   const message = `${error?.status || error?.code || ""} ${error?.message || error || ""}`;
@@ -2961,87 +3007,100 @@ async function callOpenRouterFallback(options: GeminiFallbackOptions): Promise<G
   const candidateModels = options.openRouterModels?.length
     ? options.openRouterModels
     : requiresDetailed ? OPENROUTER_DETAILED_MODELS : OPENROUTER_BUDGET_MODELS;
+  const firstTokenTimeoutMs = getFirstTokenTimeoutMs(options);
 
   console.log(`[OpenRouter Router] Query complexity: ${requiresDetailed ? "DETAILED/COMPLEX" : "BUDGET/SHORT"} -> Candidate models: ${candidateModels.join(", ")}`);
 
-  for (const model of candidateModels) {
-    const attemptStartedAt = Date.now();
-    let firstTokenMs: number | null = null;
-    const controller = new AbortController();
-    const totalTimeout = setTimeout(() => controller.abort(), 12000);
-    const firstTokenTimeout = setTimeout(() => controller.abort(), 8000);
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Authorization": `Bearer ${openRouterKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://project-atlas.app",
-          "X-Title": "Project Atlas",
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: options.temperature ?? 0.7,
-          stream: true,
-        }),
-      });
+  const candidates = candidateModels.flatMap((model) => {
+    if (isProviderModelCoolingDown("openrouter", model)) {
+      console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=circuit_cooldown ms=0`);
+      return [];
+    }
+    return [{
+      id: `openrouter:${model}`,
+      run: async (signal: AbortSignal, onFirstToken: () => void): Promise<GeminiFallbackResult> => {
+        const attemptStartedAt = Date.now();
+        let firstTokenMs: number | null = null;
+        let firstTokenTimedOut = false;
+        const controller = new AbortController();
+        const abortFromScheduler = () => controller.abort();
+        signal.addEventListener("abort", abortFromScheduler, { once: true });
+        const totalTimeout = setTimeout(() => controller.abort(), 12000);
+        const firstTokenTimeout = setTimeout(() => {
+          firstTokenTimedOut = true;
+          controller.abort();
+        }, firstTokenTimeoutMs);
+        try {
+          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            signal: controller.signal,
+            headers: {
+              "Authorization": `Bearer ${openRouterKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://project-atlas.app",
+              "X-Title": "Project Atlas",
+            },
+            body: JSON.stringify({ model, messages, temperature: options.temperature ?? 0.7, stream: true }),
+          });
+          if (!res.ok) {
+            const errText = await res.text().catch(() => "");
+            const error: any = new Error(`OpenRouter returned HTTP ${res.status}: ${errText.slice(0, 120)}`);
+            error.status = res.status;
+            throw error;
+          }
 
-      if (res.ok) {
-        let text = "";
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error("OpenRouter returned no response stream");
-        const decoder = new TextDecoder();
-        let pending = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          pending += decoder.decode(value, { stream: true });
-          const lines = pending.split("\n");
-          pending = lines.pop() || "";
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const payload = line.slice(6).trim();
-            if (!payload || payload === "[DONE]") continue;
-            const data = JSON.parse(payload);
-            const token = data.choices?.[0]?.delta?.content;
-            if (typeof token === "string" && token) {
-              if (firstTokenMs === null) {
-                firstTokenMs = Date.now() - attemptStartedAt;
-                clearTimeout(firstTokenTimeout);
+          let text = "";
+          const reader = res.body?.getReader();
+          if (!reader) throw new Error("OpenRouter returned no response stream");
+          const decoder = new TextDecoder();
+          let pending = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            pending += decoder.decode(value, { stream: true });
+            const lines = pending.split("\n");
+            pending = lines.pop() || "";
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const payload = line.slice(6).trim();
+              if (!payload || payload === "[DONE]") continue;
+              const data = JSON.parse(payload);
+              const token = data.choices?.[0]?.delta?.content;
+              if (typeof token === "string" && token) {
+                if (firstTokenMs === null) {
+                  firstTokenMs = Date.now() - attemptStartedAt;
+                  clearTimeout(firstTokenTimeout);
+                  onFirstToken();
+                }
+                text += token;
               }
-              text += token;
             }
           }
-        }
-        if (text && typeof text === "string" && text.trim()) {
+          if (!text.trim()) throw new Error("OpenRouter returned an empty response");
           console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=200 ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
           console.log(`[AI Success] language=${options.language || "english"} model=${model} keyIndex=1`);
           console.log(`[OpenRouter Fallback Success] Generated response via model '${model}' (Tier: ${requiresDetailed ? "Detailed" : "Budget"}).`);
-          return {
-            text: text.trim(),
-            modelUsed: `openrouter:${model}`,
-            isBackupModel: true,
-            keyIndexUsed: 99,
-            totalKeysTried: 1,
-          };
+          return { text: text.trim(), modelUsed: `openrouter:${model}`, isBackupModel: true, keyIndexUsed: 99, totalKeysTried: 1 };
+        } catch (err: any) {
+          if (!signal.aborted) recordProviderFailure("openrouter", model, err, firstTokenTimedOut);
+          console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=${getProviderStatus(err)} ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
+          console.warn(`[OpenRouter Fallback Error] Model '${model}' request failed:`, err?.message || err);
+          throw err;
+        } finally {
+          clearTimeout(totalTimeout);
+          clearTimeout(firstTokenTimeout);
+          signal.removeEventListener("abort", abortFromScheduler);
         }
-      } else {
-        const errText = await res.text().catch(() => "");
-        console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=${res.status} ms=${Date.now() - attemptStartedAt} first_token_ms=unavailable`);
-        console.warn(`[OpenRouter Fallback Warning] Model '${model}' failed with status ${res.status}: ${errText.slice(0, 120)}`);
-      }
-    } catch (err: any) {
-      console.info(`[Stage] model_attempt provider=openrouter model=${model} key=1 status=${getProviderStatus(err)} ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
-      console.warn(`[OpenRouter Fallback Error] Model '${model}' request failed:`, err?.message || err);
-    } finally {
-      clearTimeout(totalTimeout);
-      clearTimeout(firstTokenTimeout);
-    }
-  }
+      },
+    }];
+  });
 
-  return null;
+  if (candidates.length === 0) return null;
+  try {
+    return await runHedgedRequests(candidates);
+  } catch {
+    return null;
+  }
 }
 
 async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<GeminiFallbackResult> {
@@ -3050,13 +3109,12 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
   const fallbackDeadline = Date.now() + 18000;
   let lastError: any = null;
   let totalKeysTried = 0;
+  const firstTokenTimeoutMs = getFirstTokenTimeoutMs(options);
 
   if (keys.length > 0) {
+    const candidates: Array<{ id: string; run: (signal: AbortSignal, onFirstToken: () => void) => Promise<GeminiFallbackResult> }> = [];
     for (const modelName of modelsToTry) {
-      if (Date.now() >= fallbackDeadline) break;
       for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
-        const remainingMs = fallbackDeadline - Date.now();
-        if (remainingMs <= 0) break;
         const apiKey = keys[keyIdx];
         const quotaKey = `${modelName}:${crypto.createHash("sha256").update(apiKey).digest("hex").slice(0, 12)}`;
         const exhaustedUntil = exhaustedGeminiKeys.get(quotaKey) || 0;
@@ -3065,100 +3123,118 @@ async function callGeminiWithFallback(options: GeminiFallbackOptions): Promise<G
           continue;
         }
         exhaustedGeminiKeys.delete(quotaKey);
-        totalKeysTried++;
-        const attemptStartedAt = Date.now();
-        let firstTokenMs: number | null = null;
-        try {
-          const client = new GoogleGenAI({
-            apiKey,
-            httpOptions: {
-              timeout: remainingMs,
-              headers: {
-                "User-Agent": "aistudio-build",
-              },
-            },
-          });
-
-          apiCallStats.gemini++;
-
-          const reqConfig: any = {};
-          if (options.responseMimeType) {
-            reqConfig.responseMimeType = options.responseMimeType;
-          }
-          if (options.systemInstruction) {
-            reqConfig.systemInstruction = options.systemInstruction;
-          }
-          if (options.responseSchema) {
-            reqConfig.responseSchema = options.responseSchema;
-          }
-          if (options.tools) {
-            reqConfig.tools = options.tools;
-          }
-          if (options.thinkingBudget !== undefined && /gemini-2\.5/.test(modelName)) {
-            reqConfig.thinkingConfig = { thinkingBudget: options.thinkingBudget };
-          }
-          if (options.temperature !== undefined) {
-            reqConfig.temperature = options.temperature;
-          }
-
-          const responseStream = await client.models.generateContentStream({
-            model: modelName,
-            contents: options.contents,
-            config: Object.keys(reqConfig).length > 0 ? reqConfig : undefined,
-          });
-          const iterator = responseStream[Symbol.asyncIterator]();
-          let firstTokenTimer: ReturnType<typeof setTimeout> | undefined;
-          const firstTokenTimeoutMs = Math.min(8000, remainingMs);
-          const firstChunk = await Promise.race([
-            iterator.next(),
-            new Promise<never>((_, reject) => {
-              firstTokenTimer = setTimeout(() => reject(new Error(`First token timeout after ${firstTokenTimeoutMs}ms`)), firstTokenTimeoutMs);
-            }),
-          ]).finally(() => {
-            if (firstTokenTimer) clearTimeout(firstTokenTimer);
-          });
-          let responseText = "";
-          const groundingSources = new Map<string, string>();
-          let chunk = firstChunk;
-          while (!chunk.done) {
-            const groundingChunks = (chunk.value as any)?.candidates?.[0]?.groundingMetadata?.groundingChunks;
-            if (Array.isArray(groundingChunks)) {
-              for (const groundingChunk of groundingChunks) {
-                const webSource = groundingChunk?.web;
-                if (typeof webSource?.uri === "string" && webSource.uri.startsWith("http")) {
-                  groundingSources.set(webSource.uri, typeof webSource.title === "string" ? webSource.title : webSource.uri);
-                }
-              }
-            }
-            if (typeof chunk.value?.text === "string") {
-              if (firstTokenMs === null && chunk.value.text.length > 0) firstTokenMs = Date.now() - attemptStartedAt;
-              responseText += chunk.value.text;
-            }
-            chunk = await iterator.next();
-          }
-
-          if (responseText.trim()) {
-            if (groundingSources.size > 0) {
-              responseText += `\n\nSources:\n${[...groundingSources].map(([uri, title]) => `- [${title}](${uri})`).join("\n")}`;
-            }
-            console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=success ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
-            const isBackupModel = modelName !== modelsToTry[0] || keyIdx > 0;
-            console.log(`[AI Success] language=${options.language || "english"} model=${modelName} keyIndex=${keyIdx + 1}`);
-            return {
-              text: responseText,
-              modelUsed: modelName,
-              isBackupModel,
-              keyIndexUsed: keyIdx,
-              totalKeysTried,
-            };
-          }
-        } catch (err: any) {
-          lastError = err;
-          const retryAt = getGeminiQuotaRetryAt(err);
-          if (retryAt) exhaustedGeminiKeys.set(quotaKey, retryAt);
-          console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=${getProviderStatus(err)} ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}${retryAt ? ` retry_at=${new Date(retryAt).toISOString()}` : ""}`);
-          console.warn(`[Gemini Fallback Chain] Model '${modelName}' with Key #${keyIdx + 1} failed: ${err?.message || err}`);
+        if (isProviderModelCoolingDown("gemini", modelName)) {
+          console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=circuit_cooldown ms=0`);
+          continue;
         }
+        candidates.push({
+          id: `gemini:${modelName}:${keyIdx}`,
+          run: async (signal, onFirstToken) => {
+            if (Date.now() >= fallbackDeadline) throw new Error("Gemini fallback deadline exceeded");
+            totalKeysTried++;
+            const attemptStartedAt = Date.now();
+            let firstTokenMs: number | null = null;
+            let firstTokenTimedOut = false;
+            const remainingMs = fallbackDeadline - attemptStartedAt;
+            const attemptController = new AbortController();
+            const abortFromScheduler = () => attemptController.abort();
+            signal.addEventListener("abort", abortFromScheduler, { once: true });
+            const firstTokenTimer = setTimeout(() => {
+              firstTokenTimedOut = true;
+              attemptController.abort();
+            }, Math.min(firstTokenTimeoutMs, remainingMs));
+            try {
+              const client = new GoogleGenAI({
+                apiKey,
+                httpOptions: {
+                  timeout: remainingMs,
+                  headers: {
+                    "User-Agent": "aistudio-build",
+                  },
+                },
+              });
+
+              apiCallStats.gemini++;
+
+              const reqConfig: any = {};
+              if (options.responseMimeType) reqConfig.responseMimeType = options.responseMimeType;
+              if (options.systemInstruction) reqConfig.systemInstruction = options.systemInstruction;
+              if (options.responseSchema) reqConfig.responseSchema = options.responseSchema;
+              if (options.tools) reqConfig.tools = options.tools;
+              if (options.thinkingBudget !== undefined && /gemini-2\.5/.test(modelName)) {
+                reqConfig.thinkingConfig = { thinkingBudget: options.thinkingBudget };
+              }
+              if (options.temperature !== undefined) reqConfig.temperature = options.temperature;
+              reqConfig.abortSignal = attemptController.signal;
+
+              const responseStream = await client.models.generateContentStream({
+                model: modelName,
+                contents: options.contents,
+                config: reqConfig,
+              });
+              const iterator = responseStream[Symbol.asyncIterator]();
+              let responseText = "";
+              const groundingSources = new Map<string, string>();
+              let chunk = await iterator.next();
+              while (!chunk.done) {
+                const groundingChunks = (chunk.value as any)?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+                if (Array.isArray(groundingChunks)) {
+                  for (const groundingChunk of groundingChunks) {
+                    const webSource = groundingChunk?.web;
+                    if (typeof webSource?.uri === "string" && webSource.uri.startsWith("http")) {
+                      groundingSources.set(webSource.uri, typeof webSource.title === "string" ? webSource.title : webSource.uri);
+                    }
+                  }
+                }
+                if (typeof chunk.value?.text === "string") {
+                  if (firstTokenMs === null && chunk.value.text.length > 0) {
+                    firstTokenMs = Date.now() - attemptStartedAt;
+                    clearTimeout(firstTokenTimer);
+                    onFirstToken();
+                  }
+                  responseText += chunk.value.text;
+                }
+                chunk = await iterator.next();
+              }
+
+              if (responseText.trim()) {
+                if (groundingSources.size > 0) {
+                  responseText += `\n\nSources:\n${[...groundingSources].map(([uri, title]) => `- [${title}](${uri})`).join("\n")}`;
+                }
+                console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=success ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}`);
+                const isBackupModel = modelName !== modelsToTry[0] || keyIdx > 0;
+                console.log(`[AI Success] language=${options.language || "english"} model=${modelName} keyIndex=${keyIdx + 1}`);
+                return {
+                  text: responseText,
+                  modelUsed: modelName,
+                  isBackupModel,
+                  keyIndexUsed: keyIdx,
+                  totalKeysTried,
+                };
+              }
+              throw new Error("Gemini returned an empty response");
+            } catch (err: any) {
+              lastError = err;
+              const retryAt = getGeminiQuotaRetryAt(err);
+              if (retryAt) exhaustedGeminiKeys.set(quotaKey, retryAt);
+              if (!signal.aborted) recordProviderFailure("gemini", modelName, err, firstTokenTimedOut);
+              console.info(`[Stage] model_attempt provider=gemini model=${modelName} key=${keyIdx + 1} status=${getProviderStatus(err)} ms=${Date.now() - attemptStartedAt} first_token_ms=${firstTokenMs ?? "unavailable"}${retryAt ? ` retry_at=${new Date(retryAt).toISOString()}` : ""}`);
+              console.warn(`[Gemini Fallback Chain] Model '${modelName}' with Key #${keyIdx + 1} failed: ${err?.message || err}`);
+              throw err;
+            } finally {
+              clearTimeout(firstTokenTimer);
+              signal.removeEventListener("abort", abortFromScheduler);
+            }
+          },
+        });
+      }
+    }
+
+    if (candidates.length > 0) {
+      try {
+        return await runHedgedRequests(candidates, 2500, 18000);
+      } catch (err) {
+        lastError = err;
       }
     }
   }
@@ -3319,6 +3395,7 @@ const authRateLimiter = createRateLimiter(25, "ath");
 const learnRateLimiter = createRateLimiter(25, "learn");
 const counselRateLimiter = createRateLimiter(25, "counsel");
 const visualCardRateLimiter = createRateLimiter(5, "vcard");
+const proRequestRateLimiter = createRateLimiter(5, "proreq");
 
 app.use("/api/", generalRateLimiter);
 app.use("/api/auth", authRateLimiter);
@@ -3355,6 +3432,101 @@ app.post("/api/admin/verify", (req: Request, res: Response) => {
     return res.json({ success: true, token: adminSessionToken, message: "Admin authenticated successfully." });
   }
   return res.status(401).json({ error: "Invalid administrative password. Access denied." });
+});
+
+app.post("/api/pro-requests", proRequestRateLimiter, async (req: Request, res: Response) => {
+  const validation = validateProRequestInput(req.body);
+  if (validation.valid === false) return res.status(400).json({ error: validation.error });
+
+  const user = await getCurrentUserWithFreshState(req);
+  const request = {
+    id: crypto.randomUUID(),
+    user_id: user?.id || null,
+    ...validation.value,
+    status: "new",
+    created_at: new Date().toISOString(),
+  };
+
+  let saved = false;
+  if (dbPool) {
+    try {
+      await dbPool.query(
+        `INSERT INTO pro_requests (id, user_id, name, phone, email, feature, message, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [request.id, request.user_id, request.name, request.phone, request.email || null, request.feature, request.message, request.status, request.created_at]
+      );
+      saved = true;
+    } catch (error: any) {
+      console.warn("[Pro requests] Database save failed; using in-memory fallback:", error?.message);
+    }
+  }
+  if (!saved) inMemoryProRequests.unshift(request);
+
+  const notifyEmail = process.env.PRO_REQUEST_NOTIFY_EMAIL?.trim();
+  const resendKey = process.env.RESEND_API_KEY?.trim();
+  if (!notifyEmail || !resendKey) {
+    console.warn("[Pro requests] Email notification skipped: PRO_REQUEST_NOTIFY_EMAIL or RESEND_API_KEY is not configured.");
+  } else {
+    try {
+      const resend = new Resend(resendKey);
+      const { error } = await resend.emails.send({
+        from: "G-AGE Pro requests <onboarding@resend.dev>",
+        to: [notifyEmail],
+        subject: "New G-AGE Pro request",
+        text: [
+          `Name: ${request.name}`,
+          `Phone: ${request.phone}`,
+          `Email: ${request.email || "Not provided"}`,
+          `Feature: ${request.feature}`,
+          `Message: ${request.message || "Not provided"}`,
+          `User ID: ${request.user_id || "Guest"}`,
+        ].join("\n"),
+      });
+      if (error) console.warn("[Pro requests] Email notification failed:", error.message);
+    } catch (error: any) {
+      console.warn("[Pro requests] Email notification failed:", error?.message || error);
+    }
+  }
+
+  return res.status(201).json({ success: true, request: { id: request.id, status: request.status } });
+});
+
+app.get("/api/admin/pro-requests", async (_req: Request, res: Response) => {
+  if (dbPool) {
+    try {
+      const result = await dbPool.query("SELECT * FROM pro_requests ORDER BY created_at DESC LIMIT 500");
+      const persistedIds = new Set(result.rows.map((row: any) => row.id));
+      const fallbackRequests = inMemoryProRequests.filter((row) => !persistedIds.has(row.id));
+      return res.json({ requests: [...fallbackRequests, ...result.rows] });
+    } catch (error: any) {
+      console.warn("[Pro requests] Database list failed; using in-memory fallback:", error?.message);
+    }
+  }
+  return res.json({ requests: inMemoryProRequests });
+});
+
+app.patch("/api/admin/pro-requests/:id", async (req: Request, res: Response) => {
+  const status = req.body?.status;
+  if (!['new', 'contacted', 'closed'].includes(status)) {
+    return res.status(400).json({ error: "Status must be new, contacted, or closed." });
+  }
+
+  if (dbPool) {
+    try {
+      const result = await dbPool.query(
+        "UPDATE pro_requests SET status = $1 WHERE id = $2 RETURNING *",
+        [status, req.params.id]
+      );
+      if (result.rows[0]) return res.json({ request: result.rows[0] });
+    } catch (error: any) {
+      console.warn("[Pro requests] Database status update failed; using in-memory fallback:", error?.message);
+    }
+  }
+
+  const request = inMemoryProRequests.find((row) => row.id === req.params.id);
+  if (!request) return res.status(404).json({ error: "Pro request not found." });
+  request.status = status;
+  return res.json({ request });
 });
 
 // Timeline Data Map for Key Science/Tech Topics
@@ -3895,9 +4067,9 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
         const avatarUrl = verifiedAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(finalUsername)}`;
 
         await dbPool.query(
-          `INSERT INTO users (id, username, name, email, google_id, avatar_url, tier, has_seen_onboarding, trusted_devices, created_at, last_active_at, preferred_mode)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10)`,
-          [userId, finalUsername, verifiedName || finalUsername, cleanEmail, verifiedGoogleId, avatarUrl, "free", false, [cleanDeviceId], "research"]
+          `INSERT INTO users (id, username, name, email, google_id, avatar_url, tier, has_seen_onboarding, trusted_devices, created_at, last_active_at, preferred_mode, default_exam_level, default_exam_board)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10, $11, $12)`,
+          [userId, finalUsername, verifiedName || finalUsername, cleanEmail, verifiedGoogleId, avatarUrl, "free", false, [cleanDeviceId], "research", "10th", "Punjab Board"]
         );
 
         user = {
@@ -3910,6 +4082,8 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
           tier: "free",
           has_seen_onboarding: false,
           preferred_mode: "research",
+          default_exam_level: "10th",
+          default_exam_board: "Punjab Board",
         };
       }
     } else {
@@ -3934,6 +4108,8 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
           has_seen_onboarding: false,
           trusted_devices: [cleanDeviceId],
           preferred_mode: "research",
+          default_exam_level: "10th",
+          default_exam_board: "Punjab Board",
         };
         inMemoryUsers.set(userId, user);
       }
@@ -3949,6 +4125,8 @@ app.post("/api/auth/google", async (req: Request, res: Response) => {
       tier: user.tier || "free",
       has_seen_onboarding: Boolean(user.has_seen_onboarding),
       preferred_mode: user.preferred_mode || "research",
+      default_exam_level: user.default_exam_level || "10th",
+      default_exam_board: user.default_exam_board || "Punjab Board",
     };
 
     const sessionToken = jwt.sign(
@@ -4228,6 +4406,8 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
       has_seen_onboarding: Boolean(user.has_seen_onboarding),
       created_at: user.created_at,
       preferred_mode: user.preferred_mode || "research",
+      default_exam_level: user.default_exam_level || "10th",
+      default_exam_board: user.default_exam_board || "Punjab Board",
     };
 
     // 90-day persistent session JWT
@@ -4325,6 +4505,8 @@ app.post("/api/auth/verify-new-device", async (req: Request, res: Response) => {
       has_seen_onboarding: Boolean(user.has_seen_onboarding),
       created_at: user.created_at,
       preferred_mode: user.preferred_mode || "research",
+      default_exam_level: user.default_exam_level || "10th",
+      default_exam_board: user.default_exam_board || "Punjab Board",
     };
 
     const sessionToken = jwt.sign(
@@ -4372,7 +4554,7 @@ app.get("/api/auth/me", async (req: Request, res: Response) => {
   let fullUser = userPayload;
   if (dbPool && userPayload.id) {
     try {
-      const resDb = await dbPool.query("SELECT id, username, name, phone, avatar_url, tier, pro_expires_at, has_seen_onboarding, created_at, preferred_mode FROM users WHERE id = $1", [userPayload.id]);
+      const resDb = await dbPool.query("SELECT id, username, name, phone, avatar_url, tier, pro_expires_at, has_seen_onboarding, created_at, preferred_mode, default_exam_level, default_exam_board FROM users WHERE id = $1", [userPayload.id]);
       if (resDb.rows.length > 0) {
         fullUser = {
           ...userPayload,
@@ -4468,17 +4650,28 @@ app.patch("/api/user/preferences", (req: Request, res: Response) => {
   if (!user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const { preferred_mode } = req.body || {};
-  if (preferred_mode !== "research" && preferred_mode !== "learning") {
-    return res.status(400).json({ error: "Invalid preferred_mode option." });
-  }
-  const updatedUser = { ...user, preferred_mode };
+
+  const { preferred_mode, default_exam_level, default_exam_board } = req.body || {};
+  const nextPreferredMode = preferred_mode === "research" || preferred_mode === "learning" ? preferred_mode : user.preferred_mode || "research";
+  const trimmedLevel = typeof default_exam_level === "string" ? default_exam_level.trim() : user.default_exam_level || "10th";
+  const trimmedBoard = typeof default_exam_board === "string" ? default_exam_board.trim() : user.default_exam_board || "Punjab Board";
+
+  const updatedUser = {
+    ...user,
+    preferred_mode: nextPreferredMode,
+    default_exam_level: trimmedLevel,
+    default_exam_board: trimmedBoard,
+  };
+
   if (dbPool) {
-    dbPool.query("UPDATE users SET preferred_mode = $1 WHERE id = $2", [preferred_mode, user.id])
-      .catch((err) => console.warn("Failed to update preferred_mode in DB:", err));
+    dbPool.query(
+      "UPDATE users SET preferred_mode = $1, default_exam_level = $2, default_exam_board = $3 WHERE id = $4",
+      [nextPreferredMode, trimmedLevel, trimmedBoard, user.id]
+    ).catch((err) => console.warn("Failed to update user preferences in DB:", err));
   } else {
     inMemoryUsers.set(user.id, updatedUser);
   }
+
   res.json({ success: true, user: updatedUser });
 });
 
