@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import jsPDF from 'jspdf';
 import {
   FileText,
   Copy,
@@ -137,6 +136,7 @@ export const CompiledNotesModal: React.FC<Props> = ({
   const handleDownloadPDF = async () => {
     setIsGenerating(true);
     try {
+      const { default: jsPDF } = await import('jspdf'); // loaded only when exporting
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();

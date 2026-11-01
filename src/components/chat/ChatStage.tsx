@@ -485,7 +485,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
     <div className="flex-1 flex flex-col h-full bg-[#F3F6F1] dark:bg-[#0B1612] overflow-hidden relative">
       {/* 1. CHAT HEADER */}
       <header className="sticky top-0 z-30 h-16 px-4 bg-[#FFFFFF]/95 dark:bg-[#12231C]/95 backdrop-blur-md border-b border-[#D5E0D8] dark:border-[#27403A] flex items-center justify-between shrink-0 max-[768px]:h-auto max-[768px]:min-h-16 max-[768px]:px-2 max-[768px]:py-1 max-[768px]:flex-wrap max-[768px]:justify-start max-[768px]:gap-y-1">
-        <div className="flex items-center gap-3 min-w-0 max-[768px]:w-full max-[768px]:gap-2">
+        <div className="flex items-center gap-3 min-w-0 flex-1 mr-2 max-[768px]:w-full max-[768px]:gap-2">
           {!isLeftPanelOpen && onToggleLeftPanel && (
             <button
               onClick={onToggleLeftPanel}
@@ -501,7 +501,7 @@ export const ChatStage: React.FC<ChatStageProps> = ({
           <div
             id="tour-persona-toggle"
             onClick={onToggleRightPanel}
-            className="flex items-center gap-2.5 min-w-0 cursor-pointer hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer hover:opacity-90 transition-opacity"
             title="Click to view specialists and switch persona"
           >
             <div className="relative">
@@ -514,16 +514,16 @@ export const ChatStage: React.FC<ChatStageProps> = ({
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#5BE0A5] border-2 border-white dark:border-[#12231C]" />
             </div>
 
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5">
+            <div className="flex flex-col min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <span className="font-heading text-base font-bold text-[#0A5C45] dark:text-[#5BE0A5] truncate">
                   {activePersona.name}
                 </span>
-                <span className="hidden md:inline-block text-xs font-bold px-2 py-0.5 rounded-[12px] border bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border-[#0A5C45]/30 dark:border-[#5BE0A5]/30">
+                <span className="hidden 2xl:inline-block whitespace-nowrap shrink-0 text-xs font-bold px-2 py-0.5 rounded-[12px] border bg-[#DDEFE6] dark:bg-[#17352A] text-[#0A5C45] dark:text-[#5BE0A5] border-[#0A5C45]/30 dark:border-[#5BE0A5]/30">
                   {activePersona.badge || 'Academic Mentor'}
                 </span>
               </div>
-              <div className="flex items-center gap-1 text-xs text-[#4F6359] dark:text-[#9DB5A8] truncate">
+              <div className="flex items-center gap-1 text-xs text-[#4F6359] dark:text-[#9DB5A8] min-w-0 whitespace-nowrap">
                 <span className="text-[#0A5C45] dark:text-[#5BE0A5] font-semibold">online</span>
                 <span>•</span>
                 <span className="truncate">{isLoading ? (isTakingLonger ? 'Taking a bit longer than usual…' : 'typing...') : activePersona.role}</span>

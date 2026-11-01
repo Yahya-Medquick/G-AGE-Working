@@ -1,4 +1,3 @@
-import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
 const STORAGE_KEY = 'gage_device_id';
 const LEGACY_STORAGE_KEY = 'bifrost_device_id';
@@ -65,6 +64,7 @@ export async function initPersistentDeviceId(): Promise<string> {
 
   if (!finalId) {
     try {
+      const FingerprintJS = (await import('@fingerprintjs/fingerprintjs')).default;
       const fp = await FingerprintJS.load();
       const result = await fp.get();
       finalId = result.visitorId;
